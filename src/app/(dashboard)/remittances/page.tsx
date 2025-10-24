@@ -3,6 +3,7 @@ import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import Link from 'next/link';
 import { PlusIcon } from '@heroicons/react/24/outline';
+import { RemittancesTable } from '@/components/finances/remittances-table';
 
 export default async function RemittancesPage() {
   const { user, tenantId } = await requireTenant();
@@ -34,20 +35,18 @@ export default async function RemittancesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-heading-5 font-bold text-dark dark:text-white">
-            Remittances
-          </h1>
-          <p className="text-body-sm text-dark-5 dark:text-dark-6">
-            Track and manage driver remittances
+          <h1 className="text-3xl font-bold text-gray-900">Remittances</h1>
+          <p className="mt-2 text-gray-600">
+            Manage driver remittances and track payment status.
           </p>
         </div>
         <Link
           href="/remittances/new"
-          className="inline-flex items-center gap-2 rounded-[7px] bg-primary px-4.5 py-[7px] font-medium text-gray-2 hover:bg-opacity-90"
+          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
-          <PlusIcon className="h-5 w-5" />
+          <PlusIcon className="h-4 w-4 mr-2" />
           Add Remittance
         </Link>
       </div>
@@ -167,69 +166,7 @@ export default async function RemittancesPage() {
           </h4>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full table-auto">
-            <thead>
-              <tr className="border-t border-stroke dark:border-dark-3">
-                <th className="px-4 py-5 text-left font-medium text-dark dark:text-white">
-                  Date
-                </th>
-                <th className="px-4 py-5 text-left font-medium text-dark dark:text-white">
-                  Driver
-                </th>
-                <th className="px-4 py-5 text-left font-medium text-dark dark:text-white">
-                  Vehicle
-                </th>
-                <th className="px-4 py-5 text-left font-medium text-dark dark:text-white">
-                  Amount
-                </th>
-                <th className="px-4 py-5 text-left font-medium text-dark dark:text-white">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {remittances.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-dark-5">
-                    No remittances found. Add your first remittance to get started.
-                  </td>
-                </tr>
-              ) : (
-                remittances.map((remittance) => (
-                  <tr
-                    key={remittance.id}
-                    className="border-t border-stroke dark:border-dark-3"
-                  >
-                    <td className="px-4 py-5">
-                      {new Date(remittance.date).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-5">{remittance.driver.fullName}</td>
-                    <td className="px-4 py-5">
-                      {remittance.vehicle.registrationNumber}
-                    </td>
-                    <td className="px-4 py-5">
-                      ${Number(remittance.amount).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-5">
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-body-sm font-medium ${
-                          remittance.status === 'APPROVED'
-                            ? 'bg-green-light-6 text-green'
-                            : remittance.status === 'PENDING'
-                            ? 'bg-yellow-light-4 text-yellow-dark'
-                            : 'bg-red-light-5 text-red'
-                        }`}
-                      >
-                        {remittance.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <RemittancesTable remittances={remittances} />
       </div>
     </div>
   );
