@@ -40,7 +40,7 @@ export function SignUpForm() {
 
   async function onSubmit(data: SignUpFormData) {
     setLoading(true);
-    
+
     try {
       const formData = new FormData();
       formData.append('name', data.name);
@@ -50,13 +50,15 @@ export function SignUpForm() {
       formData.append('phone', data.phone);
 
       await signUp(formData);
-      
-      toast.success('Account created successfully! Please check your email to verify your account.');
-      router.push('/login');
+      // Server action will redirect to /onboarding automatically
     } catch (error) {
       console.error('Signup error:', error);
+      // Check if error is a redirect (which is expected)
+      if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
+        // This is expected - let the redirect happen
+        return;
+      }
       toast.error(error instanceof Error ? error.message : 'An unexpected error occurred');
-    } finally {
       setLoading(false);
     }
   }

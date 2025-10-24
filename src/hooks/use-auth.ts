@@ -1,13 +1,14 @@
 'use client';
 
-import { useSession } from 'better-auth/react';
+import { useSession } from '@/lib/auth-client';
 
 export function useAuth() {
-  const { data: session, status } = useSession();
-  
+  const { data: session, isPending, error } = useSession();
+
   return {
     user: session?.user || null,
-    isAuthenticated: status === 'authenticated',
-    isLoading: status === 'loading',
+    isAuthenticated: !!session?.user,
+    isLoading: isPending,
+    error,
   };
 }

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { signIn } from 'better-auth/react';
+import { signIn } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 
@@ -29,7 +29,7 @@ export function LoginForm() {
 
   async function onSubmit(data: LoginFormData) {
     setLoading(true);
-    
+
     try {
       const result = await signIn.email({
         email: data.email,
@@ -38,15 +38,21 @@ export function LoginForm() {
 
       if (result.error) {
         toast.error(result.error.message || 'Login failed');
+        setLoading(false);
         return;
       }
 
       toast.success('Login successful!');
+
+      // Give time for the session cookie to be set
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Refresh the router to ensure session is loaded
+      router.refresh();
       router.push('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
       toast.error('An unexpected error occurred');
-    } finally {
       setLoading(false);
     }
   }
