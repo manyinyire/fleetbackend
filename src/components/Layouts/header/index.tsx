@@ -8,9 +8,11 @@ import { MenuIcon } from "./icons";
 import { Notification } from "./notification";
 import { ThemeToggleSwitch } from "./theme-toggle";
 import { UserInfo } from "./user-info";
+import { useTenant } from "@/hooks/use-tenant";
 
 export function Header() {
   const { toggleSidebar, isMobile } = useSidebarContext();
+  const { companyName, isLoading } = useTenant();
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-stroke bg-white px-4 py-5 shadow-1 dark:border-stroke-dark dark:bg-gray-dark md:px-5 2xl:px-10">
@@ -38,7 +40,13 @@ export function Header() {
         <h1 className="mb-0.5 text-heading-5 font-bold text-dark dark:text-white">
           Dashboard
         </h1>
-        <p className="font-medium">Next.js Admin Dashboard Solution</p>
+        <p className="font-medium">
+          {isLoading ? (
+            <span className="inline-block h-4 w-48 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+          ) : (
+            companyName
+          )}
+        </p>
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-2 min-[375px]:gap-4">

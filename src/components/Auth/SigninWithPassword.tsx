@@ -4,11 +4,15 @@ import Link from "next/link";
 import React, { useState } from "react";
 import InputGroup from "../FormElements/InputGroup";
 import { Checkbox } from "../FormElements/checkbox";
+import { signIn } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
 
 export default function SigninWithPassword() {
+  const router = useRouter();
   const [data, setData] = useState({
-    email: process.env.NEXT_PUBLIC_DEMO_USER_MAIL || "",
-    password: process.env.NEXT_PUBLIC_DEMO_USER_PASS || "",
+    email: "",
+    password: "",
     remember: false,
   });
 
@@ -21,15 +25,35 @@ export default function SigninWithPassword() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    // You can remove this code block
     setLoading(true);
 
-    setTimeout(() => {
+    try {
+      const result = await signIn.email({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (result.error) {
+        toast.error(result.error.message || 'Login failed');
+        setLoading(false);
+        return;
+      }
+
+      toast.success('Login successful!');
+
+      // Give time for the session cookie to be set
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Refresh and redirect
+      router.refresh();
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error('An unexpected error occurred');
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
