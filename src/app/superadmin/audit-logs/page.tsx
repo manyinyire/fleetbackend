@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   ClipboardDocumentListIcon,
   MagnifyingGlassIcon,
@@ -13,106 +13,24 @@ import {
   ExclamationTriangleIcon,
   InformationCircleIcon
 } from "@heroicons/react/24/outline";
+import { superAdminAPI } from "@/lib/superadmin-api";
 
-// Mock data
-const mockAuditLogs = [
-  {
-    id: "AUDIT-001",
-    timestamp: "2024-03-25 14:30:15",
-    user: "John Admin",
-    action: "LOGIN",
-    resource: "Super Admin Portal",
-    details: "Successful login from IP 192.168.1.100",
-    ipAddress: "192.168.1.100",
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    status: "SUCCESS",
-    severity: "INFO"
-  },
-  {
-    id: "AUDIT-002",
-    timestamp: "2024-03-25 14:25:42",
-    user: "Sarah Admin",
-    action: "TENANT_UPDATE",
-    resource: "Doe Transport Ltd",
-    details: "Updated tenant plan from Basic to Premium",
-    ipAddress: "192.168.1.101",
-    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-    status: "SUCCESS",
-    severity: "INFO"
-  },
-  {
-    id: "AUDIT-003",
-    timestamp: "2024-03-25 14:20:18",
-    user: "Mike Admin",
-    action: "USER_DELETE",
-    resource: "User ID: 12345",
-    details: "Deleted user account for john@example.com",
-    ipAddress: "192.168.1.102",
-    userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
-    status: "SUCCESS",
-    severity: "WARNING"
-  },
-  {
-    id: "AUDIT-004",
-    timestamp: "2024-03-25 14:15:33",
-    user: "System",
-    action: "SYSTEM_ALERT",
-    resource: "Database Server",
-    details: "High CPU usage detected on database server",
-    ipAddress: "127.0.0.1",
-    userAgent: "System Monitor",
-    status: "WARNING",
-    severity: "WARNING"
-  },
-  {
-    id: "AUDIT-005",
-    timestamp: "2024-03-25 14:10:55",
-    user: "Lisa Admin",
-    action: "PAYMENT_PROCESS",
-    resource: "Transaction TXN-001",
-    details: "Processed payment of $45.00 for ABC Transport",
-    ipAddress: "192.168.1.103",
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    status: "SUCCESS",
-    severity: "INFO"
-  },
-  {
-    id: "AUDIT-006",
-    timestamp: "2024-03-25 14:05:12",
-    user: "Unknown",
-    action: "LOGIN_FAILED",
-    resource: "Super Admin Portal",
-    details: "Failed login attempt with email admin@hacker.com",
-    ipAddress: "203.0.113.1",
-    userAgent: "curl/7.68.0",
-    status: "FAILED",
-    severity: "CRITICAL"
-  },
-  {
-    id: "AUDIT-007",
-    timestamp: "2024-03-25 14:00:28",
-    user: "David Admin",
-    action: "SETTINGS_UPDATE",
-    resource: "Security Settings",
-    details: "Updated 2FA requirement for all admin users",
-    ipAddress: "192.168.1.104",
-    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-    status: "SUCCESS",
-    severity: "INFO"
-  },
-  {
-    id: "AUDIT-008",
-    timestamp: "2024-03-25 13:55:41",
-    user: "System",
-    action: "BACKUP_COMPLETED",
-    resource: "Database Backup",
-    details: "Daily database backup completed successfully",
-    ipAddress: "127.0.0.1",
-    userAgent: "Backup Service",
-    status: "SUCCESS",
-    severity: "INFO"
-  }
-];
+interface AuditLog {
+  id: string;
+  timestamp: string;
+  user: {
+    name: string;
+    email: string;
+    role: string;
+  };
+  action: string;
+  resource: string;
+  details: string;
+  ipAddress: string;
+  userAgent: string;
+  status: string;
+  severity: string;
+}
 
 const severityColors = {
   INFO: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
@@ -159,25 +77,82 @@ const getActionIcon = (action: string) => {
 };
 
 export default function AuditLogsPage() {
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSeverity, setSelectedSeverity] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedAction, setSelectedAction] = useState("all");
   const [dateRange, setDateRange] = useState("today");
-
-  const filteredLogs = mockAuditLogs.filter(log => {
-    const matchesSearch = log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.resource.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.details.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSeverity = selectedSeverity === "all" || log.severity === selectedSeverity;
-    const matchesStatus = selectedStatus === "all" || log.status === selectedStatus;
-    const matchesAction = selectedAction === "all" || log.action === selectedAction;
-    
-    return matchesSearch && matchesSeverity && matchesStatus && matchesAction;
+  const [stats, setStats] = useState({
+    total: 0,
+    critical: 0,
+    failedLogins: 0,
+    last24h: 0
   });
 
-  const uniqueActions = [...new Set(mockAuditLogs.map(log => log.action))];
+  useEffect(() => {
+    loadAuditLogs();
+  }, [searchTerm, selectedSeverity, selectedStatus, selectedAction, dateRange]);
+
+  const loadAuditLogs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await superAdminAPI.getAuditLogs({
+        search: searchTerm,
+        severity: selectedSeverity !== 'all' ? selectedSeverity : undefined,
+        action: selectedAction !== 'all' ? selectedAction : undefined,
+        page: 1,
+        limit: 100
+      });
+
+      if (response.success) {
+        setLogs(response.data.logs);
+        setStats(response.data.stats);
+      }
+    } catch (err) {
+      console.error('Error loading audit logs:', err);
+      setError('Failed to load audit logs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getUniqueActions = () => {
+    const actions = [...new Set(logs.map(log => log.action))];
+    return actions;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <ClipboardDocumentListIcon className="mx-auto h-12 w-12 text-red-500" />
+        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+          Error loading audit logs
+        </h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{error}</p>
+        <div className="mt-6">
+          <button
+            onClick={loadAuditLogs}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -204,7 +179,7 @@ export default function AuditLogsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Events</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">1,247</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
             </div>
             <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
               <ClipboardDocumentListIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -215,7 +190,7 @@ export default function AuditLogsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Critical Events</p>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400">23</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.critical}</p>
             </div>
             <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
               <ExclamationTriangleIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
@@ -226,7 +201,7 @@ export default function AuditLogsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Failed Logins</p>
-              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">8</p>
+              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.failedLogins}</p>
             </div>
             <div className="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
               <UserIcon className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
@@ -237,7 +212,7 @@ export default function AuditLogsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Last 24h</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">156</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.last24h}</p>
             </div>
             <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
               <CalendarIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -299,7 +274,7 @@ export default function AuditLogsPage() {
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="all">All Actions</option>
-              {uniqueActions.map(action => (
+              {getUniqueActions().map(action => (
                 <option key={action} value={action}>{action}</option>
               ))}
             </select>
@@ -360,18 +335,18 @@ export default function AuditLogsPage() {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredLogs.map((log) => {
+              {logs.map((log) => {
                 const SeverityIcon = getSeverityIcon(log.severity);
                 const ActionIcon = getActionIcon(log.action);
                 return (
                   <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {log.timestamp}
+                      {new Date(log.timestamp).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <ActionIcon className="h-4 w-4 mr-2 text-gray-400" />
-                        <span className="text-sm text-gray-900 dark:text-white">{log.user}</span>
+                        <span className="text-sm text-gray-900 dark:text-white">{log.user.name}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
@@ -422,7 +397,7 @@ export default function AuditLogsPage() {
             <div>
               <p className="text-sm text-gray-700 dark:text-gray-300">
                 Showing <span className="font-medium">1</span> to <span className="font-medium">25</span> of{' '}
-                <span className="font-medium">{filteredLogs.length}</span> results
+                <span className="font-medium">{logs.length}</span> results
               </p>
             </div>
             <div>
