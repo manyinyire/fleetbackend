@@ -59,6 +59,7 @@ model User {
   // Relationships
   tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sessions  Session[]
+  invoices  Invoice[]
 
   @@index([tenantId])
   @@map("users")
@@ -382,6 +383,48 @@ model TenantSettings {
 
   @@index([tenantId])
   @@map("tenant_settings")
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  tenantId        String        // MANDATORY for RLS
+  invoiceNumber   String        @unique
+  customerName    String
+  customerEmail   String?
+  customerPhone   String?
+  customerAddress String?
+  customerCity    String?
+  customerCountry String?
+  invoiceDate     DateTime
+  dueDate         DateTime
+  subtotal        Decimal
+  taxRate         Decimal
+  taxAmount       Decimal
+  total           Decimal
+  currency        String        @default("USD")
+  status          InvoiceStatus @default(DRAFT)
+  notes           String?
+  items           Json
+  createdBy       String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relationships
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator         User          @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([invoiceDate])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
 }
 
 model AuditLog {
