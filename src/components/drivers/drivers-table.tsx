@@ -1,7 +1,7 @@
 'use client';
 
-import { 
-  UserGroupIcon, 
+import {
+  UserGroupIcon,
   PhoneIcon,
   TruckIcon,
   CurrencyDollarIcon,
@@ -9,6 +9,7 @@ import {
   EyeIcon,
   PencilIcon
 } from '@heroicons/react/24/outline';
+import Link from 'next/link';
 
 interface Driver {
   id: string;
@@ -151,12 +152,20 @@ export function DriversTable({ drivers }: DriversTableProps) {
                   </div>
                   
                   <div className="flex space-x-1">
-                    <button className="p-2 text-gray-400 hover:text-gray-600">
+                    <Link
+                      href={`/drivers/${driver.id}`}
+                      className="p-2 text-gray-400 hover:text-gray-600"
+                      title="View Driver"
+                    >
                       <EyeIcon className="h-4 w-4" />
-                    </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600">
+                    </Link>
+                    <Link
+                      href={`/drivers/${driver.id}/edit`}
+                      className="p-2 text-gray-400 hover:text-gray-600"
+                      title="Edit Driver"
+                    >
                       <PencilIcon className="h-4 w-4" />
-                    </button>
+                    </Link>
                   </div>
                 </div>
               </div>

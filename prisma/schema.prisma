@@ -173,9 +173,15 @@ model Driver {
   fullName          String
   nationalId        String
   licenseNumber     String
-  licenseExpiry     DateTime
   phone             String
   email             String?
+  homeAddress       String
+  nextOfKin         String
+  nextOfKinPhone    String
+  // Defensive license for commuter omnibus
+  hasDefensiveLicense Boolean @default(false)
+  defensiveLicenseNumber String?
+  defensiveLicenseExpiry DateTime?
   paymentModel      PaymentModel
   paymentConfig     Json     // Stores model-specific config
   debtBalance       Decimal  @db.Decimal(10, 2) @default(0)
@@ -222,6 +228,7 @@ model DriverVehicleAssignment {
 
   @@unique([driverId, vehicleId, startDate])
   @@index([tenantId])
+  @@index([vehicleId, endDate]) // Index for efficient querying of active assignments
   @@map("driver_vehicle_assignments")
 }
 

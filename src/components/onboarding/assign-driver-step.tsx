@@ -27,12 +27,15 @@ export function AssignDriverStep({ vehicleId, driverId, onComplete }: AssignDriv
       });
 
       if (!response.ok) {
-        throw new Error('Failed to assign driver to vehicle');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to assign driver to vehicle');
       }
 
       onComplete();
     } catch (error) {
       console.error('Assignment error:', error);
+      // You might want to show the error to the user here
+      alert(error instanceof Error ? error.message : 'Failed to assign driver to vehicle');
     } finally {
       setLoading(false);
     }

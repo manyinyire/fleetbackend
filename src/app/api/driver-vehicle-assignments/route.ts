@@ -42,8 +42,72 @@ export async function POST(request: NextRequest) {
     // Get scoped Prisma client
     const prisma = getTenantPrisma(tenantId);
 
+    // Check if driver and vehicle exist and belong to tenant
+    const [driver, vehicle] = await Promise.all([
+      prisma.driver.findUnique({ where: { id: data.driverId } }),
+      prisma.vehicle.findUnique({ where: { id: data.vehicleId } }),
+    ]);
+
+    if (!driver || !vehicle) {
+      return NextResponse.json(
+        { error: 'Driver or vehicle not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if there's already an active assignment for this driver to this vehicle
+    const existingAssignment = await prisma.driverVehicleAssignment.findFirst({
+      where: {
+        driverId: data.driverId,
+        vehicleId: data.vehicleId,
+        endDate: null,
+      },
+    });
+
+    if (existingAssignment) {
+      return NextResponse.json(
+        { error: 'Driver is already assigned to this vehicle' },
+        { status: 400 }
+      );
+    }
+
+    // Check if the vehicle is already assigned to ANY driver
+    const vehicleAssignment = await prisma.driverVehicleAssignment.findFirst({
+      where: {
+        vehicleId: data.vehicleId,
+        endDate: null,
+      },
+      include: {
+        driver: true,
+      },
+    });
+
+    if (vehicleAssignment) {
+      return NextResponse.json(
+        { 
+          error: `This vehicle is already assigned to ${vehicleAssignment.driver.fullName}` 
+        },
+        { status: 400 }
+      );
+    }
+
+    // If isPrimary, end all other primary assignments for this driver
+    if (data.isPrimary !== false) {
+      await prisma.driverVehicleAssignment.updateMany({
+        where: {
+          driverId: data.driverId,
+          isPrimary: true,
+          endDate: null,
+        },
+        data: {
+          isPrimary: false,
+        },
+      });
+    }
+
     const assignment = await prisma.driverVehicleAssignment.create({
       data: {
+        tenantId,
         driverId: data.driverId,
         vehicleId: data.vehicleId,
         isPrimary: data.isPrimary || true,
