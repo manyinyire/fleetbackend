@@ -1,85 +1,312 @@
-# NextAdmin - Next.js Admin Dashboard Template and Components
+# Azaire Fleet Manager v7.0
 
-**NextAdmin** is a Free, open-source Next.js admin dashboard toolkit featuring 200+ UI components and templates that come with pre-built elements, components, pages, high-quality design, integrations, and much more to help you create powerful admin dashboards with ease.
+A comprehensive fleet management solution built with Next.js 15, designed specifically for the Zimbabwean market. Manage your vehicles, drivers, and finances efficiently with a modern, offline-capable Progressive Web App.
 
+## 🚀 Features
 
-[![nextjs admin template](https://cdn.pimjo.com/nextadmin-2.png)](https://nextadmin.co/)
+### Core Functionality
+- **Multi-tenant SaaS Architecture** - Secure tenant isolation with PostgreSQL RLS
+- **Progressive Web App (PWA)** - Works offline with background sync
+- **Real-time Dashboard** - Comprehensive fleet overview and analytics
+- **Vehicle Management** - Track registration, maintenance, and status
+- **Driver Management** - Digital contracts and payment tracking
+- **Financial Tracking** - Income, expenses, and profitability analytics
+- **Offline Support** - Queue actions when offline, sync when online
 
+### Technical Features
+- **Next.js 15** with App Router and Server Components
+- **TypeScript** for type safety
+- **Prisma ORM** with PostgreSQL
+- **BetterAuth** for authentication
+- **Tailwind CSS** for styling
+- **Google Analytics 4** integration
+- **Two-layer security** (Prisma Extension + PostgreSQL RLS)
 
-**NextAdmin** provides you with a diverse set of dashboard UI components, elements, examples and pages necessary for creating top-notch admin panels or dashboards with **powerful** features and integrations. Whether you are working on a complex web application or a basic website, **NextAdmin** has got you covered.
+## 🛠️ Tech Stack
 
-### [✨ Visit Website](https://nextadmin.co/)
-### [🚀 Live Demo](https://demo.nextadmin.co/)
-### [📖 Docs](https://docs.nextadmin.co/)
+- **Framework:** Next.js 15 (App Router)
+- **Language:** TypeScript
+- **Database:** PostgreSQL 17
+- **ORM:** Prisma 5+
+- **Authentication:** BetterAuth
+- **Styling:** Tailwind CSS
+- **PWA:** next-pwa
+- **State Management:** Zustand + React Context
+- **Forms:** React Hook Form + Zod
+- **UI Components:** Radix UI + shadcn/ui
 
-By leveraging the latest features of **Next.js 14** and key functionalities like **server-side rendering (SSR)**, **static site generation (SSG)**, and seamless **API route integration**, **NextAdmin** ensures optimal performance. With the added benefits of **React 18 advancements** and **TypeScript** reliability, **NextAdmin** is the ultimate choice to kickstart your **Next.js** project efficiently.
+## 📋 Prerequisites
 
-## Installation
+- Node.js 20+
+- PostgreSQL 17+
+- Redis (optional, for background jobs)
+- npm or yarn
 
-1. Download/fork/clone the repo and Once you're in the correct directory, it's time to install all the necessary dependencies. You can do this by typing the following command:
+## 🚀 Quick Start
 
-```
+### 1. Clone and Install
+
+```bash
+git clone <repository-url>
+cd azaire-fleet-manager
 npm install
 ```
-If you're using **Yarn** as your package manager, the command will be:
 
-```
-yarn install
+### 2. Environment Setup
+
+Copy the example environment file and configure:
+
+```bash
+cp .env.example .env
 ```
 
-2. Okay, you're almost there. Now all you need to do is start the development server. If you're using **npm**, the command is:
+Update the following variables in `.env`:
 
+```env
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/azaire_dev"
+
+# BetterAuth
+BETTER_AUTH_SECRET="your-secret-key-here"
+BETTER_AUTH_URL="http://localhost:3000"
+
+# Optional services (for production)
+AWS_ACCESS_KEY_ID="your-aws-key"
+AWS_SECRET_ACCESS_KEY="your-aws-secret"
+REDIS_URL="redis://localhost:6379"
+RESEND_API_KEY="your-resend-key"
 ```
+
+### 3. Database Setup
+
+```bash
+# Generate Prisma client
+npx prisma generate
+
+# Push schema to database
+npx prisma db push
+
+# Seed with sample data
+npm run db:seed
+```
+
+### 4. Start Development Server
+
+```bash
 npm run dev
 ```
-And if you're using **Yarn**, it's:
+
+Visit [http://localhost:3000](http://localhost:3000) to see the application.
+
+## 🏗️ Project Structure
 
 ```
-yarn dev
+azaire-fleet-manager/
+├── src/
+│   ├── app/                    # Next.js App Router
+│   │   ├── (auth)/            # Authentication pages
+│   │   ├── (dashboard)/       # Protected dashboard routes
+│   │   ├── api/               # API route handlers
+│   │   └── layout.tsx         # Root layout
+│   ├── components/            # React components
+│   │   ├── auth/              # Authentication components
+│   │   ├── dashboard/         # Dashboard components
+│   │   └── ui/                # Reusable UI components
+│   ├── lib/                   # Utility functions
+│   │   ├── prisma.ts          # Prisma client
+│   │   ├── auth.ts            # BetterAuth config
+│   │   └── tenant.ts          # Tenant utilities
+│   ├── hooks/                 # Custom React hooks
+│   └── server/                # Server-side utilities
+├── prisma/
+│   ├── schema.prisma          # Database schema
+│   └── seed.ts                # Database seeding
+└── public/
+    ├── manifest.json          # PWA manifest
+    └── icons/                 # PWA icons
 ```
 
-And voila! You're now ready to start developing. **Happy coding**!
+## 🔐 Security Architecture
 
-## Highlighted Features
-**200+ Next.js Dashboard Ul Components and Templates** - includes a variety of prebuilt **Ul elements, components, pages, and examples** crafted with a high-quality design.
-Additionally, features seamless **essential integrations and extensive functionalities**.
+### Two-Layer Protection Model
 
-- A library of over **200** professional dashboard UI components and elements.
-- Five distinctive dashboard variations, catering to diverse use-cases.
-- A comprehensive set of essential dashboard and admin pages.
-- More than **45** **Next.js** files, ready for use.
-- Styling facilitated by **Tailwind CSS** files.
-- A design that resonates premium quality and high aesthetics.
-- A handy UI kit with assets.
-- Over ten web apps complete with examples.
-- Support for both **dark mode** and **light mode**.
-- Essential integrations including - Authentication (**NextAuth**), Database (**Postgres** with **Prisma**), and Search (**Algolia**).
-- Detailed and user-friendly documentation.
-- Customizable plugins and add-ons.
-- **TypeScript** compatibility.
-- Plus, much more!
+1. **Application Layer (Prisma Extension)**
+   - Automatic tenant scoping in all queries
+   - Prevents developer mistakes
+   - Type-safe implementation
 
-All these features and more make **NextAdmin** a robust, well-rounded solution for all your dashboard development needs.
+2. **Database Layer (PostgreSQL RLS)**
+   - Physical enforcement at database level
+   - Works even with raw SQL or external tools
+   - Mandatory for production deployment
 
-## Update Logs
+### Multi-Tenancy
 
-### Version 1.2.1 - [Mar 20, 2025]
-- Fix Peer dependency issues and NextConfig warning.
-- Updated apexcharts and react-apexhcarts to the latest version.
+- **Single Database, Shared Tables** with `tenant_id` column
+- **Row-Level Security (RLS)** policies for tenant isolation
+- **Prisma Client Extensions** for automatic scoping
+- **Session-based tenant context** via middleware
 
-### Version 1.2.0 - Major Upgrade and UI Improvements - [Jan 27, 2025]
+## 📱 Progressive Web App
 
-- Upgraded to Next.js v15 and updated dependencies
-- API integration with loading skeleton for tables and charts.
-- Improved code structure for better readability.
-- Rebuilt components like dropdown, sidebar, and all ui-elements using accessibility practices.
-- Using search-params to store dropdown selection and refetch data.
-- Semantic markups, better separation of concerns and more.
+### Offline Capabilities
+- **Service Worker** caches assets and API responses
+- **IndexedDB** for offline data storage
+- **Background Sync** queues actions when offline
+- **Push Notifications** for important updates
 
-### Version 1.1.0
-- Updated Dependencies
-- Removed Unused Integrations
-- Optimized App
+### PWA Features
+- Installable on mobile and desktop
+- Works without internet connection
+- Automatic updates
+- Native app-like experience
 
-### Version 1.0
-- Initial Release - [May 13, 2024]
+## 🎯 Key Modules
+
+### 1. Tenant Management
+- Multi-tenant architecture
+- Subscription plans (Free, Basic, Premium)
+- Tenant settings and customization
+- Branding and invoice customization
+
+### 2. Vehicle Management
+- Vehicle registration and tracking
+- Maintenance scheduling
+- Mileage tracking
+- Status management (Active, Maintenance, Decommissioned)
+
+### 3. Driver Management
+- Driver profiles and contracts
+- Payment model configuration
+- Digital contract signing
+- Performance tracking
+
+### 4. Financial Management
+- Income and expense tracking
+- Remittance management
+- Profit/loss analytics
+- Automated reporting
+
+### 5. Dashboard & Analytics
+- Real-time fleet overview
+- Key performance indicators
+- Recent activity feed
+- Quick actions
+
+## 🔧 Development
+
+### Available Scripts
+
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run start        # Start production server
+npm run lint         # Run ESLint
+npm run db:generate  # Generate Prisma client
+npm run db:push      # Push schema to database
+npm run db:migrate   # Run database migrations
+npm run db:seed      # Seed database with sample data
+npm run db:studio    # Open Prisma Studio
+```
+
+### Database Management
+
+```bash
+# Create a new migration
+npx prisma migrate dev --name migration_name
+
+# Reset database
+npx prisma migrate reset
+
+# View database in Prisma Studio
+npx prisma studio
+```
+
+## 🚀 Deployment
+
+### Vercel (Recommended)
+
+1. Connect your GitHub repository to Vercel
+2. Set environment variables in Vercel dashboard
+3. Deploy automatically on push to main branch
+
+### Environment Variables for Production
+
+```env
+DATABASE_URL="postgresql://..."
+BETTER_AUTH_SECRET="secure-random-string"
+BETTER_AUTH_URL="https://your-domain.com"
+AWS_ACCESS_KEY_ID="..."
+AWS_SECRET_ACCESS_KEY="..."
+REDIS_URL="redis://..."
+RESEND_API_KEY="..."
+NEXT_PUBLIC_GA_MEASUREMENT_ID="G-..."
+```
+
+### Database Setup for Production
+
+1. Create PostgreSQL database
+2. Enable Row-Level Security (RLS)
+3. Create application user with limited privileges
+4. Set up RLS policies for tenant isolation
+
+## 📊 Analytics
+
+### Google Analytics 4 Integration
+- Page view tracking
+- Custom event tracking
+- User behavior analytics
+- Performance monitoring
+
+### Custom Events Tracked
+- User registrations
+- Vehicle additions
+- Driver assignments
+- Remittance submissions
+- Maintenance records
+
+## 🔒 Security Best Practices
+
+1. **Environment Variables** - Never commit secrets
+2. **Database Security** - Use RLS and limited privileges
+3. **Authentication** - BetterAuth with CSRF protection
+4. **Data Validation** - Zod schemas for all inputs
+5. **HTTPS** - Always use in production
+6. **Regular Updates** - Keep dependencies updated
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+For support and questions:
+- Create an issue in the GitHub repository
+- Check the documentation
+- Review the PRD v7.0 for detailed specifications
+
+## 🗺️ Roadmap
+
+### Q1 2026
+- Advanced reporting features
+- Mobile app (React Native)
+- WhatsApp integration
+- Payment gateway integration
+
+### Q2 2026
+- AI-powered maintenance predictions
+- Advanced analytics dashboard
+- Multi-language support
+- API for third-party integrations
+
+---
+
+**Built with ❤️ for the Zimbabwean fleet management market**

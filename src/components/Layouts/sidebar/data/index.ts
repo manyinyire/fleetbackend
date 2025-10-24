@@ -2,103 +2,68 @@ import * as Icons from "../icons";
 
 export const NAV_DATA = [
   {
-    label: "MAIN MENU",
+    label: "FLEET MANAGEMENT",
     items: [
       {
         title: "Dashboard",
         icon: Icons.HomeIcon,
-        items: [
-          {
-            title: "eCommerce",
-            url: "/",
-          },
-        ],
-      },
-      {
-        title: "Calendar",
-        url: "/calendar",
-        icon: Icons.Calendar,
+        url: "/dashboard",
         items: [],
       },
       {
-        title: "Profile",
-        url: "/profile",
+        title: "Vehicles",
+        icon: Icons.Car,
+        url: "/vehicles",
+        items: [],
+      },
+      {
+        title: "Drivers",
         icon: Icons.User,
+        url: "/drivers",
         items: [],
       },
       {
-        title: "Forms",
-        icon: Icons.Alphabet,
-        items: [
-          {
-            title: "Form Elements",
-            url: "/forms/form-elements",
-          },
-          {
-            title: "Form Layout",
-            url: "/forms/form-layout",
-          },
-        ],
+        title: "Remittances",
+        icon: Icons.Dollar,
+        url: "/remittances",
+        items: [],
       },
       {
-        title: "Tables",
-        url: "/tables",
-        icon: Icons.Table,
-        items: [
-          {
-            title: "Tables",
-            url: "/tables",
-          },
-        ],
+        title: "Maintenance",
+        icon: Icons.Wrench,
+        url: "/maintenance",
+        items: [],
       },
       {
-        title: "Pages",
-        icon: Icons.Alphabet,
+        title: "Finances",
+        icon: Icons.PieChart,
         items: [
           {
-            title: "Settings",
-            url: "/pages/settings",
+            title: "Income & Expenses",
+            url: "/finances/transactions",
+          },
+          {
+            title: "Reports",
+            url: "/finances/reports",
           },
         ],
       },
     ],
   },
   {
-    label: "OTHERS",
+    label: "SYSTEM",
     items: [
       {
-        title: "Charts",
-        icon: Icons.PieChart,
-        items: [
-          {
-            title: "Basic Chart",
-            url: "/charts/basic-chart",
-          },
-        ],
+        title: "Settings",
+        icon: Icons.Settings,
+        url: "/settings",
+        items: [],
       },
       {
-        title: "UI Elements",
-        icon: Icons.FourCircle,
-        items: [
-          {
-            title: "Alerts",
-            url: "/ui-elements/alerts",
-          },
-          {
-            title: "Buttons",
-            url: "/ui-elements/buttons",
-          },
-        ],
-      },
-      {
-        title: "Authentication",
-        icon: Icons.Authentication,
-        items: [
-          {
-            title: "Sign In",
-            url: "/auth/sign-in",
-          },
-        ],
+        title: "Profile",
+        icon: Icons.User,
+        url: "/profile",
+        items: [],
       },
     ],
   },

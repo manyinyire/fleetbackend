@@ -1,0 +1,404 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// CENTRAL TABLES (No tenant scoping)
+// ============================================
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  email     String
+  phone     String?
+  status    TenantStatus @default(ACTIVE)
+  plan      SubscriptionPlan @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  users     User[]
+  vehicles  Vehicle[]
+  drivers   Driver[]
+  settings  TenantSettings?
+
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELED
+}
+
+enum SubscriptionPlan {
+  FREE
+  BASIC
+  PREMIUM
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String   // Hashed by BetterAuth
+  role      UserRole @default(USER)
+  tenantId  String?  // null for super_admin
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions  Session[]
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  FLEET_MANAGER
+  ACCOUNTANT
+  DRIVER
+  USER
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ============================================
+// TENANT-SCOPED TABLES (Include tenantId)
+// ============================================
+
+model Vehicle {
+  id                 String   @id @default(cuid())
+  tenantId           String   // MANDATORY for RLS
+  registrationNumber String
+  make               String
+  model              String
+  year               Int
+  type               VehicleType
+  initialCost        Decimal  @db.Decimal(10, 2)
+  currentMileage     Int      @default(0)
+  status             VehicleStatus @default(ACTIVE)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relationships
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  drivers            DriverVehicleAssignment[]
+  remittances        Remittance[]
+  maintenanceRecords MaintenanceRecord[]
+  expenses           Expense[]
+  incomes            Income[]
+
+  @@unique([tenantId, registrationNumber]) // Unique per tenant
+  @@index([tenantId, type])
+  @@index([tenantId, status])
+  @@map("vehicles")
+}
+
+enum VehicleType {
+  CAR
+  OMNIBUS
+  BIKE
+}
+
+enum VehicleStatus {
+  ACTIVE
+  UNDER_MAINTENANCE
+  DECOMMISSIONED
+}
+
+model Driver {
+  id                String   @id @default(cuid())
+  tenantId          String   // MANDATORY for RLS
+  fullName          String
+  nationalId        String
+  licenseNumber     String
+  licenseExpiry     DateTime
+  phone             String
+  email             String?
+  paymentModel      PaymentModel
+  paymentConfig     Json     // Stores model-specific config
+  debtBalance       Decimal  @db.Decimal(10, 2) @default(0)
+  status            DriverStatus @default(ACTIVE)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relationships
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicles          DriverVehicleAssignment[]
+  remittances       Remittance[]
+  contracts         Contract[]
+
+  @@unique([tenantId, nationalId])
+  @@index([tenantId, status])
+  @@map("drivers")
+}
+
+enum PaymentModel {
+  OWNER_PAYS        // Model A: Percentage-based
+  DRIVER_REMITS     // Model B: Fixed target
+  HYBRID            // Model C: Base + performance
+}
+
+enum DriverStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+}
+
+model DriverVehicleAssignment {
+  id          String   @id @default(cuid())
+  tenantId    String   // MANDATORY for RLS
+  driverId    String
+  vehicleId   String
+  isPrimary   Boolean  @default(true)
+  startDate   DateTime
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+
+  // Relationships
+  driver      Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@unique([driverId, vehicleId, startDate])
+  @@index([tenantId])
+  @@map("driver_vehicle_assignments")
+}
+
+model Remittance {
+  id            String   @id @default(cuid())
+  tenantId      String   // MANDATORY for RLS
+  driverId      String
+  vehicleId     String
+  amount        Decimal  @db.Decimal(10, 2)
+  date          DateTime
+  status        RemittanceStatus @default(PENDING)
+  proofOfPayment String? // S3 URL
+  notes         String?
+  approvedBy    String?
+  approvedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relationships
+  driver        Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle       Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, date])
+  @@index([driverId])
+  @@index([vehicleId])
+  @@map("remittances")
+}
+
+enum RemittanceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model MaintenanceRecord {
+  id          String   @id @default(cuid())
+  tenantId    String   // MANDATORY for RLS
+  vehicleId   String
+  date        DateTime
+  mileage     Int
+  type        MaintenanceType
+  description String
+  cost        Decimal  @db.Decimal(10, 2)
+  provider    String
+  invoice     String?  // S3 URL
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([vehicleId])
+  @@index([date])
+  @@map("maintenance_records")
+}
+
+enum MaintenanceType {
+  ROUTINE_SERVICE
+  TIRE_REPLACEMENT
+  BRAKE_SERVICE
+  ENGINE_REPAIR
+  ELECTRICAL
+  BODY_WORK
+  OTHER
+}
+
+model Contract {
+  id            String   @id @default(cuid())
+  tenantId      String   // MANDATORY for RLS
+  driverId      String
+  contractNumber String  @unique
+  status        ContractStatus @default(DRAFT)
+  signedAt      DateTime?
+  signatureData String?  // Base64 signature
+  pdfUrl        String?  // S3 URL of signed PDF
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relationships
+  driver        Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([driverId])
+  @@map("contracts")
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  TERMINATED
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  tenantId    String   // MANDATORY for RLS
+  vehicleId   String?
+  category    ExpenseCategory
+  amount      Decimal  @db.Decimal(10, 2)
+  date        DateTime
+  description String
+  receipt     String?  // S3 URL
+  status      ExpenseStatus @default(PENDING)
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  // Relationships
+  vehicle     Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, category])
+  @@index([tenantId, date])
+  @@map("expenses")
+}
+
+enum ExpenseCategory {
+  FUEL
+  MAINTENANCE
+  INSURANCE
+  LICENSE
+  SALARY
+  ADMINISTRATIVE
+  LOAN_PAYMENT
+  OTHER
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Income {
+  id          String   @id @default(cuid())
+  tenantId    String   // MANDATORY for RLS
+  vehicleId   String?
+  source      IncomeSource
+  amount      Decimal  @db.Decimal(10, 2)
+  date        DateTime
+  description String?
+  createdAt   DateTime @default(now())
+
+  // Relationships
+  vehicle     Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, source])
+  @@index([tenantId, date])
+  @@map("incomes")
+}
+
+enum IncomeSource {
+  REMITTANCE
+  OTHER
+}
+
+model TenantSettings {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique // MANDATORY for RLS
+  
+  // Branding
+  companyName     String
+  logoUrl         String?  // S3 URL
+  primaryColor    String   @default("#1e3a8a")
+  
+  // Contact Information
+  email           String
+  phone           String
+  address         String?
+  city            String?
+  country         String   @default("Zimbabwe")
+  
+  // Invoice Settings
+  invoicePrefix   String   @default("INV")
+  invoiceFooter   String?
+  taxNumber       String?
+  bankDetails     String?  // JSON with bank account info
+  
+  // Notification Settings
+  emailNotifications Boolean @default(true)
+  smsNotifications   Boolean @default(false)
+  
+  // Business Settings
+  currency        String   @default("USD")
+  timezone        String   @default("Africa/Harare")
+  dateFormat      String   @default("YYYY-MM-DD")
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("tenant_settings")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String?  // null for system-wide actions
+  userId      String
+  action      String
+  entityType  String
+  entityId    String?
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String
+  userAgent   String
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
