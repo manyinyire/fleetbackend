@@ -1,4 +1,4 @@
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import { notFound } from 'next/navigation';
@@ -14,9 +14,10 @@ import { VehicleProfitabilityDisplay } from '@/components/vehicles/vehicle-profi
 export default async function VehicleDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { user, tenantId } = await requireTenant();
+  const { id } = await params;
+  const { user, tenantId } = await requireTenantForDashboard();
 
   // Set RLS context
   await setTenantContext(tenantId);
@@ -26,7 +27,7 @@ export default async function VehicleDetailPage({
 
   // Fetch vehicle with all related data
   const vehicle = await prisma.vehicle.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       drivers: {
         include: {
@@ -63,26 +64,38 @@ export default async function VehicleDetailPage({
   // Get ALL remittances, expenses, incomes, and maintenance records for the vehicle (not just the last 10)
   const [allRemittances, allExpenses, allIncomes, allMaintenanceRecords] = await Promise.all([
     prisma.remittance.findMany({
-      where: { vehicleId: vehicle.id },
+      where: { 
+        vehicleId: vehicle.id,
+        tenantId: tenantId
+      },
       orderBy: { date: 'desc' },
     }),
     prisma.expense.findMany({
-      where: { vehicleId: vehicle.id },
+      where: { 
+        vehicleId: vehicle.id,
+        tenantId: tenantId
+      },
       orderBy: { date: 'desc' },
     }),
     prisma.income.findMany({
-      where: { vehicleId: vehicle.id },
+      where: { 
+        vehicleId: vehicle.id,
+        tenantId: tenantId
+      },
       orderBy: { date: 'desc' },
     }),
     prisma.maintenanceRecord.findMany({
-      where: { vehicleId: vehicle.id },
+      where: { 
+        vehicleId: vehicle.id,
+        tenantId: tenantId
+      },
       orderBy: { date: 'desc' },
     }),
   ]);
 
   // Calculate driver salary (for now, we'll use debtBalance as a proxy)
   // TODO: Enhance this to calculate based on payment model and assignment period
-  const activeDriver = vehicle.drivers.find(d => !d.endDate)?.driver;
+  const activeDriver = vehicle.drivers.find((d: any) => !d.endDate)?.driver;
   const driverSalary = activeDriver && activeDriver.paymentModel !== 'DRIVER_REMITS' 
     ? Number(activeDriver.debtBalance) 
     : 0;
@@ -90,16 +103,16 @@ export default async function VehicleDetailPage({
   const profitability = calculateVehicleProfitability({
     initialCost: Number(vehicle.initialCost),
     createdAt: vehicle.createdAt,
-    remittances: allRemittances.map(r => ({
+    remittances: allRemittances.map((r: any) => ({
       amount: Number(r.amount),
       date: r.date,
     })),
     expenses: [
-      ...allExpenses.map(e => ({
+      ...allExpenses.map((e: any) => ({
         amount: Number(e.amount),
         date: e.date,
       })),
-      ...allMaintenanceRecords.map(m => ({
+      ...allMaintenanceRecords.map((m: any) => ({
         amount: Number(m.cost),
         date: m.date,
       })),
@@ -111,11 +124,11 @@ export default async function VehicleDetailPage({
   const financialDisplay = getFinancialStatusDisplay(profitability.financialStatus);
 
   const totalRemittances = allRemittances.reduce(
-    (sum, r) => sum + Number(r.amount),
+    (sum: any, r: any) => sum + Number(r.amount),
     0
   );
-  const totalExpenses = allExpenses.reduce((sum, e) => sum + Number(e.amount), 0) + 
-                       allMaintenanceRecords.reduce((sum, m) => sum + Number(m.cost), 0);
+  const totalExpenses = allExpenses.reduce((sum: any, e: any) => sum + Number(e.amount), 0) + 
+                       allMaintenanceRecords.reduce((sum: any, m: any) => sum + Number(m.cost), 0);
   const netProfit = totalRemittances - totalExpenses;
 
   const stats = {
@@ -390,7 +403,7 @@ export default async function VehicleDetailPage({
             <p className="text-center text-dark-5 py-8">No drivers assigned</p>
           ) : (
             <div className="space-y-3">
-              {vehicle.drivers.map((assignment) => (
+              {vehicle.drivers.map((assignment: any) => (
                 <div
                   key={assignment.id}
                   className="flex items-center justify-between rounded-[7px] border border-stroke p-4 dark:border-dark-3"
@@ -454,7 +467,7 @@ export default async function VehicleDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {vehicle.maintenanceRecords.map((record) => (
+                {vehicle.maintenanceRecords.map((record: any) => (
                   <tr
                     key={record.id}
                     className="border-t border-stroke dark:border-dark-3"

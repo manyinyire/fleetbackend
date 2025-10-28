@@ -5,19 +5,22 @@ import { setTenantContext } from '@/lib/tenant';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { user, tenantId } = await requireTenant();
     
     // Set RLS context
-    await setTenantContext(tenantId);
+    if (tenantId) {
+      await setTenantContext(tenantId);
+    }
     
     // Get scoped Prisma client
-    const prisma = getTenantPrisma(tenantId);
+    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
     const remittance = await prisma.remittance.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         driver: true,
         vehicle: true,
@@ -43,21 +46,24 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { user, tenantId } = await requireTenant();
     const data = await request.json();
     
     // Set RLS context
-    await setTenantContext(tenantId);
+    if (tenantId) {
+      await setTenantContext(tenantId);
+    }
     
     // Get scoped Prisma client
-    const prisma = getTenantPrisma(tenantId);
+    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
     // Get existing remittance
     const existingRemittance = await prisma.remittance.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existingRemittance) {
@@ -81,7 +87,7 @@ export async function PUT(
 
     // Update remittance
     const updatedRemittance = await prisma.remittance.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(data.driverId && { driverId: data.driverId }),
         ...(data.vehicleId && { vehicleId: data.vehicleId }),
@@ -125,20 +131,23 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { user, tenantId } = await requireTenant();
     
     // Set RLS context
-    await setTenantContext(tenantId);
+    if (tenantId) {
+      await setTenantContext(tenantId);
+    }
     
     // Get scoped Prisma client
-    const prisma = getTenantPrisma(tenantId);
+    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
     // Get existing remittance
     const existingRemittance = await prisma.remittance.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existingRemittance) {
@@ -162,7 +171,7 @@ export async function DELETE(
 
     // Delete remittance
     await prisma.remittance.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });

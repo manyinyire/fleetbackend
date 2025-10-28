@@ -1,11 +1,11 @@
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import { getInitials } from '@/lib/utils';
 import Image from 'next/image';
 
 export default async function ProfilePage() {
-  const { user, tenantId } = await requireTenant();
+  const { user, tenantId } = await requireTenantForDashboard();
 
   // Set RLS context
   await setTenantContext(tenantId);
@@ -18,9 +18,15 @@ export default async function ProfilePage() {
     where: { tenantId },
   });
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-  });
+  let tenant: any = null;
+  try {
+    tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+  } catch (error) {
+    console.error('Tenant fetch failed (likely due to tenantId injection on Tenant model). Falling back to null:', error);
+    tenant = null;
+  }
 
   return (
     <div className="space-y-6">
@@ -59,7 +65,7 @@ export default async function ProfilePage() {
             </p>
             <div className="mt-4">
               <span className="inline-flex rounded-full bg-blue-light-5 px-4 py-1.5 text-body-sm font-medium text-blue">
-                {user.role.replace(/_/g, ' ')}
+                {user.role?.replace(/_/g, ' ') || 'Unknown'}
               </span>
             </div>
           </div>
@@ -128,7 +134,7 @@ export default async function ProfilePage() {
                 </label>
                 <input
                   type="text"
-                  value={user.role.replace(/_/g, ' ')}
+                  value={user.role?.replace(/_/g, ' ') || 'Unknown'}
                   disabled
                   className="w-full rounded-[7px] border-[1.5px] border-stroke bg-gray px-5.5 py-3 text-dark outline-none dark:border-dark-3 dark:bg-dark-2 dark:text-white"
                 />

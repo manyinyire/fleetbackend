@@ -10,6 +10,11 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000',
   basePath: '/api/auth',
 
+  // Disable telemetry to avoid Edge Runtime issues
+  telemetry: {
+    enabled: false,
+  },
+
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false, // Set to true in production

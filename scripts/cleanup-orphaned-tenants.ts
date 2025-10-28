@@ -52,7 +52,6 @@ async function cleanupOrphanedTenants() {
         console.log(`Deleted tenant: ${tenant.name}`);
       }
       console.log(`\nDeleted ${orphanedTenants.length} orphaned tenants`);
-      */
     }
 
     // Show duplicate slugs

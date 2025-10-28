@@ -1,11 +1,11 @@
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import Link from 'next/link';
 import { PlusIcon } from '@heroicons/react/24/outline';
 
 export default async function MaintenancePage() {
-  const { user, tenantId } = await requireTenant();
+  const { user, tenantId } = await requireTenantForDashboard();
 
   // Set RLS context
   await setTenantContext(tenantId);
@@ -19,19 +19,22 @@ export default async function MaintenancePage() {
       vehicle: true,
     },
     orderBy: { date: 'desc' },
+    where: {
+      tenantId: tenantId
+    }
   });
 
   const stats = {
     total: maintenanceRecords.length,
-    totalCost: maintenanceRecords.reduce((sum, r) => sum + Number(r.cost), 0),
+    totalCost: maintenanceRecords.reduce((sum: any, r: any) => sum + Number(r.cost), 0),
     thisMonth: maintenanceRecords.filter(
-      r =>
+      (r: any) =>
         new Date(r.date).getMonth() === new Date().getMonth() &&
         new Date(r.date).getFullYear() === new Date().getFullYear()
     ).length,
     avgCost:
       maintenanceRecords.length > 0
-        ? maintenanceRecords.reduce((sum, r) => sum + Number(r.cost), 0) /
+        ? maintenanceRecords.reduce((sum: any, r: any) => sum + Number(r.cost), 0) /
           maintenanceRecords.length
         : 0,
   };
@@ -205,7 +208,7 @@ export default async function MaintenancePage() {
                   </td>
                 </tr>
               ) : (
-                maintenanceRecords.map((record) => (
+                maintenanceRecords.map((record: any) => (
                   <tr
                     key={record.id}
                     className="border-t border-stroke dark:border-dark-3"

@@ -129,7 +129,7 @@ export function SearchResults({
           Search Results
         </h3>
         <p className="mt-1 text-sm text-gray-500">
-          {results.length} result{results.length !== 1 ? 's' : ''} found for "{query}"
+          {results.length} result{results.length !== 1 ? 's' : ''} found for &quot;{query}&quot;
         </p>
       </div>
       

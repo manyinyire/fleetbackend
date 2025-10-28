@@ -1,4 +1,4 @@
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import { notFound } from 'next/navigation';
@@ -9,9 +9,10 @@ import { AssignVehicleButton } from '@/components/drivers/assign-vehicle-button'
 export default async function DriverDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { user, tenantId } = await requireTenant();
+  const { id } = await params;
+  const { user, tenantId } = await requireTenantForDashboard();
 
   // Set RLS context
   await setTenantContext(tenantId);
@@ -21,7 +22,7 @@ export default async function DriverDetailPage({
 
   // Fetch driver with all related data
   const driver = await prisma.driver.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       vehicles: {
         include: {
@@ -61,12 +62,12 @@ export default async function DriverDetailPage({
 
   const stats = {
     totalRemittances: driver.remittances.reduce(
-      (sum, r) => sum + Number(r.amount),
+      (sum: any, r: any) => sum + Number(r.amount),
       0
     ),
-    pendingRemittances: driver.remittances.filter((r) => r.status === 'PENDING')
+    pendingRemittances: driver.remittances.filter((r: any) => r.status === 'PENDING')
       .length,
-    activeVehicles: driver.vehicles.filter((v) => !v.endDate).length,
+    activeVehicles: driver.vehicles.filter((v: any) => !v.endDate).length,
     totalContracts: driver.contracts.length,
   };
 
@@ -254,7 +255,7 @@ export default async function DriverDetailPage({
         <div className="rounded-[10px] bg-white shadow-1 dark:bg-gray-dark">
           <div className="border-b border-stroke px-7 py-4 dark:border-dark-3">
             <h3 className="font-medium text-dark dark:text-white">
-              Defensive Driver's License
+              Defensive Driver&apos;s License
             </h3>
           </div>
           <div className="p-7">
@@ -409,7 +410,7 @@ export default async function DriverDetailPage({
             <p className="text-center text-dark-5 py-8">No vehicles assigned</p>
           ) : (
             <div className="space-y-3">
-              {driver.vehicles.map((assignment) => (
+              {driver.vehicles.map((assignment: any) => (
                 <div
                   key={assignment.id}
                   className="flex items-center justify-between rounded-[7px] border border-stroke p-4 dark:border-dark-3"
@@ -470,7 +471,7 @@ export default async function DriverDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {driver.remittances.map((remittance) => (
+                {driver.remittances.map((remittance: any) => (
                   <tr
                     key={remittance.id}
                     className="border-t border-stroke dark:border-dark-3"

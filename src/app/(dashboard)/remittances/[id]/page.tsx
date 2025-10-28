@@ -1,4 +1,4 @@
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import { notFound } from 'next/navigation';
@@ -9,9 +9,10 @@ import { approveRemittance, rejectRemittance } from '@/server/actions/remittance
 export default async function RemittanceDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { user, tenantId } = await requireTenant();
+  const { id } = await params;
+  const { user, tenantId } = await requireTenantForDashboard();
 
   // Set RLS context
   await setTenantContext(tenantId);
@@ -21,7 +22,7 @@ export default async function RemittanceDetailPage({
 
   // Fetch remittance with related data
   const remittance = await prisma.remittance.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       driver: true,
       vehicle: true,
@@ -75,7 +76,7 @@ export default async function RemittanceDetailPage({
         </div>
         <div className="flex items-center space-x-3">
           <Link
-            href={`/remittances/${params.id}/edit`}
+            href={`/remittances/${id}/edit`}
             className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             <PencilIcon className="h-4 w-4 mr-2" />
@@ -83,7 +84,10 @@ export default async function RemittanceDetailPage({
           </Link>
           {remittance.status === 'PENDING' && (
             <>
-              <form action={approveRemittance.bind(null, params.id)} className="inline">
+              <form action={async () => {
+                'use server';
+                await approveRemittance(id);
+              }} className="inline">
                 <button
                   type="submit"
                   className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
@@ -92,7 +96,10 @@ export default async function RemittanceDetailPage({
                   Approve
                 </button>
               </form>
-              <form action={rejectRemittance.bind(null, params.id)} className="inline">
+              <form action={async () => {
+                'use server';
+                await rejectRemittance(id);
+              }} className="inline">
                 <button
                   type="submit"
                   className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"

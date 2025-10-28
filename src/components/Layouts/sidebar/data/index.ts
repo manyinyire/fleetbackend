@@ -68,3 +68,161 @@ export const NAV_DATA = [
     ],
   },
 ];
+
+export const SUPER_ADMIN_NAV_DATA = [
+  {
+    label: "SYSTEM ADMINISTRATION",
+    items: [
+      {
+        title: "Dashboard",
+        icon: Icons.HomeIcon,
+        url: "/admin/dashboard",
+        items: [],
+      },
+      {
+        title: "Tenants",
+        icon: Icons.User,
+        url: "/admin/tenants",
+        items: [],
+      },
+      {
+        title: "Users",
+        icon: Icons.User,
+        url: "/admin/users",
+        items: [],
+      },
+      {
+        title: "System Settings",
+        icon: Icons.Settings,
+        url: "/admin/settings",
+        items: [],
+      },
+    ],
+  },
+  {
+    label: "MONITORING",
+    items: [
+      {
+        title: "System Health",
+        icon: Icons.ChartBarIcon,
+        url: "/admin/system-health",
+        items: [],
+      },
+      {
+        title: "Performance",
+        icon: Icons.ChartBarIcon,
+        url: "/admin/performance",
+        items: [],
+      },
+      {
+        title: "Error Logs",
+        icon: Icons.ExclamationTriangleIcon,
+        url: "/admin/error-logs",
+        items: [],
+      },
+    ],
+  },
+  {
+    label: "FINANCIAL",
+    items: [
+      {
+        title: "Revenue Dashboard",
+        icon: Icons.CurrencyDollarIcon,
+        url: "/admin/revenue",
+        items: [],
+      },
+      {
+        title: "Invoices & Payments",
+        icon: Icons.CurrencyDollarIcon,
+        url: "/admin/invoices",
+        items: [],
+      },
+      {
+        title: "Subscription Analytics",
+        icon: Icons.ChartBarIcon,
+        url: "/admin/subscriptions",
+        items: [],
+      },
+    ],
+  },
+  {
+    label: "CONTENT & COMMUNICATION",
+    items: [
+      {
+        title: "Email Templates",
+        icon: Icons.EnvelopeIcon,
+        url: "/admin/email-templates",
+        items: [],
+      },
+      {
+        title: "Notifications",
+        icon: Icons.BellIcon,
+        url: "/admin/notifications",
+        items: [],
+      },
+      {
+        title: "Feature Flags",
+        icon: Icons.FlagIcon,
+        url: "/admin/feature-flags",
+        items: [],
+      },
+    ],
+  },
+  {
+    label: "ANALYTICS & REPORTS",
+    items: [
+      {
+        title: "Analytics Dashboard",
+        icon: Icons.ChartBarIcon,
+        url: "/admin/analytics",
+        items: [],
+      },
+      {
+        title: "Custom Reports",
+        icon: Icons.DocumentTextIcon,
+        url: "/admin/reports",
+        items: [],
+      },
+      {
+        title: "Data Export",
+        icon: Icons.ArrowDownTrayIcon,
+        url: "/admin/export",
+        items: [],
+      },
+    ],
+  },
+  {
+    label: "SECURITY & COMPLIANCE",
+    items: [
+      {
+        title: "Audit Logs",
+        icon: Icons.DocumentTextIcon,
+        url: "/admin/audit-logs",
+        items: [],
+      },
+      {
+        title: "Security Center",
+        icon: Icons.ShieldCheckIcon,
+        url: "/admin/security",
+        items: [],
+      },
+      {
+        title: "Compliance",
+        icon: Icons.CheckBadgeIcon,
+        url: "/admin/compliance",
+        items: [],
+      },
+    ],
+  },
+  {
+    label: "ACCOUNT",
+    items: [
+      {
+        title: "Profile",
+        icon: Icons.User,
+        url: "/profile",
+        items: [],
+      },
+    ],
+  },
+];

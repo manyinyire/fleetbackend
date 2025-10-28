@@ -315,7 +315,7 @@ export function DriverForm() {
               className="mb-3 block text-body-sm font-medium text-dark dark:text-white"
               htmlFor="licenseNumber"
             >
-              Driver's License Number <span className="text-red">*</span>
+              Driver&apos;s License Number <span className="text-red">*</span>
             </label>
             <input
               className="w-full rounded-[7px] border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition placeholder:text-dark-6 focus:border-primary active:border-primary disabled:cursor-default dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
@@ -339,7 +339,7 @@ export function DriverForm() {
                 {...form.register('hasDefensiveLicense')}
               />
               <span className="text-body-sm font-medium text-dark dark:text-white">
-                Has Defensive Driver's License (Required for Commuter Omnibus)
+                Has Defensive Driver&apos;s License (Required for Commuter Omnibus)
               </span>
             </label>
           </div>
@@ -600,7 +600,7 @@ export function DriverForm() {
               )}
               {paymentModel === 'DRIVER_REMITS' && (
                 <p className="mt-1 text-body-sm text-dark-6 italic">
-                  Drivers under "Driver Remits" model don't have salary debt
+                  Drivers under &quot;Driver Remits&quot; model don&apos;t have salary debt
                 </p>
               )}
             </div>

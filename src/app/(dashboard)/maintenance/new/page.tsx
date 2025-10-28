@@ -1,4 +1,4 @@
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import { MaintenanceForm } from '@/components/maintenance/maintenance-form';
@@ -8,9 +8,10 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 export default async function NewMaintenancePage({
   searchParams,
 }: {
-  searchParams: { vehicleId?: string };
+  searchParams: Promise<{ vehicleId?: string }>;
 }) {
-  const { user, tenantId } = await requireTenant();
+  const { vehicleId } = await searchParams;
+  const { user, tenantId } = await requireTenantForDashboard();
 
   // Set RLS context
   await setTenantContext(tenantId);
@@ -50,7 +51,7 @@ export default async function NewMaintenancePage({
       </div>
 
       <div className="rounded-[10px] bg-white p-7 shadow-1 dark:bg-gray-dark">
-        <MaintenanceForm vehicles={vehicles} vehicleId={searchParams.vehicleId} />
+        <MaintenanceForm vehicles={vehicles} vehicleId={vehicleId} />
       </div>
     </div>
   );

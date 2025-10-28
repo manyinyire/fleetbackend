@@ -45,7 +45,7 @@ export function AssignDriverStep({ vehicleId, driverId, onComplete }: AssignDriv
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Assign Driver to Vehicle</h2>
       <p className="text-gray-600 mb-8">
-        Finally, let's assign the driver to the vehicle to complete your fleet setup.
+        Finally, let&apos;s assign the driver to the vehicle to complete your fleet setup.
       </p>
 
       <div className="bg-gray-50 rounded-lg p-6 mb-8">

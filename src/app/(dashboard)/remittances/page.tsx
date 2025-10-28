@@ -1,4 +1,4 @@
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import Link from 'next/link';
@@ -6,7 +6,7 @@ import { PlusIcon } from '@heroicons/react/24/outline';
 import { RemittancesTable } from '@/components/finances/remittances-table';
 
 export default async function RemittancesPage() {
-  const { user, tenantId } = await requireTenant();
+  const { user, tenantId } = await requireTenantForDashboard();
 
   // Set RLS context
   await setTenantContext(tenantId);
@@ -21,16 +21,19 @@ export default async function RemittancesPage() {
       vehicle: true,
     },
     orderBy: { date: 'desc' },
+    where: {
+      tenantId: tenantId
+    }
   });
 
   const stats = {
     total: remittances.length,
-    pending: remittances.filter(r => r.status === 'PENDING').length,
-    approved: remittances.filter(r => r.status === 'APPROVED').length,
-    rejected: remittances.filter(r => r.status === 'REJECTED').length,
+    pending: remittances.filter((r: any) => r.status === 'PENDING').length,
+    approved: remittances.filter((r: any) => r.status === 'APPROVED').length,
+    rejected: remittances.filter((r: any) => r.status === 'REJECTED').length,
     totalAmount: remittances
-      .filter(r => r.status === 'APPROVED')
-      .reduce((sum, r) => sum + Number(r.amount), 0),
+      .filter((r: any) => r.status === 'APPROVED')
+      .reduce((sum: any, r: any) => sum + Number(r.amount), 0),
   };
 
   return (

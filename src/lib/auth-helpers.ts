@@ -52,13 +52,35 @@ export async function requireRole(role: string | string[]) {
   return user;
 }
 
-// Server-side: Require tenant context
+// Server-side: Require tenant context (handles SUPER_ADMIN)
 export async function requireTenant() {
   const user = await requireAuth();
-
+  
+  // SUPER_ADMIN users don't have a tenantId
+  if (user.role === 'SUPER_ADMIN') {
+    return { user, tenantId: null };
+  }
+  
   if (!user.tenantId) {
     throw new Error('No tenant context');
   }
-
+  
   return { user, tenantId: user.tenantId as string };
+}
+
+// Server-side: Require tenant context and redirect SUPER_ADMIN to admin dashboard
+export async function requireTenantForDashboard() {
+  const { user, tenantId } = await requireTenant();
+  
+  // SUPER_ADMIN users should be redirected to admin dashboard
+  if (user.role === 'SUPER_ADMIN') {
+    redirect('/admin/dashboard');
+  }
+  
+  // Regular tenant users must have a tenantId
+  if (!tenantId) {
+    throw new Error('No tenant context available');
+  }
+  
+  return { user, tenantId };
 }

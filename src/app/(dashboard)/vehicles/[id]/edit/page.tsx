@@ -1,4 +1,4 @@
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import { notFound } from 'next/navigation';
@@ -9,9 +9,10 @@ import { VehicleEditForm } from '@/components/vehicles/vehicle-edit-form';
 export default async function EditVehiclePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { user, tenantId } = await requireTenant();
+  const { id } = await params;
+  const { user, tenantId } = await requireTenantForDashboard();
 
   // Set RLS context
   await setTenantContext(tenantId);
@@ -21,7 +22,7 @@ export default async function EditVehiclePage({
 
   // Fetch vehicle
   const vehicle = await prisma.vehicle.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
 
   if (!vehicle) {
@@ -32,7 +33,7 @@ export default async function EditVehiclePage({
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link
-          href={`/vehicles/${params.id}`}
+          href={`/vehicles/${id}`}
           className="flex h-10 w-10 items-center justify-center rounded-[7px] border border-stroke hover:bg-gray-2 dark:border-dark-3 dark:hover:bg-dark-2"
         >
           <ArrowLeftIcon className="h-5 w-5" />

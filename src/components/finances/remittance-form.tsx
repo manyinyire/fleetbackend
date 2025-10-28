@@ -138,7 +138,7 @@ export function RemittanceForm({ drivers, remittance, onSuccess }: RemittanceFor
             </div>
             <div className="ml-3">
               <p className="text-sm text-yellow-800">
-                The following drivers are not available for remittances because they don't have an assigned vehicle:
+                The following drivers are not available for remittances because they don&apos;t have an assigned vehicle:
               </p>
               <ul className="mt-2 list-disc list-inside text-sm text-yellow-700">
                 {driversWithoutVehicles.map(driver => (

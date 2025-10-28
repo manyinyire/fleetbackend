@@ -1,4 +1,4 @@
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import { DashboardOverview } from '@/components/dashboard/dashboard-overview';
@@ -7,7 +7,7 @@ import { RecentActivity } from '@/components/dashboard/recent-activity';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 
 export default async function DashboardPage() {
-  const { user, tenantId } = await requireTenant();
+  const { user, tenantId } = await requireTenantForDashboard();
   
   // Set RLS context
   await setTenantContext(tenantId);
@@ -31,6 +31,9 @@ export default async function DashboardPage() {
             driver: true
           }
         }
+      },
+      where: {
+        tenantId: tenantId
       }
     }),
     prisma.driver.findMany({
@@ -40,6 +43,9 @@ export default async function DashboardPage() {
             vehicle: true
           }
         }
+      },
+      where: {
+        tenantId: tenantId
       }
     }),
     prisma.remittance.findMany({
@@ -48,6 +54,9 @@ export default async function DashboardPage() {
       include: {
         driver: true,
         vehicle: true
+      },
+      where: {
+        tenantId: tenantId
       }
     }),
     prisma.maintenanceRecord.findMany({
@@ -55,27 +64,34 @@ export default async function DashboardPage() {
       orderBy: { date: 'desc' },
       include: {
         vehicle: true
+      },
+      where: {
+        tenantId: tenantId
       }
     }),
     prisma.expense.aggregate({
       _sum: { amount: true },
       where: {
-        status: 'APPROVED'
+        status: 'APPROVED',
+        tenantId: tenantId
       }
     }),
     prisma.income.aggregate({
-      _sum: { amount: true }
+      _sum: { amount: true },
+      where: {
+        tenantId: tenantId
+      }
     })
   ]);
 
   const stats = {
     totalVehicles: vehicles.length,
-    activeVehicles: vehicles.filter(v => v.status === 'ACTIVE').length,
+    activeVehicles: vehicles.filter((v: any) => v.status === 'ACTIVE').length,
     totalDrivers: drivers.length,
-    activeDrivers: drivers.filter(d => d.status === 'ACTIVE').length,
+    activeDrivers: drivers.filter((d: any) => d.status === 'ACTIVE').length,
     totalExpenses: totalExpenses._sum.amount || 0,
     totalIncome: totalIncome._sum.amount || 0,
-    pendingRemittances: recentRemittances.filter(r => r.status === 'PENDING').length
+    pendingRemittances: recentRemittances.filter((r: any) => r.status === 'PENDING').length
   };
 
   return (

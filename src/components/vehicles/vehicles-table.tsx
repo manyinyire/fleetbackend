@@ -78,13 +78,13 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
             Get started by adding your first vehicle to the fleet.
           </p>
           <div className="mt-6">
-            <a
+            <Link
               href="/vehicles/new"
               className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
             >
               <TruckIcon className="h-4 w-4 mr-2" />
               Add Vehicle
-            </a>
+            </Link>
           </div>
         </div>
       ) : (

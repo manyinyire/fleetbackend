@@ -1,4 +1,4 @@
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import { VehiclesTable } from '@/components/vehicles/vehicles-table';
@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { PlusIcon } from '@heroicons/react/24/outline';
 
 export default async function VehiclesPage() {
-  const { user, tenantId } = await requireTenant();
+  const { user, tenantId } = await requireTenantForDashboard();
   
   // Set RLS context
   await setTenantContext(tenantId);
@@ -33,7 +33,10 @@ export default async function VehiclesPage() {
         }
       }
     },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
+    where: {
+      tenantId: tenantId
+    }
   });
 
   return (

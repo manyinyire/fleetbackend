@@ -240,7 +240,7 @@ export function DriverEditForm({ driver }: DriverEditFormProps) {
               />
               {paymentModel === 'DRIVER_REMITS' && (
                 <p className="mt-1 text-body-sm text-dark-6 italic">
-                  Drivers under "Driver Remits" model don't have salary debt
+                  Drivers under &quot;Driver Remits&quot; model don&apos;t have salary debt
                 </p>
               )}
             </div>

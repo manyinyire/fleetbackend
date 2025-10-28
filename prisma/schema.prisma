@@ -22,6 +22,8 @@ model Tenant {
   phone     String?
   status    TenantStatus @default(ACTIVE)
   plan      SubscriptionPlan @default(FREE)
+  monthlyRevenue Decimal @db.Decimal(10, 2) @default(0)
+  suspendedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -54,6 +56,8 @@ model User {
   image         String?
   role          UserRole @default(USER)
   tenantId      String?  // null for super_admin
+  password      String?  // Hashed password for email/password auth
+  lastLoginAt   DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -61,6 +65,11 @@ model User {
   tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sessions  Session[]
   accounts  Account[]
+  
+  // Admin relationships
+  adminSettings AdminSettings?
+  adminSessions AdminSession[]
+  adminIpWhitelist AdminIpWhitelist[]
 
   @@index([tenantId])
   @@map("users")
@@ -445,4 +454,168 @@ model AuditLog {
   @@index([userId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================
+// SUPER ADMIN TABLES
+// ============================================
+
+model AdminSettings {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  
+  // 2FA Settings
+  twoFactorEnabled      Boolean  @default(false)
+  twoFactorSecret       String?
+  
+  // IP Whitelist
+  ipWhitelistEnabled    Boolean  @default(false)
+  
+  // Session Management
+  maxConcurrentSessions Int      @default(2)
+  sessionTimeout        Int      @default(30) // minutes
+  
+  // Security Settings
+  requirePasswordChange Boolean  @default(false)
+  passwordChangeDays    Int      @default(90)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relationships
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admin_settings")
+}
+
+model AdminSession {
+  id            String   @id @default(cuid())
+  userId        String
+  ipAddress     String
+  userAgent     String
+  expiresAt     DateTime
+  rememberDevice Boolean @default(false)
+  createdAt     DateTime @default(now())
+
+  // Relationships
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("admin_sessions")
+}
+
+model AdminIpWhitelist {
+  id          String   @id @default(cuid())
+  userId      String
+  ipAddress   String
+  description String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relationships
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("admin_ip_whitelist")
+}
+
+model AdminSecurityLog {
+  id        String   @id @default(cuid())
+  eventType String
+  data      Json
+  timestamp DateTime @default(now())
+
+  @@index([eventType])
+  @@index([timestamp])
+  @@map("admin_security_logs")
+}
+
+model SystemAlert {
+  id          String   @id @default(cuid())
+  type        AlertType
+  severity    AlertSeverity
+  title       String
+  message     String
+  data        Json?
+  acknowledged Boolean @default(false)
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  resolved    Boolean @default(false)
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([type])
+  @@index([severity])
+  @@index([acknowledged])
+  @@map("system_alerts")
+}
+
+enum AlertType {
+  SYSTEM_HEALTH
+  SECURITY
+  PERFORMANCE
+  BILLING
+  USER_ACTIVITY
+}
+
+enum AlertSeverity {
+  CRITICAL
+  WARNING
+  INFO
+  SUCCESS
+}
+
+model PlatformMetrics {
+  id          String   @id @default(cuid())
+  metricName  String
+  metricValue Decimal  @db.Decimal(15, 4)
+  metadata    Json?
+  timestamp   DateTime @default(now())
+
+  @@index([metricName])
+  @@index([timestamp])
+  @@map("platform_metrics")
+}
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        EmailType
+  subject     String
+  body        String
+  variables   Json?    // Available template variables
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+  @@map("email_templates")
+}
+
+enum EmailType {
+  WELCOME
+  PASSWORD_RESET
+  INVOICE_NOTIFICATION
+  SUBSCRIPTION_RENEWAL
+  PAYMENT_FAILED
+  TRIAL_EXPIRING
+  ACCOUNT_SUSPENDED
+  ADMIN_NOTIFICATION
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isEnabled   Boolean  @default(false)
+  rolloutPercentage Int @default(0) // 0-100
+  targetTenants Json?  // Array of tenant IDs or conditions
+  environments Json?   // Array of environments (prod, staging, dev)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isEnabled])
+  @@map("feature_flags")
 }

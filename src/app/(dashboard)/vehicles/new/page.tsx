@@ -1,10 +1,10 @@
 import { VehicleForm } from '@/components/vehicles/vehicle-form';
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import Link from 'next/link';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 
 export default async function NewVehiclePage() {
-  await requireTenant();
+  await requireTenantForDashboard();
 
   return (
     <div className="space-y-6">

@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { 
   CurrencyDollarIcon, 
-  TrendingUpIcon, 
-  TrendingDownIcon,
   ChartBarIcon,
   ArrowUpIcon,
   ArrowDownIcon
@@ -22,9 +20,6 @@ interface Income {
   description: string;
   vehicle: {
     registrationNumber: string;
-  };
-  driver: {
-    fullName: string;
   } | null;
 }
 
@@ -36,9 +31,6 @@ interface Expense {
   category: string;
   vehicle: {
     registrationNumber: string;
-  };
-  driver: {
-    fullName: string;
   } | null;
 }
 
@@ -67,20 +59,22 @@ interface FinancialReportsDashboardProps {
   expenses: Expense[];
   remittances: Remittance[];
   summary: Summary;
+  onDateRangeChange?: (startDate: string, endDate: string) => void;
 }
 
 export function FinancialReportsDashboard({ 
   incomes, 
   expenses, 
   remittances, 
-  summary 
+  summary,
+  onDateRangeChange
 }: FinancialReportsDashboardProps) {
   const [activeTab, setActiveTab] = useState('overview');
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: ChartBarIcon },
-    { id: 'income', name: 'Income', icon: TrendingUpIcon },
-    { id: 'expenses', name: 'Expenses', icon: TrendingDownIcon },
+    { id: 'income', name: 'Income', icon: ArrowUpIcon },
+    { id: 'expenses', name: 'Expenses', icon: ArrowDownIcon },
     { id: 'remittances', name: 'Remittances', icon: CurrencyDollarIcon },
   ];
 
@@ -153,8 +147,8 @@ export function FinancialReportsDashboard({
                 amount: income.amount,
                 date: income.date,
                 description: income.description,
-                vehicle: income.vehicle.registrationNumber,
-                driver: income.driver?.fullName || 'N/A'
+                vehicle: income.vehicle?.registrationNumber || 'N/A',
+                driver: 'N/A'
               }))}
             />
           </div>
@@ -192,8 +186,8 @@ export function FinancialReportsDashboard({
                 amount: expense.amount,
                 date: expense.date,
                 description: expense.description,
-                vehicle: expense.vehicle.registrationNumber,
-                driver: expense.driver?.fullName || 'N/A'
+                vehicle: expense.vehicle?.registrationNumber || 'N/A',
+                driver: 'N/A'
               }))}
             />
           </div>
