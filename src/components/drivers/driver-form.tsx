@@ -590,11 +590,17 @@ export function DriverForm() {
                 id="debtBalance"
                 step="0.01"
                 placeholder="0.00"
+                disabled={paymentModel === 'DRIVER_REMITS'}
                 {...form.register('debtBalance')}
               />
               {form.formState.errors.debtBalance && (
                 <p className="mt-1 text-body-sm text-red">
                   {form.formState.errors.debtBalance.message}
+                </p>
+              )}
+              {paymentModel === 'DRIVER_REMITS' && (
+                <p className="mt-1 text-body-sm text-dark-6 italic">
+                  Drivers under "Driver Remits" model don't have salary debt
                 </p>
               )}
             </div>

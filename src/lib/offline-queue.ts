@@ -15,18 +15,27 @@ class OfflineQueue extends Dexie {
   constructor() {
     super('AzaireOfflineQueue');
     this.version(1).stores({
-      actions: '++id, type, timestamp, synced'
+      actions: '++id, type, timestamp, [synced+timestamp]'
     });
   }
 }
 
-export const offlineQueue = new OfflineQueue();
+// Only create instance in browser
+let offlineQueue: OfflineQueue | null = null;
+
+if (typeof window !== 'undefined') {
+  offlineQueue = new OfflineQueue();
+}
+
+export { offlineQueue };
 
 // Add action to queue
 export async function queueAction(
   type: QueuedAction['type'],
   data: any
 ) {
+  if (!offlineQueue) return;
+  
   await offlineQueue.actions.add({
     type,
     data,
@@ -37,18 +46,29 @@ export async function queueAction(
 
 // Get all pending actions
 export async function getPendingActions() {
-  return await offlineQueue.actions
-    .where('synced')
-    .equals(false)
-    .toArray();
+  if (!offlineQueue) return [];
+  
+  try {
+    // Get all actions that haven't been synced yet
+    return await offlineQueue.actions
+      .filter(action => action.synced === false)
+      .toArray();
+  } catch (error) {
+    console.error('Error fetching pending actions:', error);
+    return [];
+  }
 }
 
 // Mark action as synced
 export async function markAsSynced(id: number) {
+  if (!offlineQueue) return;
+  
   await offlineQueue.actions.update(id, { synced: true });
 }
 
 // Mark action as failed
 export async function markAsFailed(id: number, error: string) {
+  if (!offlineQueue) return;
+  
   await offlineQueue.actions.update(id, { error });
 }

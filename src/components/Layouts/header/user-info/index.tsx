@@ -6,7 +6,7 @@ import {
   DropdownContent,
   DropdownTrigger,
 } from "@/components/ui/dropdown";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
@@ -28,7 +28,8 @@ export function UserInfo() {
   const USER = {
     name: user?.name || "User",
     email: user?.email || "",
-    img: user?.image || "/images/user/user-03.png",
+    img: user?.image || null,
+    initials: getInitials(user?.name || "User"),
   };
 
   if (isLoading) {
@@ -45,14 +46,20 @@ export function UserInfo() {
         <span className="sr-only">My Account</span>
 
         <figure className="flex items-center gap-3">
-          <Image
-            src={USER.img}
-            className="size-12"
-            alt={`Avatar of ${USER.name}`}
-            role="presentation"
-            width={200}
-            height={200}
-          />
+          {USER.img ? (
+            <Image
+              src={USER.img}
+              className="size-12 rounded-full"
+              alt={`Avatar of ${USER.name}`}
+              role="presentation"
+              width={48}
+              height={48}
+            />
+          ) : (
+            <div className="flex size-12 items-center justify-center rounded-full bg-primary text-lg font-semibold text-white">
+              {USER.initials}
+            </div>
+          )}
           <figcaption className="flex items-center gap-1 font-medium text-dark dark:text-dark-6 max-[1024px]:sr-only">
             <span>{USER.name}</span>
 
@@ -74,22 +81,28 @@ export function UserInfo() {
       >
         <h2 className="sr-only">User information</h2>
 
-        <figure className="flex items-center gap-2.5 px-5 py-3.5">
-          <Image
-            src={USER.img}
-            className="size-12"
-            alt={`Avatar for ${USER.name}`}
-            role="presentation"
-            width={200}
-            height={200}
-          />
+                <figure className="flex items-center gap-2.5 px-5 py-3.5">
+          {USER.img ? (
+            <Image
+              src={USER.img}
+              className="size-12 rounded-full"
+              alt={`Avatar for ${USER.name}`}
+              role="presentation"
+              width={48}
+              height={48}
+            />
+          ) : (
+            <div className="flex size-12 items-center justify-center rounded-full bg-primary text-lg font-semibold text-white">
+              {USER.initials}
+            </div>
+          )}
 
           <figcaption className="space-y-1 text-base font-medium">
-            <div className="mb-2 leading-none text-dark dark:text-white">
+            <div className="mb-2 leading-none text-dark dark:text-white">       
               {USER.name}
             </div>
 
-            <div className="leading-none text-gray-6">{USER.email}</div>
+            <div className="leading-none text-gray-6">{USER.email}</div>        
           </figcaption>
         </figure>
 

@@ -3,7 +3,13 @@ import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeftIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PencilIcon, WrenchScrewdriverIcon } from '@heroicons/react/24/outline';
+import { 
+  calculateVehicleProfitability, 
+  getOverallStatusDisplay, 
+  getFinancialStatusDisplay 
+} from '@/lib/vehicle-profitability';
+import { VehicleProfitabilityDisplay } from '@/components/vehicles/vehicle-profitability-display';
 
 export default async function VehicleDetailPage({
   params,
@@ -53,13 +59,69 @@ export default async function VehicleDetailPage({
     notFound();
   }
 
+  // Calculate profitability metrics
+  // Get ALL remittances, expenses, incomes, and maintenance records for the vehicle (not just the last 10)
+  const [allRemittances, allExpenses, allIncomes, allMaintenanceRecords] = await Promise.all([
+    prisma.remittance.findMany({
+      where: { vehicleId: vehicle.id },
+      orderBy: { date: 'desc' },
+    }),
+    prisma.expense.findMany({
+      where: { vehicleId: vehicle.id },
+      orderBy: { date: 'desc' },
+    }),
+    prisma.income.findMany({
+      where: { vehicleId: vehicle.id },
+      orderBy: { date: 'desc' },
+    }),
+    prisma.maintenanceRecord.findMany({
+      where: { vehicleId: vehicle.id },
+      orderBy: { date: 'desc' },
+    }),
+  ]);
+
+  // Calculate driver salary (for now, we'll use debtBalance as a proxy)
+  // TODO: Enhance this to calculate based on payment model and assignment period
+  const activeDriver = vehicle.drivers.find(d => !d.endDate)?.driver;
+  const driverSalary = activeDriver && activeDriver.paymentModel !== 'DRIVER_REMITS' 
+    ? Number(activeDriver.debtBalance) 
+    : 0;
+
+  const profitability = calculateVehicleProfitability({
+    initialCost: Number(vehicle.initialCost),
+    createdAt: vehicle.createdAt,
+    remittances: allRemittances.map(r => ({
+      amount: Number(r.amount),
+      date: r.date,
+    })),
+    expenses: [
+      ...allExpenses.map(e => ({
+        amount: Number(e.amount),
+        date: e.date,
+      })),
+      ...allMaintenanceRecords.map(m => ({
+        amount: Number(m.cost),
+        date: m.date,
+      })),
+    ],
+    driverSalary,
+  });
+
+  const overallDisplay = getOverallStatusDisplay(profitability.overallStatus);
+  const financialDisplay = getFinancialStatusDisplay(profitability.financialStatus);
+
+  const totalRemittances = allRemittances.reduce(
+    (sum, r) => sum + Number(r.amount),
+    0
+  );
+  const totalExpenses = allExpenses.reduce((sum, e) => sum + Number(e.amount), 0) + 
+                       allMaintenanceRecords.reduce((sum, m) => sum + Number(m.cost), 0);
+  const netProfit = totalRemittances - totalExpenses;
+
   const stats = {
-    totalRemittances: vehicle.remittances.reduce(
-      (sum, r) => sum + Number(r.amount),
-      0
-    ),
-    totalExpenses: vehicle.expenses.reduce((sum, e) => sum + Number(e.amount), 0),
-    totalIncome: vehicle.incomes.reduce((sum, i) => sum + Number(i.amount), 0),
+    totalRemittances,
+    totalExpenses,
+    netProfit,
     maintenanceCount: vehicle.maintenanceRecords.length,
   };
 
@@ -269,10 +331,10 @@ export default async function VehicleDetailPage({
             </div>
             <div>
               <p className="text-body-xs text-dark-5 dark:text-dark-6">
-                Total Income
+                Net Profit
               </p>
-              <p className="text-heading-6 font-bold text-dark dark:text-white">
-                ${stats.totalIncome.toLocaleString()}
+              <p className={`text-heading-6 font-bold ${stats.netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                ${stats.netProfit.toLocaleString()}
               </p>
             </div>
           </div>
@@ -311,10 +373,13 @@ export default async function VehicleDetailPage({
             </div>
           </div>
         </div>
-      </div>
+             </div>
 
-      {/* Assigned Drivers */}
-      <div className="rounded-[10px] bg-white shadow-1 dark:bg-gray-dark">
+       {/* Vehicle Profitability */}
+       <VehicleProfitabilityDisplay profitability={profitability} />
+
+       {/* Assigned Drivers */}
+       <div className="rounded-[10px] bg-white shadow-1 dark:bg-gray-dark">
         <div className="px-4 py-6 md:px-6 xl:px-9">
           <h4 className="text-body-2xlg font-bold text-dark dark:text-white">
             Assigned Drivers
@@ -355,14 +420,21 @@ export default async function VehicleDetailPage({
         </div>
       </div>
 
-      {/* Recent Maintenance */}
-      {vehicle.maintenanceRecords.length > 0 && (
-        <div className="rounded-[10px] bg-white shadow-1 dark:bg-gray-dark">
-          <div className="px-4 py-6 md:px-6 xl:px-9">
-            <h4 className="text-body-2xlg font-bold text-dark dark:text-white">
-              Recent Maintenance
-            </h4>
-          </div>
+             {/* Recent Maintenance */}
+       {vehicle.maintenanceRecords.length > 0 && (
+         <div className="rounded-[10px] bg-white shadow-1 dark:bg-gray-dark">
+           <div className="px-4 py-6 md:px-6 xl:px-9 flex items-center justify-between">
+             <h4 className="text-body-2xlg font-bold text-dark dark:text-white">
+               Recent Maintenance
+             </h4>
+                           <Link
+                href={`/maintenance/new?vehicleId=${vehicle.id}`}
+                className="inline-flex items-center gap-2 rounded-[7px] bg-primary px-4.5 py-[7px] text-sm font-medium text-gray-2 hover:bg-opacity-90"
+              >
+                <WrenchScrewdriverIcon className="h-4 w-4" />
+                Add Maintenance
+              </Link>
+           </div>
           <div className="overflow-x-auto">
             <table className="w-full table-auto">
               <thead>

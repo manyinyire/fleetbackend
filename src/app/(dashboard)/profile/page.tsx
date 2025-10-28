@@ -1,6 +1,7 @@
 import { requireTenant } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
+import { getInitials } from '@/lib/utils';
 import Image from 'next/image';
 
 export default async function ProfilePage() {
@@ -35,14 +36,20 @@ export default async function ProfilePage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Profile Card */}
         <div className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark lg:col-span-1">
-          <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-center">
             <div className="relative mb-4 h-32 w-32 overflow-hidden rounded-full">
-              <Image
-                src={user.image || '/images/user/user-03.png'}
-                alt={user.name}
-                fill
-                className="object-cover"
-              />
+              {user.image ? (
+                <Image
+                  src={user.image}
+                  alt={user.name}
+                  fill
+                  className="object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-primary text-4xl font-bold text-white">
+                  {getInitials(user.name)}
+                </div>
+              )}
             </div>
             <h3 className="mb-1 text-xl font-bold text-dark dark:text-white">
               {user.name}

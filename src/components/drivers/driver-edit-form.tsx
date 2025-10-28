@@ -235,8 +235,14 @@ export function DriverEditForm({ driver }: DriverEditFormProps) {
                 className="w-full rounded-[7px] border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white"
                 type="number"
                 step="0.01"
+                disabled={paymentModel === 'DRIVER_REMITS'}
                 {...form.register('debtBalance')}
               />
+              {paymentModel === 'DRIVER_REMITS' && (
+                <p className="mt-1 text-body-sm text-dark-6 italic">
+                  Drivers under "Driver Remits" model don't have salary debt
+                </p>
+              )}
             </div>
           </div>
         </div>

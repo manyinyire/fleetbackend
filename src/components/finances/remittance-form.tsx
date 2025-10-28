@@ -7,14 +7,12 @@ import { z } from 'zod';
 import { createRemittance, updateRemittance, type CreateRemittanceInput } from '@/server/actions/remittances';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
-import InputGroup from '@/components/FormElements/InputGroup';
-import { Select } from '@/components/FormElements/select';
-import { TextAreaGroup } from '@/components/FormElements/InputGroup/text-area';
-import { CalendarIcon, CurrencyDollarIcon, DocumentTextIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, CurrencyDollarIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { ChevronUpIcon } from '@/assets/icons';
 
 const remittanceFormSchema = z.object({
   driverId: z.string().min(1, 'Driver is required'),
-  amount: z.coerce.number().positive('Amount must be greater than 0'),
+  amount: z.coerce.number().gt(0, 'Amount must be greater than 0'),
   date: z.string().min(1, 'Date is required'),
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).default('PENDING'),
   proofOfPayment: z.string().optional(),
@@ -125,20 +123,60 @@ export function RemittanceForm({ drivers, remittance, onSuccess }: RemittanceFor
     }
   };
 
+  // Get drivers without vehicle assignments
+  const driversWithoutVehicles = drivers.filter(
+    driver => !driver.vehicles.some(v => !v.endDate)
+  );
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {driversWithoutVehicles.length > 0 && (
+        <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <span className="text-yellow-600">⚠️</span>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-800">
+                The following drivers are not available for remittances because they don't have an assigned vehicle:
+              </p>
+              <ul className="mt-2 list-disc list-inside text-sm text-yellow-700">
+                {driversWithoutVehicles.map(driver => (
+                  <li key={driver.id}>{driver.fullName}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         {/* Driver Selection */}
-        <Select
-          label="Driver"
-          placeholder="Select a driver"
-          items={drivers.map(driver => ({
-            value: driver.id,
-            label: driver.fullName
-          }))}
-          defaultValue={remittance?.driverId || ''}
-          prefixIcon={<CurrencyDollarIcon className="h-5 w-5 text-gray-400" />}
-        />
+        <div>
+          <label className="block text-body-sm font-medium text-dark dark:text-white mb-3">
+            Driver *
+          </label>
+          <div className="relative">
+            <CurrencyDollarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <select
+              {...register('driverId')}
+              className="w-full appearance-none rounded-lg border border-stroke bg-transparent pl-11.5 pr-11.5 py-3 outline-none transition focus:border-primary active:border-primary dark:border-dark-3 dark:bg-dark-2 dark:focus:border-primary"
+            >
+              <option value="">Select a driver</option>
+              {drivers
+                .filter(driver => driver.vehicles.some(v => !v.endDate))
+                .map(driver => (
+                  <option key={driver.id} value={driver.id}>
+                    {driver.fullName}
+                  </option>
+                ))}
+            </select>
+            <ChevronUpIcon className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 rotate-180" />
+          </div>
+          {errors.driverId && (
+            <p className="text-sm text-red-600 mt-1">{errors.driverId.message}</p>
+          )}
+        </div>
 
         {/* Vehicle Display (Read-only) */}
         <div>
@@ -147,80 +185,122 @@ export function RemittanceForm({ drivers, remittance, onSuccess }: RemittanceFor
           </label>
           <div className="rounded-lg border border-stroke bg-transparent px-5.5 py-3 text-dark placeholder:text-dark-6 dark:border-dark-3 dark:bg-dark-2 dark:text-white">
             {activeVehicle ? (
-              <span className="text-dark dark:text-white">
-                {activeVehicle.registrationNumber} - {activeVehicle.make} {activeVehicle.model}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-dark dark:text-white font-medium">
+                  {activeVehicle.registrationNumber}
+                </span>
+                <span className="text-dark-6 dark:text-dark-6">
+                  - {activeVehicle.make} {activeVehicle.model}
+                </span>
+              </div>
             ) : (
-              <span className="text-dark-6 dark:text-dark-6">
-                {selectedDriverId ? 'No active vehicle assignment' : 'Select a driver first'}
+              <span className={`${selectedDriverId ? 'text-red-600 dark:text-red-400' : 'text-dark-6 dark:text-dark-6'}`}>
+                {selectedDriverId ? '⚠️ No active vehicle assignment' : 'Select a driver first'}
               </span>
             )}
           </div>
+          {!activeVehicle && selectedDriverId && (
+            <p className="text-xs text-red-600 mt-1">
+              This driver must have an assigned vehicle to create a remittance
+            </p>
+          )}
         </div>
 
-        {/* Amount */}
-        <InputGroup
-          label="Amount"
-          type="number"
-          placeholder="0.00"
-          required
-          icon={<CurrencyDollarIcon className="h-5 w-5 text-gray-400" />}
-          iconPosition="left"
-          {...register('amount')}
-        />
-        {errors.amount && (
-          <p className="text-sm text-red-600">{errors.amount.message}</p>
-        )}
+                 {/* Amount */}
+         <div>
+           <label className="block text-body-sm font-medium text-dark dark:text-white mb-3">
+             Amount *
+           </label>
+           <div className="relative">
+             <CurrencyDollarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+             <input
+               {...register('amount')}
+               type="number"
+               placeholder="0.00"
+               step="0.01"
+               min="0"
+               className="w-full appearance-none rounded-lg border border-stroke bg-transparent pl-11.5 pr-4 py-3 outline-none transition focus:border-primary active:border-primary dark:border-dark-3 dark:bg-dark-2 dark:focus:border-primary"
+             />
+           </div>
+           {errors.amount && (
+             <p className="text-sm text-red-600 mt-1">{errors.amount.message}</p>
+           )}
+         </div>
 
-        {/* Date */}
-        <InputGroup
-          label="Date"
-          type="date"
-          placeholder=""
-          required
-          icon={<CalendarIcon className="h-5 w-5 text-gray-400" />}
-          iconPosition="left"
-          {...register('date')}
-        />
-        {errors.date && (
-          <p className="text-sm text-red-600">{errors.date.message}</p>
-        )}
+                 {/* Date */}
+         <div>
+           <label className="block text-body-sm font-medium text-dark dark:text-white mb-3">
+             Date *
+           </label>
+           <div className="relative">
+             <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+             <input
+               {...register('date')}
+               type="date"
+               className="w-full appearance-none rounded-lg border border-stroke bg-transparent pl-11.5 pr-4 py-3 outline-none transition focus:border-primary active:border-primary dark:border-dark-3 dark:bg-dark-2 dark:focus:border-primary"
+             />
+           </div>
+           {errors.date && (
+             <p className="text-sm text-red-600 mt-1">{errors.date.message}</p>
+           )}
+         </div>
 
         {/* Status */}
-        <Select
-          label="Status"
-          placeholder="Select status"
-          items={[
-            { value: 'PENDING', label: 'Pending' },
-            { value: 'APPROVED', label: 'Approved' },
-            { value: 'REJECTED', label: 'Rejected' }
-          ]}
-          defaultValue={remittance?.status || 'PENDING'}
-        />
+        <div>
+          <label className="block text-body-sm font-medium text-dark dark:text-white mb-3">
+            Status
+          </label>
+          <div className="relative">
+            <select
+              {...register('status')}
+              className="w-full appearance-none rounded-lg border border-stroke bg-transparent px-5.5 py-3 pr-11.5 outline-none transition focus:border-primary active:border-primary dark:border-dark-3 dark:bg-dark-2 dark:focus:border-primary"
+            >
+              <option value="PENDING">Pending</option>
+              <option value="APPROVED">Approved</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+            <ChevronUpIcon className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 rotate-180" />
+          </div>
+          {errors.status && (
+            <p className="text-sm text-red-600 mt-1">{errors.status.message}</p>
+          )}
+        </div>
 
-        {/* Proof of Payment */}
-        <InputGroup
-          label="Proof of Payment URL"
-          type="url"
-          placeholder="https://example.com/receipt.jpg"
-          icon={<PhotoIcon className="h-5 w-5 text-gray-400" />}
-          iconPosition="left"
-          {...register('proofOfPayment')}
-        />
-        {errors.proofOfPayment && (
-          <p className="text-sm text-red-600">{errors.proofOfPayment.message}</p>
-        )}
-      </div>
+                 {/* Proof of Payment */}
+         <div>
+           <label className="block text-body-sm font-medium text-dark dark:text-white mb-3">
+             Proof of Payment URL
+           </label>
+           <div className="relative">
+             <PhotoIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+             <input
+               {...register('proofOfPayment')}
+               type="url"
+               placeholder="https://example.com/receipt.jpg"
+               className="w-full appearance-none rounded-lg border border-stroke bg-transparent pl-11.5 pr-4 py-3 outline-none transition focus:border-primary active:border-primary dark:border-dark-3 dark:bg-dark-2 dark:focus:border-primary"
+             />
+           </div>
+           {errors.proofOfPayment && (
+             <p className="text-sm text-red-600 mt-1">{errors.proofOfPayment.message}</p>
+           )}
+         </div>
+       </div>
 
-      {/* Notes */}
-      <TextAreaGroup
-        label="Notes"
-        placeholder="Additional notes about this remittance..."
-        defaultValue={remittance?.notes || ''}
-      />
-      {errors.notes && (
-        <p className="text-sm text-red-600">{errors.notes.message}</p>
-      )}
+             {/* Notes */}
+       <div>
+         <label className="block text-body-sm font-medium text-dark dark:text-white mb-3">
+           Notes
+         </label>
+         <textarea
+           {...register('notes')}
+           rows={6}
+           placeholder="Additional notes about this remittance..."
+           className="w-full rounded-lg border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+         />
+       </div>
+       {errors.notes && (
+         <p className="text-sm text-red-600">{errors.notes.message}</p>
+       )}
 
       {/* Submit Button */}
       <div className="flex justify-end space-x-3">
