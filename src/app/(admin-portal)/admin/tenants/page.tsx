@@ -1,14 +1,10 @@
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireRole } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import { TenantActions } from '@/components/admin/tenant-actions';
 
 export default async function TenantsPage() {
-  const { user, tenantId } = await requireTenant();
-  
-  // SUPER_ADMIN users should see platform-wide data
-  if (user.role !== 'SUPER_ADMIN') {
-    throw new Error('Access denied: Super admin only');
-  }
+  await requireRole('SUPER_ADMIN');
 
   // Fetch all tenants with their user counts
   const tenants = await prisma.tenant.findMany({
@@ -194,21 +190,22 @@ export default async function TenantsPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                        <span className="text-gray-600 text-sm font-medium">
-                          {tenant.name.charAt(0)}
+                      <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-bold">
+                          {tenant.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
                     </div>
                     <div className="ml-4">
                       <div className="flex items-center">
-                        <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                          <Link href={`/admin/tenants/${tenant.id}`}>
-                            {tenant.name}
-                          </Link>
-                        </p>
+                        <Link
+                          href={`/admin/tenants/${tenant.id}`}
+                          className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          {tenant.name}
+                        </Link>
                         <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          tenant.status === 'ACTIVE' 
+                          tenant.status === 'ACTIVE'
                             ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                             : tenant.status === 'SUSPENDED'
                             ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
@@ -216,33 +213,34 @@ export default async function TenantsPage() {
                         }`}>
                           {tenant.status}
                         </span>
+                        <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          tenant.plan === 'FREE'
+                            ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                            : tenant.plan === 'BASIC'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                            : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                        }`}>
+                          {tenant.plan}
+                        </span>
                       </div>
                       <div className="mt-1">
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {tenant.email} • {tenant.plan} Plan
+                          {tenant.email} • {tenant.phone || 'No phone'}
                         </p>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      <div>{tenant.users.length} users</div>
+                  <div className="flex items-center space-x-6">
+                    <div className="text-sm text-gray-500 dark:text-gray-400 text-right">
+                      <div className="font-medium">{tenant.users.length} users</div>
                       <div>{tenant._count.vehicles} vehicles</div>
+                      <div>{tenant._count.drivers} drivers</div>
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      Created {new Date(tenant.createdAt).toLocaleDateString()}
+                    <div className="text-sm text-gray-500 dark:text-gray-400 text-right">
+                      <div className="font-medium">${tenant.monthlyRevenue}/mo</div>
+                      <div className="text-xs">Created {new Date(tenant.createdAt).toLocaleDateString()}</div>
                     </div>
-                    <div className="flex space-x-2">
-                      <button className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
-                        View
-                      </button>
-                      <button className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300">
-                        Edit
-                      </button>
-                      <button className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
-                        Suspend
-                      </button>
-                    </div>
+                    <TenantActions tenant={tenant} />
                   </div>
                 </div>
               </div>
@@ -252,7 +250,7 @@ export default async function TenantsPage() {
       </div>
 
       {/* Pagination */}
-      <div className="bg-white dark:bg-gray-800 px-4 py-3 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 sm:px-6">
+      <div className="bg-white dark:bg-gray-800 px-4 py-3 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 sm:px-6 rounded-lg">
         <div className="flex-1 flex justify-between sm:hidden">
           <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
             Previous
