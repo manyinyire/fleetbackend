@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   ChartBarIcon, 
   UserGroupIcon, 
@@ -53,9 +53,9 @@ export function AnalyticsDashboard() {
 
   useEffect(() => {
     fetchAnalyticsData();
-  }, [timeRange]);
+  }, [timeRange, fetchAnalyticsData]);
 
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/admin/analytics?timeRange=${timeRange}`);
@@ -68,7 +68,7 @@ export function AnalyticsDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeRange]);
 
   if (loading) {
     return (

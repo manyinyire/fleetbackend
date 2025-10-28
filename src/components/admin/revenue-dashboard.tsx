@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   CurrencyDollarIcon,
   ArrowUpIcon,
@@ -40,11 +40,7 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
   const [loading, setLoading] = useState(false);
   const [revenueData, setRevenueData] = useState(data);
 
-  useEffect(() => {
-    fetchRevenueData();
-  }, [selectedTimeRange]);
-
-  const fetchRevenueData = async () => {
+  const fetchRevenueData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/admin/revenue?timeRange=${selectedTimeRange}`);
@@ -57,7 +53,11 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedTimeRange]);
+
+  useEffect(() => {
+    fetchRevenueData();
+  }, [fetchRevenueData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

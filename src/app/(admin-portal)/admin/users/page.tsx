@@ -1,4 +1,4 @@
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireRole } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 
 export default async function UsersPage() {
