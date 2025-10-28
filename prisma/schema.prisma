@@ -32,6 +32,8 @@ model Tenant {
   vehicles  Vehicle[]
   drivers   Driver[]
   settings  TenantSettings?
+  invoices  Invoice[]
+  payments  Payment[]
 
   @@map("tenants")
 }
@@ -604,9 +606,11 @@ enum EmailType {
   INVOICE_NOTIFICATION
   SUBSCRIPTION_RENEWAL
   PAYMENT_FAILED
+  PAYMENT_CONFIRMATION
   TRIAL_EXPIRING
   ACCOUNT_SUSPENDED
   ADMIN_NOTIFICATION
+  ADMIN_PAYMENT_ALERT
 }
 
 model FeatureFlag {
@@ -622,4 +626,127 @@ model FeatureFlag {
 
   @@index([isEnabled])
   @@map("feature_flags")
+}
+
+// ============================================
+// PAYMENT AND INVOICE TABLES
+// ============================================
+
+model Invoice {
+  id              String   @id @default(cuid())
+  tenantId        String
+  invoiceNumber   String   @unique
+  
+  // Invoice Details
+  description     String
+  amount          Decimal  @db.Decimal(10, 2)
+  currency        String   @default("USD")
+  
+  // Invoice Type
+  type            InvoiceType
+  subscriptionPlan SubscriptionPlan?
+  
+  // Status
+  status          InvoiceStatus @default(PENDING)
+  
+  // Dates
+  issueDate       DateTime @default(now())
+  dueDate         DateTime
+  paidAt          DateTime?
+  
+  // Metadata
+  metadata        Json?    // Additional invoice data
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payments        Payment[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
+
+enum InvoiceType {
+  SUBSCRIPTION_UPGRADE
+  SUBSCRIPTION_RENEWAL
+  ONE_TIME
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  tenantId          String
+  invoiceId         String?
+  
+  // Payment Details
+  amount            Decimal  @db.Decimal(10, 2)
+  currency          String   @default("USD")
+  
+  // Payment Gateway
+  gateway           PaymentGateway @default(PAYNOW)
+  
+  // PayNow Specific Fields
+  pollUrl           String?
+  paynowReference   String?  @unique
+  
+  // Status
+  status            PaymentStatus @default(PENDING)
+  
+  // Verification
+  verified          Boolean  @default(false)
+  verifiedAt        DateTime?
+  verificationHash  String?  // Hash for verification integrity
+  
+  // Actions Performed
+  upgradeActioned   Boolean  @default(false)
+  unsuspendActioned Boolean  @default(false)
+  emailSent         Boolean  @default(false)
+  adminNotified     Boolean  @default(false)
+  
+  // Metadata
+  paymentMetadata   Json?    // Raw payment data from gateway
+  errorMessage      String?
+  
+  // Reconciliation
+  reconciled        Boolean  @default(false)
+  reconciledAt      DateTime?
+  reconciledBy      String?
+  reconNotes        String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relationships
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice           Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@index([status])
+  @@index([verified])
+  @@index([reconciled])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+enum PaymentGateway {
+  PAYNOW
+  MANUAL
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
 }
