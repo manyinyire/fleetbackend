@@ -16,7 +16,7 @@ export function useTenant() {
 
   useEffect(() => {
     async function fetchTenantSettings() {
-      if (!user?.tenantId) {
+      if (!(user as any)?.tenantId) {
         setIsLoading(false);
         return;
       }
@@ -35,7 +35,7 @@ export function useTenant() {
     }
 
     fetchTenantSettings();
-  }, [user?.tenantId]);
+  }, [(user as any)?.tenantId]);
 
   return {
     tenantSettings,

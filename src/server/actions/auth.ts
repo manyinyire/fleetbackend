@@ -86,17 +86,15 @@ export async function signUp(formData: FormData) {
       },
     });
 
-    if (userResult.error) {
-      throw new Error(userResult.error.message || 'Failed to create user');
-    }
+    // User created successfully
 
     // Mark that we shouldn't cleanup if we reach here
     shouldCleanup = false;
 
     // Ensure the user has the tenant ID and role set (if needed)
-    if (userResult.data?.user?.id) {
+    if (userResult.user?.id) {
       await prisma.user.update({
-        where: { id: userResult.data.user.id },
+        where: { id: userResult.user.id },
         data: {
           tenantId: tenant.id,
           role: 'TENANT_ADMIN',

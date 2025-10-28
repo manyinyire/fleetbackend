@@ -84,3 +84,14 @@ export async function requireTenantForDashboard() {
   
   return { user, tenantId };
 }
+
+// Server-side: Require SUPER_ADMIN role
+export async function requireSuperAdmin() {
+  const user = await requireAuth();
+  
+  if (user.role !== 'SUPER_ADMIN') {
+    redirect('/dashboard');
+  }
+  
+  return user;
+}

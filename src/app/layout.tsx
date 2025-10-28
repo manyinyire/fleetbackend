@@ -10,6 +10,7 @@ import type { PropsWithChildren } from "react";
 import { Providers } from "./providers";
 import Script from "next/script";
 import { GA_MEASUREMENT_ID } from "@/lib/gtag";
+import { Suspense } from 'react';
 import { AnalyticsTracker } from "@/components/analytics-tracker";
 
 export const metadata: Metadata = {
@@ -75,7 +76,9 @@ export default function RootLayout({ children }: PropsWithChildren) {
       <body>
         <Providers>
           <NextTopLoader color="#1e3a8a" showSpinner={false} />
-          <AnalyticsTracker />
+          <Suspense fallback={null}>
+            <AnalyticsTracker />
+          </Suspense>
           {children}
         </Providers>
       </body>

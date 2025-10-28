@@ -9,10 +9,12 @@ export async function updateTenantSettings(data: any) {
   const { user, tenantId } = await requireTenant();
   
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
   
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // Upsert settings
   const settings = await prisma.tenantSettings.upsert({

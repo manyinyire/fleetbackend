@@ -26,10 +26,12 @@ export async function createVehicle(data: CreateVehicleInput) {
   const validated = createVehicleSchema.parse(data);
 
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
 
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // Check if registration number already exists for this tenant
   const existing = await prisma.vehicle.findFirst({
@@ -68,10 +70,12 @@ export async function updateVehicle(id: string, data: Partial<CreateVehicleInput
   const { user, tenantId } = await requireTenant();
 
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
 
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // Update vehicle
   const vehicle = await prisma.vehicle.update({
@@ -92,10 +96,12 @@ export async function deleteVehicle(id: string) {
   const { user, tenantId } = await requireTenant();
 
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
 
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // Delete vehicle
   await prisma.vehicle.delete({

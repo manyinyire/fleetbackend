@@ -180,7 +180,7 @@ export const SUPER_ADMIN_NAV_DATA = [
       {
         title: "Custom Reports",
         icon: Icons.DocumentTextIcon,
-        url: "/admin/reports",
+        url: "/admin/report-builder",
         items: [],
       },
       {

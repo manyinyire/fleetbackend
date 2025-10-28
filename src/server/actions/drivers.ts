@@ -34,10 +34,12 @@ export async function createDriver(data: CreateDriverInput) {
   const validated = createDriverSchema.parse(data);
 
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
 
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // Check if national ID already exists for this tenant
   const existing = await prisma.driver.findFirst({
@@ -83,10 +85,12 @@ export async function updateDriver(id: string, data: Partial<CreateDriverInput>)
   const { user, tenantId } = await requireTenant();
 
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
 
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // Update driver
   const driver = await prisma.driver.update({
@@ -108,10 +112,12 @@ export async function deleteDriver(id: string) {
   const { user, tenantId } = await requireTenant();
 
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
 
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // Delete driver
   await prisma.driver.delete({

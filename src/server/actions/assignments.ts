@@ -13,10 +13,12 @@ export async function assignVehicleToDriver(
   const { user, tenantId } = await requireTenant();
 
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
 
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // Check if driver and vehicle exist and belong to tenant
   const [driver, vehicle] = await Promise.all([
@@ -96,10 +98,12 @@ export async function unassignVehicleFromDriver(assignmentId: string) {
   const { user, tenantId } = await requireTenant();
 
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
 
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // End the assignment
   const assignment = await prisma.driverVehicleAssignment.update({

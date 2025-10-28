@@ -30,10 +30,12 @@ export async function createRemittance(data: CreateRemittanceInput) {
   const validated = createRemittanceSchema.parse(data);
 
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
 
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // Check if driver and vehicle exist and belong to tenant
   const [driver, vehicle] = await Promise.all([
@@ -103,10 +105,12 @@ export async function updateRemittance(data: UpdateRemittanceInput) {
   const validated = updateRemittanceSchema.parse(data);
 
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
 
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // Get existing remittance
   const existingRemittance = await prisma.remittance.findUnique({
@@ -176,10 +180,12 @@ export async function deleteRemittance(id: string) {
   const { user, tenantId } = await requireTenant();
 
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
 
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // Get existing remittance
   const existingRemittance = await prisma.remittance.findUnique({
@@ -219,10 +225,12 @@ export async function approveRemittance(id: string) {
   const { user, tenantId } = await requireTenant();
 
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
 
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // Get existing remittance
   const existingRemittance = await prisma.remittance.findUnique({
@@ -271,10 +279,12 @@ export async function rejectRemittance(id: string, reason?: string) {
   const { user, tenantId } = await requireTenant();
 
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
 
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   // Get existing remittance
   const existingRemittance = await prisma.remittance.findUnique({
