@@ -65,7 +65,8 @@ model User {
   tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sessions  Session[]
   accounts  Account[]
-  
+  auditLogs AuditLog[]
+
   // Admin relationships
   adminSettings AdminSettings?
   adminSessions AdminSession[]
@@ -446,9 +447,12 @@ model AuditLog {
   entityId    String?
   oldValues   Json?
   newValues   Json?
+  details     Json?
   ipAddress   String
   userAgent   String
   createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([userId])
