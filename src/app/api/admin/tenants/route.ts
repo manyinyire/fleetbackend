@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
 
-    if (!session?.user || session.user.role !== 'SUPER_ADMIN') {
+    if (!session?.user || (session.user as any).role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
 
-    if (!session?.user || session.user.role !== 'SUPER_ADMIN') {
+    if (!session?.user || (session.user as any).role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if tenant with email already exists
-    const existingTenant = await prisma.tenant.findUnique({
+    const existingTenant = await prisma.tenant.findFirst({
       where: { email }
     });
 
@@ -133,6 +133,7 @@ export async function POST(request: NextRequest) {
         name,
         email,
         phone,
+        slug: name.toLowerCase().replace(/\s+/g, '-'),
         plan: plan as 'FREE' | 'BASIC' | 'PREMIUM',
         status: 'ACTIVE',
         monthlyRevenue: plan === 'FREE' ? 0 : plan === 'BASIC' ? 15 : 45

@@ -12,123 +12,138 @@ export default async function SystemHealthPage() {
     platformMetrics,
     serverStatus
   ] = await Promise.all([
-    // System Alerts - placeholder
-    Promise.resolve([]),
+    // System Alerts (using recent errors as proxy)
+    prisma.auditLog.findMany({
+      where: {
+        action: { contains: 'ERROR' },
+        createdAt: {
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+        }
+      },
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      include: { user: true }
+    }),
     
-    // Recent Incidents (last 30 days) - placeholder
-    Promise.resolve([]),
+    // Recent Incidents (using audit logs as proxy)
+    prisma.auditLog.findMany({
+      where: {
+        action: { in: ['ERROR', 'WARNING', 'CRITICAL'] },
+        createdAt: {
+          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        }
+      },
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+      include: { user: true }
+    }),
     
-    // Platform Metrics (last 24 hours) - placeholder
-    Promise.resolve([]),
+    // Platform Metrics (using actual data)
+    prisma.user.count({
+      where: {
+        createdAt: {
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+        }
+      }
+    }),
     
-    // Server Status (placeholder data)
+    // Server Status (placeholder data - would come from monitoring system)
     Promise.resolve([
       {
         id: 'server-01',
         name: 'Web Server 01',
         type: 'web',
         status: 'healthy',
-        cpu: 38,
-        memory: 62,
-        disk: 45,
-        uptime: '99.98%'
+        uptime: 99.9,
+        responseTime: 120,
+        cpu: 45,
+        memory: 68
       },
       {
         id: 'server-02',
-        name: 'Web Server 02',
-        type: 'web',
+        name: 'Database Server',
+        type: 'database',
         status: 'healthy',
-        cpu: 41,
-        memory: 65,
-        disk: 48,
-        uptime: '99.95%'
+        uptime: 99.95,
+        responseTime: 45,
+        cpu: 32,
+        memory: 78
       },
       {
         id: 'server-03',
-        name: 'API Server 01',
+        name: 'API Server',
         type: 'api',
         status: 'warning',
-        cpu: 94,
-        memory: 78,
-        disk: 52,
-        uptime: '99.89%'
-      },
-      {
-        id: 'server-04',
-        name: 'API Server 02',
-        type: 'api',
-        status: 'healthy',
-        cpu: 52,
-        memory: 71,
-        disk: 38,
-        uptime: '99.97%'
-      },
-      {
-        id: 'db-primary',
-        name: 'Database Primary',
-        type: 'database',
-        status: 'healthy',
-        cpu: 24,
-        memory: 54,
-        disk: 67,
-        uptime: '99.99%'
-      },
-      {
-        id: 'db-replica',
-        name: 'Database Replica',
-        type: 'database',
-        status: 'healthy',
-        cpu: 18,
-        memory: 48,
-        disk: 45,
-        uptime: '99.98%'
-      },
-      {
-        id: 'redis-01',
-        name: 'Redis Cache',
-        type: 'cache',
-        status: 'healthy',
-        cpu: 12,
-        memory: 32,
-        disk: 23,
-        uptime: '99.99%'
+        uptime: 99.5,
+        responseTime: 200,
+        cpu: 85,
+        memory: 92
       }
     ])
   ]);
 
-  // Process metrics data - placeholder
-  const metricsByType = {
-    cpu: [],
-    memory: [],
-    disk: [],
-    network: []
-  };
+  // Process metrics data
+  const totalUsers = await prisma.user.count();
+  const totalTenants = await prisma.tenant.count();
+  const activeUsers = await prisma.user.count({
+    where: {
+      createdAt: {
+        gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      }
+    }
+  });
 
-  // Calculate system health score - placeholder
-  const criticalAlerts = 0;
-  const warningAlerts = 0;
-  const healthScore = 100;
+  // Calculate system health score
+  const healthScore = Math.max(0, 100 - (systemAlerts.length * 5) - (recentIncidents.length * 2));
 
-  const systemData = {
+  const systemHealthData = {
     healthScore,
     alerts: {
-      critical: criticalAlerts,
-      warning: warningAlerts,
-      info: 0,
-      success: 0
+      critical: systemAlerts.filter(alert => alert.action.includes('CRITICAL')).length,
+      warning: systemAlerts.filter(alert => alert.action.includes('WARNING')).length,
+      info: systemAlerts.filter(alert => alert.action.includes('INFO')).length,
+      success: systemAlerts.filter(alert => alert.action.includes('SUCCESS')).length
     },
-    systemAlerts,
-    recentIncidents,
-    serverStatus,
+    systemAlerts: systemAlerts.map(alert => ({
+      id: alert.id,
+      type: 'ERROR',
+      title: `Error: ${alert.action}`,
+      message: alert.details || 'System error detected',
+      timestamp: alert.createdAt,
+      resolved: false
+    })),
+    recentIncidents: recentIncidents.map(incident => ({
+      id: incident.id,
+      type: incident.action,
+      title: `${incident.action}: ${incident.entityType}`,
+      description: incident.details || 'System incident detected',
+      timestamp: incident.createdAt,
+      status: 'investigating',
+      impact: 'medium'
+    })),
+    serverStatus: serverStatus,
     metrics: {
-      apiUptime: 99.98,
+      totalUsers,
+      totalTenants,
+      activeUsers,
+      newUsers: platformMetrics,
+      apiUptime: 99.9,
       dbStatus: 'healthy',
       avgResponseTime: 142,
       errorRate: 0.24,
-      requestVolume: 1247
+      requestVolume: 1250 // Requests per minute
     },
-    metricsData: metricsByType
+    metricsData: {
+      totalUsers: [{ value: totalUsers, label: 'Total Users' }],
+      totalTenants: [{ value: totalTenants, label: 'Total Tenants' }],
+      activeUsers: [{ value: activeUsers, label: 'Active Users' }],
+      newUsers: [{ value: platformMetrics, label: 'New Users (24h)' }],
+      apiUptime: [{ value: 99.9, label: 'API Uptime %' }],
+      dbStatus: [{ value: 'healthy', label: 'Database Status' }],
+      avgResponseTime: [{ value: 142, label: 'Avg Response Time (ms)' }],
+      errorRate: [{ value: 0.24, label: 'Error Rate %' }]
+    }
   };
 
-  return <SystemHealthDashboard data={systemData} />;
+  return <SystemHealthDashboard data={systemHealthData} />;
 }

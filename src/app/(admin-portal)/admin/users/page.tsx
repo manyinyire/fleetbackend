@@ -2,12 +2,7 @@ import { requireRole } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 
 export default async function UsersPage() {
-  const { user, tenantId } = await requireTenant();
-  
-  // SUPER_ADMIN users should see platform-wide data
-  if (user.role !== 'SUPER_ADMIN') {
-    throw new Error('Access denied: Super admin only');
-  }
+  await requireRole('SUPER_ADMIN');
 
   // Fetch all users with their tenant information
   const users = await prisma.user.findMany({

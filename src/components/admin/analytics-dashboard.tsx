@@ -51,10 +51,6 @@ export function AnalyticsDashboard() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<AnalyticsData | null>(null);
 
-  useEffect(() => {
-    fetchAnalyticsData();
-  }, [timeRange, fetchAnalyticsData]);
-
   const fetchAnalyticsData = useCallback(async () => {
     setLoading(true);
     try {
@@ -69,6 +65,10 @@ export function AnalyticsDashboard() {
       setLoading(false);
     }
   }, [timeRange]);
+
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, [fetchAnalyticsData]);
 
   if (loading) {
     return (

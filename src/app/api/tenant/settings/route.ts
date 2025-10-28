@@ -6,7 +6,7 @@ export async function GET() {
   try {
     const user = await getCurrentUser();
 
-    if (!user?.tenantId) {
+    if (!(user as any)?.tenantId) {
       return NextResponse.json(
         { error: 'No tenant context' },
         { status: 403 }
@@ -15,7 +15,7 @@ export async function GET() {
 
     const tenantSettings = await prisma.tenantSettings.findUnique({
       where: {
-        tenantId: user.tenantId as string,
+        tenantId: (user as any).tenantId as string,
       },
       select: {
         companyName: true,

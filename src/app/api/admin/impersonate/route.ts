@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const { user, tenantId } = await requireTenant();
     
     // Only SUPER_ADMIN can impersonate
-    if (user.role !== 'SUPER_ADMIN') {
+    if ((user as any).role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'Access denied: Super admin only' },
         { status: 403 }
@@ -83,7 +83,7 @@ export async function DELETE(request: NextRequest) {
     const { user, tenantId } = await requireTenant();
     
     // Only SUPER_ADMIN can stop impersonation
-    if (user.role !== 'SUPER_ADMIN') {
+    if ((user as any).role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'Access denied: Super admin only' },
         { status: 403 }
