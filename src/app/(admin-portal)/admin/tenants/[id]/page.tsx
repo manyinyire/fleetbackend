@@ -14,7 +14,7 @@ export default async function TenantDetailsPage({
   const { user, tenantId } = await requireTenant();
   
   // SUPER_ADMIN users should see platform-wide data
-  if (user.role !== 'SUPER_ADMIN') {
+  if ((user as any).role !== 'SUPER_ADMIN') {
     throw new Error('Access denied: Super admin only');
   }
 

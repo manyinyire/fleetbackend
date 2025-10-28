@@ -58,7 +58,7 @@ export default function AdminLoginPage() {
       }
 
       // Check if user is SUPER_ADMIN
-      if (result.data?.user?.role !== 'SUPER_ADMIN') {
+      if ((result.data?.user as any)?.role !== 'SUPER_ADMIN') {
         setError('Access denied. Super Admin privileges required.');
         setIsLoading(false);
         return;
