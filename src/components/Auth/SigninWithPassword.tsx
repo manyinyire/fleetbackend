@@ -46,9 +46,15 @@ export default function SigninWithPassword() {
       // Give time for the session cookie to be set
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Refresh and redirect
+      // Check user role and redirect accordingly
+      if (result.data?.user?.role === 'SUPER_ADMIN') {
+        router.push('/admin/dashboard');
+      } else {
+        router.push('/dashboard');
+      }
+
+      // Refresh after redirect
       router.refresh();
-      router.push('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
       toast.error('An unexpected error occurred');

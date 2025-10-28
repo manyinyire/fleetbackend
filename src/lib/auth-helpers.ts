@@ -2,6 +2,7 @@ import { auth } from './auth';
 import { headers } from 'next/headers';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
+import { prisma } from './prisma';
 
 // Server-side: Get current user (cached per request)
 export const getCurrentUser = cache(async () => {
@@ -34,7 +35,7 @@ export async function requireAuth() {
   const user = await getCurrentUser();
 
   if (!user) {
-    redirect('/login');
+    redirect('/auth/sign-in');
   }
 
   return user;
@@ -46,6 +47,10 @@ export async function requireRole(role: string | string[]) {
   const roles = Array.isArray(role) ? role : [role];
 
   if (!roles.includes(user.role as string)) {
+    // If checking for SUPER_ADMIN and user doesn't have it, redirect to regular dashboard
+    if (roles.includes('SUPER_ADMIN')) {
+      redirect('/dashboard');
+    }
     throw new Error('Forbidden: Insufficient permissions');
   }
 
@@ -55,16 +60,34 @@ export async function requireRole(role: string | string[]) {
 // Server-side: Require tenant context (handles SUPER_ADMIN)
 export async function requireTenant() {
   const user = await requireAuth();
-  
+
   // SUPER_ADMIN users don't have a tenantId
   if (user.role === 'SUPER_ADMIN') {
     return { user, tenantId: null };
   }
-  
+
   if (!user.tenantId) {
     throw new Error('No tenant context');
   }
-  
+
+  // Check if tenant is suspended or cancelled
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: user.tenantId as string },
+    select: { status: true, name: true }
+  });
+
+  if (!tenant) {
+    throw new Error('Tenant not found');
+  }
+
+  if (tenant.status === 'SUSPENDED') {
+    redirect('/suspended');
+  }
+
+  if (tenant.status === 'CANCELED') {
+    redirect('/cancelled');
+  }
+
   return { user, tenantId: user.tenantId as string };
 }
 

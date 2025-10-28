@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { EyeIcon, EyeSlashIcon, ShieldCheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { TwoFactorSetup } from '@/components/admin/two-factor-setup';
 import { TwoFactorVerification } from '@/components/admin/two-factor-verification';
+import { signIn } from '@/lib/auth-client';
+import { toast } from 'react-hot-toast';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -44,28 +46,34 @@ export default function AdminLoginPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/admin/auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      const result = await signIn.email({
+        email: formData.email,
+        password: formData.password,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        if (data.requires2FA) {
-          setStep('2fa-verify');
-        } else if (data.success) {
-          router.push('/admin/dashboard');
-        }
-      } else {
-        setError(data.error || 'Login failed');
+      if (result.error) {
+        setError(result.error.message || 'Login failed');
+        setIsLoading(false);
+        return;
       }
+
+      // Check if user is SUPER_ADMIN
+      if (result.data?.user?.role !== 'SUPER_ADMIN') {
+        setError('Access denied. Super Admin privileges required.');
+        setIsLoading(false);
+        return;
+      }
+
+      toast.success('Login successful!');
+
+      // Give time for the session cookie to be set
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Redirect to admin dashboard
+      router.push('/admin/dashboard');
+      router.refresh();
     } catch (err) {
       setError('Network error. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };
