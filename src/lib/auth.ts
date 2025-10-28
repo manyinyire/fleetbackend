@@ -17,7 +17,7 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false, // Set to true in production
+    requireEmailVerification: true, // Enable email verification
   },
 
   session: {
