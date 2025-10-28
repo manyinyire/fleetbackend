@@ -36,7 +36,7 @@ export class AuditLogger {
 
       await prisma.auditLog.create({
         data: {
-          tenantId: user.tenantId,
+          tenantId: (user as any).tenantId,
           userId: user.id,
           action: data.action,
           entityType: data.entityType,

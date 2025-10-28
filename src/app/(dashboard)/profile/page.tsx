@@ -64,9 +64,9 @@ export default async function ProfilePage() {
               {user.email}
             </p>
             <div className="mt-4">
-              <span className="inline-flex rounded-full bg-blue-light-5 px-4 py-1.5 text-body-sm font-medium text-blue">
-                {user.role?.replace(/_/g, ' ') || 'Unknown'}
-              </span>
+                <span className="inline-flex rounded-full bg-blue-light-5 px-4 py-1.5 text-body-sm font-medium text-blue">
+                  {(user as any).role?.replace(/_/g, ' ') || 'Unknown'}
+                </span>
             </div>
           </div>
 
@@ -134,7 +134,7 @@ export default async function ProfilePage() {
                 </label>
                 <input
                   type="text"
-                  value={user.role?.replace(/_/g, ' ') || 'Unknown'}
+                  value={(user as any).role?.replace(/_/g, ' ') || 'Unknown'}
                   disabled
                   className="w-full rounded-[7px] border-[1.5px] border-stroke bg-gray px-5.5 py-3 text-dark outline-none dark:border-dark-3 dark:bg-dark-2 dark:text-white"
                 />

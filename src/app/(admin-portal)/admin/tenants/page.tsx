@@ -237,7 +237,7 @@ export default async function TenantsPage() {
                       <div>{tenant._count.drivers} drivers</div>
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400 text-right">
-                      <div className="font-medium">${tenant.monthlyRevenue}/mo</div>
+                      <div className="font-medium">${tenant.monthlyRevenue.toString()}/mo</div>
                       <div className="text-xs">Created {new Date(tenant.createdAt).toLocaleDateString()}</div>
                     </div>
                     <TenantActions tenant={tenant} />

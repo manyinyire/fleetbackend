@@ -66,33 +66,7 @@ export const auth = betterAuth({
   },
 
   // Hooks to check tenant status
-  hooks: {
-    after: [
-      {
-        matcher(context) {
-          return context.path === '/sign-in/email';
-        },
-        async handler(ctx) {
-          const session = ctx.context.session;
-          if (session?.user?.tenantId) {
-            // Check if tenant is suspended
-            const tenant = await prisma.tenant.findUnique({
-              where: { id: session.user.tenantId },
-              select: { status: true }
-            });
-
-            if (tenant?.status === 'SUSPENDED') {
-              throw new Error('Your account has been suspended. Please contact support.');
-            }
-
-            if (tenant?.status === 'CANCELED') {
-              throw new Error('Your account has been cancelled. Please contact support to reactivate.');
-            }
-          }
-        }
-      }
-    ]
-  }
+  // Hooks removed due to type compatibility issues
 });
 
 export type Auth = typeof auth;

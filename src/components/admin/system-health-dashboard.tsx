@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   ExclamationTriangleIcon,
   CheckCircleIcon,
@@ -42,6 +42,30 @@ interface SystemHealthDashboardProps {
 export function SystemHealthDashboard({ data }: SystemHealthDashboardProps) {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedTimeRange, setSelectedTimeRange] = useState('24h');
+  const [systemData, setSystemData] = useState(data);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (autoRefresh) {
+      const interval = setInterval(fetchSystemHealth, 30000); // Refresh every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [autoRefresh]);
+
+  const fetchSystemHealth = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/system-health');
+      if (response.ok) {
+        const data = await response.json();
+        setSystemData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching system health:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -119,7 +143,7 @@ export function SystemHealthDashboard({ data }: SystemHealthDashboardProps) {
                     API Uptime
                   </dt>
                   <dd className="text-2xl font-semibold text-gray-900 dark:text-white">
-                    {data.metrics.apiUptime}%
+                    {systemData.metrics.apiUptime}%
                   </dd>
                 </dl>
               </div>
@@ -145,7 +169,7 @@ export function SystemHealthDashboard({ data }: SystemHealthDashboardProps) {
                     Database Status
                   </dt>
                   <dd className="text-2xl font-semibold text-gray-900 dark:text-white">
-                    {data.metrics.dbStatus}
+                    {systemData.metrics.dbStatus}
                   </dd>
                 </dl>
               </div>
@@ -171,7 +195,7 @@ export function SystemHealthDashboard({ data }: SystemHealthDashboardProps) {
                     Avg Response Time
                   </dt>
                   <dd className="text-2xl font-semibold text-gray-900 dark:text-white">
-                    {data.metrics.avgResponseTime}ms
+                    {systemData.metrics.avgResponseTime}ms
                   </dd>
                 </dl>
               </div>
@@ -197,7 +221,7 @@ export function SystemHealthDashboard({ data }: SystemHealthDashboardProps) {
                     Error Rate
                   </dt>
                   <dd className="text-2xl font-semibold text-gray-900 dark:text-white">
-                    {data.metrics.errorRate}%
+                    {systemData.metrics.errorRate}%
                   </dd>
                 </dl>
               </div>
@@ -217,34 +241,34 @@ export function SystemHealthDashboard({ data }: SystemHealthDashboardProps) {
           <h3 className="text-lg font-medium text-gray-900 dark:text-white">
             System Health Score
           </h3>
-          <span className={`text-3xl font-bold ${getHealthScoreColor(data.healthScore)}`}>
-            {data.healthScore}/100
+          <span className={`text-3xl font-bold ${getHealthScoreColor(systemData.healthScore)}`}>
+            {systemData.healthScore}/100
           </span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-4">
           <div 
             className={`h-4 rounded-full ${
-              data.healthScore >= 90 ? 'bg-green-500' : 
-              data.healthScore >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+              systemData.healthScore >= 90 ? 'bg-green-500' : 
+              systemData.healthScore >= 70 ? 'bg-yellow-500' : 'bg-red-500'
             }`}
-            style={{ width: `${data.healthScore}%` }}
+            style={{ width: `${systemData.healthScore}%` }}
           />
         </div>
         <div className="mt-4 grid grid-cols-4 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold text-red-600">{data.alerts.critical}</div>
+            <div className="text-2xl font-bold text-red-600">{systemData.alerts.critical}</div>
             <div className="text-sm text-gray-500">Critical</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-yellow-600">{data.alerts.warning}</div>
+            <div className="text-2xl font-bold text-yellow-600">{systemData.alerts.warning}</div>
             <div className="text-sm text-gray-500">Warning</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-blue-600">{data.alerts.info}</div>
+            <div className="text-2xl font-bold text-blue-600">{systemData.alerts.info}</div>
             <div className="text-sm text-gray-500">Info</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-green-600">{data.alerts.success}</div>
+            <div className="text-2xl font-bold text-green-600">{systemData.alerts.success}</div>
             <div className="text-sm text-gray-500">Success</div>
           </div>
         </div>
@@ -258,7 +282,7 @@ export function SystemHealthDashboard({ data }: SystemHealthDashboardProps) {
           </h3>
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {data.serverStatus.map((server) => (
+          {systemData.serverStatus.map((server) => (
             <div key={server.id} className="px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -309,8 +333,8 @@ export function SystemHealthDashboard({ data }: SystemHealthDashboardProps) {
           </h3>
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {data.recentIncidents.length > 0 ? (
-            data.recentIncidents.map((incident) => (
+          {systemData.recentIncidents.length > 0 ? (
+            systemData.recentIncidents.map((incident) => (
               <div key={incident.id} className="px-6 py-4">
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
@@ -363,7 +387,7 @@ export function SystemHealthDashboard({ data }: SystemHealthDashboardProps) {
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.metricsData.api_response_time || []}>
+              <LineChart data={systemData.metricsData.api_response_time || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="timestamp" />
                 <YAxis />
@@ -387,7 +411,7 @@ export function SystemHealthDashboard({ data }: SystemHealthDashboardProps) {
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.metricsData.request_volume || []}>
+              <AreaChart data={systemData.metricsData.request_volume || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="timestamp" />
                 <YAxis />
