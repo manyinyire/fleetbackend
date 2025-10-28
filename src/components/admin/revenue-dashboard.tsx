@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   CurrencyDollarIcon,
   ArrowUpIcon,
@@ -37,6 +37,27 @@ const COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444'];
 
 export function RevenueDashboard({ data }: RevenueDashboardProps) {
   const [selectedTimeRange, setSelectedTimeRange] = useState('12m');
+  const [loading, setLoading] = useState(false);
+  const [revenueData, setRevenueData] = useState(data);
+
+  useEffect(() => {
+    fetchRevenueData();
+  }, [selectedTimeRange]);
+
+  const fetchRevenueData = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/admin/revenue?timeRange=${selectedTimeRange}`);
+      if (response.ok) {
+        const data = await response.json();
+        setRevenueData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching revenue data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -102,7 +123,7 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
                   </dt>
                   <dd className="flex items-baseline">
                     <div className="text-2xl font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(data.metrics.mrr)}
+                      {formatCurrency(revenueData.metrics.mrr)}
                     </div>
                     <div className="ml-2 flex items-baseline text-sm font-semibold text-green-600">
                       <ArrowUpIcon className="self-center flex-shrink-0 h-4 w-4 text-green-500" />
@@ -118,7 +139,7 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
             <div className="text-sm">
               <span className="text-gray-500 dark:text-gray-400">ARR:</span>
               <span className="font-medium text-gray-900 dark:text-white ml-1">
-                {formatCurrency(data.metrics.arr)}
+                {formatCurrency(revenueData.metrics.arr)}
               </span>
             </div>
           </div>
@@ -138,7 +159,7 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
                   </dt>
                   <dd className="flex items-baseline">
                     <div className="text-2xl font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(data.metrics.arr)}
+                      {formatCurrency(revenueData.metrics.arr)}
                     </div>
                     <div className="ml-2 flex items-baseline text-sm font-semibold text-green-600">
                       <ArrowUpIcon className="self-center flex-shrink-0 h-4 w-4 text-green-500" />
@@ -174,7 +195,7 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
                   </dt>
                   <dd className="flex items-baseline">
                     <div className="text-2xl font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(data.metrics.newMrr)}
+                      {formatCurrency(revenueData.metrics.newMrr)}
                     </div>
                     <div className="ml-2 flex items-baseline text-sm font-semibold text-green-600">
                       <ArrowUpIcon className="self-center flex-shrink-0 h-4 w-4 text-green-500" />
@@ -190,7 +211,7 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
             <div className="text-sm">
               <span className="text-gray-500 dark:text-gray-400">This Month:</span>
               <span className="font-medium text-gray-900 dark:text-white ml-1">
-                {formatCurrency(data.metrics.newMrr)}
+                {formatCurrency(revenueData.metrics.newMrr)}
               </span>
             </div>
           </div>
@@ -210,7 +231,7 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
                   </dt>
                   <dd className="flex items-baseline">
                     <div className="text-2xl font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(data.metrics.churnedMrr)}
+                      {formatCurrency(revenueData.metrics.churnedMrr)}
                     </div>
                     <div className="ml-2 flex items-baseline text-sm font-semibold text-red-600">
                       <ArrowDownIcon className="self-center flex-shrink-0 h-4 w-4 text-red-500" />
@@ -252,7 +273,7 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.revenueTrendData}>
+              <LineChart data={revenueData.revenueTrendData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
@@ -296,7 +317,7 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={data.planRevenueData}
+                  data={revenueData.planRevenueData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -305,7 +326,7 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
                   fill="#8884d8"
                   dataKey="revenue"
                 >
-                  {data.planRevenueData.map((entry, index) => (
+                  {revenueData.planRevenueData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={getPlanColor(entry.plan)} />
                   ))}
                 </Pie>
@@ -324,7 +345,7 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
           </h3>
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {data.topRevenueTenants.map((tenant, index) => (
+          {revenueData.topRevenueTenants.map((tenant, index) => (
             <div key={tenant.id} className="px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -374,8 +395,8 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
           </div>
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {data.failedPayments.length > 0 ? (
-            data.failedPayments.map((payment) => (
+          {revenueData.failedPayments.length > 0 ? (
+            revenueData.failedPayments.map((payment) => (
               <div key={payment.id} className="px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -452,7 +473,7 @@ export function RevenueDashboard({ data }: RevenueDashboardProps) {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {data.cohortData.map((cohort) => (
+              {revenueData.cohortData.map((cohort) => (
                 <tr key={cohort.month}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {cohort.month}
