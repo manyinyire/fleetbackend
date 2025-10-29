@@ -8,10 +8,12 @@ export async function GET(request: NextRequest) {
     const { user, tenantId } = await requireTenant();
     
     // Set RLS context
-    await setTenantContext(tenantId);
+    if (tenantId) {
+      await setTenantContext(tenantId);
+    }
     
     // Get scoped Prisma client
-    const prisma = getTenantPrisma(tenantId);
+    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
     const vehicles = await prisma.vehicle.findMany({
       include: {
@@ -25,7 +27,10 @@ export async function GET(request: NextRequest) {
           take: 5
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      where: {
+        tenantId: tenantId
+      }
     });
 
     return NextResponse.json(vehicles);
@@ -44,10 +49,12 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     
     // Set RLS context
-    await setTenantContext(tenantId);
+    if (tenantId) {
+      await setTenantContext(tenantId);
+    }
     
     // Get scoped Prisma client
-    const prisma = getTenantPrisma(tenantId);
+    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
     const vehicle = await prisma.vehicle.create({
       data: {

@@ -1,18 +1,16 @@
 import "@/css/satoshi.css";
 import "@/css/style.css";
 
-import { Sidebar } from "@/components/Layouts/sidebar";
-
 import "flatpickr/dist/flatpickr.min.css";
 import "jsvectormap/dist/jsvectormap.css";
 
-import { Header } from "@/components/Layouts/header";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import NextTopLoader from "nextjs-toploader";
 import type { PropsWithChildren } from "react";
 import { Providers } from "./providers";
 import Script from "next/script";
 import { GA_MEASUREMENT_ID } from "@/lib/gtag";
+import { Suspense } from 'react';
 import { AnalyticsTracker } from "@/components/analytics-tracker";
 
 export const metadata: Metadata = {
@@ -23,13 +21,19 @@ export const metadata: Metadata = {
   description:
     "Manage your fleet, drivers, and finances efficiently with Azaire Fleet Manager - the complete fleet management solution for Zimbabwe.",
   manifest: "/manifest.json",
-  themeColor: "#1e3a8a",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Azaire Fleet Manager",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#1e3a8a",
 };
 
 export default function RootLayout({ children }: PropsWithChildren) {
@@ -44,7 +48,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-TileColor" content="#1e3a8a" />
         <meta name="msapplication-tap-highlight" content="no" />
-        
+
         {/* Google Analytics */}
         {GA_MEASUREMENT_ID && (
           <>
@@ -72,19 +76,10 @@ export default function RootLayout({ children }: PropsWithChildren) {
       <body>
         <Providers>
           <NextTopLoader color="#1e3a8a" showSpinner={false} />
-          <AnalyticsTracker />
-
-          <div className="flex min-h-screen">
-            <Sidebar />
-
-            <div className="w-full bg-gray-2 dark:bg-[#020d1a]">
-              <Header />
-
-              <main className="isolate mx-auto w-full max-w-screen-2xl overflow-hidden p-4 md:p-6 2xl:p-10">
-                {children}
-              </main>
-            </div>
-          </div>
+          <Suspense fallback={null}>
+            <AnalyticsTracker />
+          </Suspense>
+          {children}
         </Providers>
       </body>
     </html>

@@ -2,8 +2,6 @@
 
 import { 
   CurrencyDollarIcon, 
-  TrendingUpIcon, 
-  TrendingDownIcon,
   ArrowUpIcon,
   ArrowDownIcon
 } from '@heroicons/react/24/outline';
@@ -29,7 +27,7 @@ export function FinancialSummaryCards({ summary }: FinancialSummaryCardsProps) {
       value: `$${summary.totalIncome.toLocaleString()}`,
       change: '+12%',
       changeType: 'positive' as const,
-      icon: TrendingUpIcon,
+      icon: ArrowUpIcon,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
     },
@@ -38,7 +36,7 @@ export function FinancialSummaryCards({ summary }: FinancialSummaryCardsProps) {
       value: `$${summary.totalExpenses.toLocaleString()}`,
       change: '+8%',
       changeType: 'negative' as const,
-      icon: TrendingDownIcon,
+      icon: ArrowDownIcon,
       color: 'text-red-600',
       bgColor: 'bg-red-50',
     },

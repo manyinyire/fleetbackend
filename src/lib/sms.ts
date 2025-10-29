@@ -1,7 +1,7 @@
-import { AT } from 'africastalking-ts';
+import AT from 'africastalking-ts';
 
 // Initialize Africa's Talking
-const at = new AT({
+const at = new (AT as any)({
   apiKey: process.env.AFRICAS_TALKING_API_KEY || '',
   username: process.env.AFRICAS_TALKING_USERNAME || '',
 });

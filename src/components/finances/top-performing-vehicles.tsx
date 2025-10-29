@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { TruckIcon, CurrencyDollarIcon, TrendingUpIcon } from '@heroicons/react/24/outline';
+import { TruckIcon, CurrencyDollarIcon, ArrowUpIcon } from '@heroicons/react/24/outline';
 
 interface Income {
   id: string;
@@ -9,7 +9,7 @@ interface Income {
   date: string;
   vehicle: {
     registrationNumber: string;
-  };
+  } | null;
 }
 
 interface Expense {
@@ -18,7 +18,7 @@ interface Expense {
   date: string;
   vehicle: {
     registrationNumber: string;
-  };
+  } | null;
 }
 
 interface TopPerformingVehiclesProps {
@@ -36,11 +36,20 @@ interface VehiclePerformance {
 }
 
 export function TopPerformingVehicles({ incomes, expenses }: TopPerformingVehiclesProps) {
+  // Debug logging
+  console.log('TopPerformingVehicles received:', {
+    incomes: incomes?.length,
+    expenses: expenses?.length,
+    sampleIncome: incomes?.[0],
+    sampleExpense: expenses?.[0]
+  });
+
   const vehiclePerformance = useMemo(() => {
     const vehicleData: { [key: string]: VehiclePerformance } = {};
     
     // Process incomes
     incomes.forEach(income => {
+      if (!income.vehicle) return; // Skip if no vehicle
       const regNumber = income.vehicle.registrationNumber;
       if (!vehicleData[regNumber]) {
         vehicleData[regNumber] = {
@@ -58,6 +67,7 @@ export function TopPerformingVehicles({ incomes, expenses }: TopPerformingVehicl
     
     // Process expenses
     expenses.forEach(expense => {
+      if (!expense.vehicle) return; // Skip if no vehicle
       const regNumber = expense.vehicle.registrationNumber;
       if (!vehicleData[regNumber]) {
         vehicleData[regNumber] = {
@@ -158,9 +168,9 @@ export function TopPerformingVehicles({ incomes, expenses }: TopPerformingVehicl
                   
                   <div className="flex items-center">
                     {vehicle.netProfit >= 0 ? (
-                      <TrendingUpIcon className="h-5 w-5 text-green-500" />
+                      <ArrowUpIcon className="h-5 w-5 text-green-500" />
                     ) : (
-                      <TrendingUpIcon className="h-5 w-5 text-red-500 rotate-180" />
+                      <ArrowUpIcon className="h-5 w-5 text-red-500 rotate-180" />
                     )}
                   </div>
                 </div>

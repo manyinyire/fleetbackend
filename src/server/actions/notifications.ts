@@ -10,10 +10,12 @@ export async function sendDriverSMS(driverId: string, template: keyof typeof SMS
   const { user, tenantId } = await requireTenant();
   
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
   
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   try {
     // Get driver information
@@ -112,10 +114,12 @@ export async function sendBulkDriverSMS(driverIds: string[], template: keyof typ
   const { user, tenantId } = await requireTenant();
   
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
   
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   try {
     // Get drivers information

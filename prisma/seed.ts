@@ -1,41 +1,89 @@
 import { PrismaClient } from '@prisma/client';
+import { auth } from '../src/lib/auth';
+import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Starting database seed...');
 
-  // Create a sample tenant
-  const tenant = await prisma.tenant.create({
-    data: {
-      name: 'Demo Fleet Company',
-      slug: 'demo-fleet-company',
-      email: 'demo@example.com',
-      phone: '+263 77 123 4567',
-      plan: 'FREE',
-      status: 'ACTIVE',
-    },
+  // Create SUPER_ADMIN user if not exists
+  const superAdminEmail = 'superadmin@azaire.com';
+  const existingSuperAdmin = await prisma.user.findUnique({
+    where: { email: superAdminEmail },
   });
 
-  console.log('✅ Created tenant:', tenant.name);
+  if (!existingSuperAdmin) {
+    try {
+      // Create SUPER_ADMIN user directly with Prisma
+      const hashedPassword = await hash('SuperAdmin@123!', 12);
+      
+      await prisma.user.create({
+        data: {
+          email: superAdminEmail,
+          password: hashedPassword,
+          name: 'Super Admin',
+          role: 'SUPER_ADMIN',
+          tenantId: null,
+        },
+      });
+
+      console.log('✅ Created SUPER_ADMIN user');
+      console.log('   Email:', superAdminEmail);
+      console.log('   Password: SuperAdmin@123!');
+      console.log('   ⚠️  Please change the password after first login!');
+    } catch (error) {
+      console.error('❌ Error creating super admin:', error);
+    }
+  } else {
+    console.log('✅ SUPER_ADMIN user already exists');
+  }
+
+  // Create a sample tenant
+  let tenant = await prisma.tenant.findUnique({
+    where: { slug: 'demo-fleet-company' }
+  });
+
+  if (!tenant) {
+    tenant = await prisma.tenant.create({
+      data: {
+        name: 'Demo Fleet Company',
+        slug: 'demo-fleet-company',
+        email: 'demo@example.com',
+        phone: '+263 77 123 4567',
+        plan: 'FREE',
+        status: 'ACTIVE',
+      },
+    });
+    console.log('✅ Created tenant:', tenant.name);
+  } else {
+    console.log('✅ Tenant already exists:', tenant.name);
+  }
 
   // Create tenant settings
-  await prisma.tenantSettings.create({
-    data: {
-      tenantId: tenant.id,
-      companyName: 'Demo Fleet Company',
-      email: 'demo@example.com',
-      phone: '+263 77 123 4567',
-      primaryColor: '#1e3a8a',
-      invoicePrefix: 'INV',
-      currency: 'USD',
-      timezone: 'Africa/Harare',
-      dateFormat: 'YYYY-MM-DD',
-      country: 'Zimbabwe',
-    },
+  const existingSettings = await prisma.tenantSettings.findUnique({
+    where: { tenantId: tenant.id }
   });
 
-  console.log('✅ Created tenant settings');
+  if (!existingSettings) {
+    await prisma.tenantSettings.create({
+      data: {
+        tenantId: tenant.id,
+        companyName: 'Demo Fleet Company',
+        email: 'demo@example.com',
+        phone: '+263 77 123 4567',
+        primaryColor: '#1e3a8a',
+        invoicePrefix: 'INV',
+        currency: 'USD',
+        timezone: 'Africa/Harare',
+        dateFormat: 'YYYY-MM-DD',
+        country: 'Zimbabwe',
+      },
+    });
+    console.log('✅ Created tenant settings');
+  } else {
+    console.log('✅ Tenant settings already exist');
+  }
 
   // Create sample vehicles
   const vehicles = await Promise.all([
@@ -77,9 +125,11 @@ async function main() {
         fullName: 'John Doe',
         nationalId: '1234567890',
         licenseNumber: 'DL123456789',
-        licenseExpiry: new Date('2025-12-31'),
         phone: '+263 77 111 1111',
         email: 'john@example.com',
+        homeAddress: '123 Main Street, Harare',
+        nextOfKin: 'Mary Doe',
+        nextOfKinPhone: '+263 77 111 1112',
         paymentModel: 'DRIVER_REMITS',
         paymentConfig: { targetAmount: 100 },
         debtBalance: 0,
@@ -92,9 +142,11 @@ async function main() {
         fullName: 'Jane Smith',
         nationalId: '0987654321',
         licenseNumber: 'DL987654321',
-        licenseExpiry: new Date('2026-06-30'),
         phone: '+263 77 222 2222',
         email: 'jane@example.com',
+        homeAddress: '456 Oak Avenue, Bulawayo',
+        nextOfKin: 'Bob Smith',
+        nextOfKinPhone: '+263 77 222 2223',
         paymentModel: 'OWNER_PAYS',
         paymentConfig: { percentage: 15 },
         debtBalance: 0,

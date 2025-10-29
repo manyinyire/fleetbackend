@@ -10,10 +10,12 @@ export async function bulkDeleteVehicles(vehicleIds: string[]) {
   const { user, tenantId } = await requireTenant();
   
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
   
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   try {
     const results = [];
@@ -82,10 +84,12 @@ export async function bulkDeleteDrivers(driverIds: string[]) {
   const { user, tenantId } = await requireTenant();
   
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
   
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   try {
     const results = [];
@@ -154,10 +158,12 @@ export async function bulkUpdateVehicleStatus(vehicleIds: string[], status: stri
   const { user, tenantId } = await requireTenant();
   
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
   
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   try {
     const results = [];
@@ -211,10 +217,12 @@ export async function bulkUpdateDriverStatus(driverIds: string[], status: string
   const { user, tenantId } = await requireTenant();
   
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
   
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   try {
     const results = [];
@@ -280,10 +288,12 @@ export async function bulkExportData(entityType: string, entityIds: string[]) {
   const { user, tenantId } = await requireTenant();
   
   // Set RLS context
-  await setTenantContext(tenantId);
+  if (tenantId) {
+    await setTenantContext(tenantId);
+  }
   
   // Get scoped Prisma client
-  const prisma = getTenantPrisma(tenantId);
+  const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
   try {
     let data: any[] = [];

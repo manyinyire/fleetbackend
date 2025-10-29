@@ -202,7 +202,7 @@ export function SettingsForm({ initialData }: SettingsFormProps) {
               className="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <p className="text-xs text-gray-500 mt-1">
-              E.g., "INV" will generate INV-202510-001
+              E.g., &quot;INV&quot; will generate INV-202510-001
             </p>
           </div>
           

@@ -27,12 +27,15 @@ export function AssignDriverStep({ vehicleId, driverId, onComplete }: AssignDriv
       });
 
       if (!response.ok) {
-        throw new Error('Failed to assign driver to vehicle');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to assign driver to vehicle');
       }
 
       onComplete();
     } catch (error) {
       console.error('Assignment error:', error);
+      // You might want to show the error to the user here
+      alert(error instanceof Error ? error.message : 'Failed to assign driver to vehicle');
     } finally {
       setLoading(false);
     }
@@ -42,7 +45,7 @@ export function AssignDriverStep({ vehicleId, driverId, onComplete }: AssignDriv
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Assign Driver to Vehicle</h2>
       <p className="text-gray-600 mb-8">
-        Finally, let's assign the driver to the vehicle to complete your fleet setup.
+        Finally, let&apos;s assign the driver to the vehicle to complete your fleet setup.
       </p>
 
       <div className="bg-gray-50 rounded-lg p-6 mb-8">

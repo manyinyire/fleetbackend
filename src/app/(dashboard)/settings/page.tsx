@@ -1,10 +1,10 @@
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import { SettingsForm } from '@/components/settings/settings-form';
 
 export default async function SettingsPage() {
-  const { user, tenantId } = await requireTenant();
+  const { user, tenantId } = await requireTenantForDashboard();
   
   // Set RLS context
   await setTenantContext(tenantId);

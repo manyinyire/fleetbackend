@@ -8,10 +8,12 @@ export async function POST(request: NextRequest) {
     const { user, tenantId } = await requireTenant();
     
     // Set RLS context
-    await setTenantContext(tenantId);
+    if (tenantId) {
+      await setTenantContext(tenantId);
+    }
     
     // Get scoped Prisma client
-    const prisma = getTenantPrisma(tenantId);
+    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
     // Update tenant settings to mark onboarding as complete
     await prisma.tenantSettings.upsert({

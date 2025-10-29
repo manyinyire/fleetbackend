@@ -69,7 +69,7 @@ export function AddDriverStep({ onComplete }: AddDriverStepProps) {
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Add Your First Driver</h2>
       <p className="text-gray-600 mb-8">
-        Now let's add a driver who will be assigned to your vehicle.
+        Now let&apos;s add a driver who will be assigned to your vehicle.
       </p>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

@@ -30,6 +30,50 @@ export function event({
   });
 }
 
+// Payment tracking events
+export function trackPaymentInitiated(invoiceNumber: string, amount: number, currency: string) {
+  event({
+    action: 'payment_initiated',
+    category: 'Payment',
+    label: invoiceNumber,
+    value: amount,
+  });
+}
+
+export function trackPaymentCompleted(invoiceNumber: string, amount: number, currency: string) {
+  event({
+    action: 'purchase',
+    category: 'Payment',
+    label: invoiceNumber,
+    value: amount,
+  });
+}
+
+export function trackPaymentFailed(invoiceNumber: string, reason: string) {
+  event({
+    action: 'payment_failed',
+    category: 'Payment',
+    label: `${invoiceNumber} - ${reason}`,
+  });
+}
+
+// Subscription tracking events
+export function trackSubscriptionUpgrade(tenantId: string, fromPlan: string, toPlan: string) {
+  event({
+    action: 'subscription_upgrade',
+    category: 'Subscription',
+    label: `${fromPlan} to ${toPlan}`,
+  });
+}
+
+export function trackAccountUnsuspended(tenantId: string) {
+  event({
+    action: 'account_unsuspended',
+    category: 'Account',
+    label: tenantId,
+  });
+}
+
 // Declare gtag function for TypeScript
 declare global {
   interface Window {

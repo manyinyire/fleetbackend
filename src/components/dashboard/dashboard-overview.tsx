@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { TruckIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 
 interface Vehicle {
@@ -80,12 +81,12 @@ export function DashboardOverview({ vehicles, drivers }: DashboardOverviewProps)
                   Get started by adding your first vehicle.
                 </p>
                 <div className="mt-6">
-                  <a
+                  <Link
                     href="/vehicles/new"
                     className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
                   >
                     Add Vehicle
-                  </a>
+                  </Link>
                 </div>
               </div>
             ) : (
@@ -166,12 +167,12 @@ export function DashboardOverview({ vehicles, drivers }: DashboardOverviewProps)
                   Get started by adding your first driver.
                 </p>
                 <div className="mt-6">
-                  <a
+                  <Link
                     href="/drivers/new"
                     className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
                   >
                     Add Driver
-                  </a>
+                  </Link>
                 </div>
               </div>
             ) : (

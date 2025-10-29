@@ -2,40 +2,46 @@
 
 import { useEffect } from 'react';
 import { useOnlineStatus } from './use-online-status';
-import { getPendingActions, markAsSynced, markAsFailed } from '@/lib/offline-queue';
 
 export function useBackgroundSync() {
   const isOnline = useOnlineStatus();
 
   useEffect(() => {
-    if (!isOnline) return;
+    if (!isOnline || typeof window === 'undefined') return;
 
     async function syncPendingActions() {
-      const pending = await getPendingActions();
+      try {
+        // Dynamically import to avoid SSR issues
+        const { getPendingActions, markAsSynced, markAsFailed } = await import('@/lib/offline-queue');
+        
+        const pending = await getPendingActions();
       
-      for (const action of pending) {
-        try {
-          // Sync based on action type
-          switch (action.type) {
-            case 'remittance':
-              await syncRemittance(action.data);
-              break;
-            case 'mileage':
-              await syncMileage(action.data);
-              break;
-            case 'expense':
-              await syncExpense(action.data);
-              break;
-            case 'incident':
-              await syncIncident(action.data);
-              break;
+              for (const action of pending) {
+          try {
+            // Sync based on action type
+            switch (action.type) {
+              case 'remittance':
+                await syncRemittance(action.data);
+                break;
+              case 'mileage':
+                await syncMileage(action.data);
+                break;
+              case 'expense':
+                await syncExpense(action.data);
+                break;
+              case 'incident':
+                await syncIncident(action.data);
+                break;
+            }
+
+            await markAsSynced(action.id!);
+          } catch (error) {
+            console.error('Sync failed:', error);
+            await markAsFailed(action.id!, error instanceof Error ? error.message : 'Unknown error');                                                             
           }
-          
-          await markAsSynced(action.id!);
-        } catch (error) {
-          console.error('Sync failed:', error);
-          await markAsFailed(action.id!, error instanceof Error ? error.message : 'Unknown error');
         }
+      } catch (error) {
+        console.error('Error loading pending actions:', error);
       }
     }
 

@@ -34,7 +34,7 @@ export function tenantExtension(tenantId: string) {
             args.data = {
               ...args.data,
               tenantId
-            };
+            } as any;
             return query(args);
           },
           async update({ args, query }) {

@@ -1,13 +1,14 @@
 'use client';
 
-import { 
-  TruckIcon, 
-  UserGroupIcon, 
+import {
+  TruckIcon,
+  UserGroupIcon,
   WrenchScrewdriverIcon,
   CurrencyDollarIcon,
   EyeIcon,
   PencilIcon
 } from '@heroicons/react/24/outline';
+import Link from 'next/link';
 
 interface Vehicle {
   id: string;
@@ -77,13 +78,13 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
             Get started by adding your first vehicle to the fleet.
           </p>
           <div className="mt-6">
-            <a
+            <Link
               href="/vehicles/new"
               className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
             >
               <TruckIcon className="h-4 w-4 mr-2" />
               Add Vehicle
-            </a>
+            </Link>
           </div>
         </div>
       ) : (
@@ -141,12 +142,20 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
                   </div>
                   
                   <div className="flex space-x-1">
-                    <button className="p-2 text-gray-400 hover:text-gray-600">
+                    <Link
+                      href={`/vehicles/${vehicle.id}`}
+                      className="p-2 text-gray-400 hover:text-gray-600"
+                      title="View Vehicle"
+                    >
                       <EyeIcon className="h-4 w-4" />
-                    </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600">
+                    </Link>
+                    <Link
+                      href={`/vehicles/${vehicle.id}/edit`}
+                      className="p-2 text-gray-400 hover:text-gray-600"
+                      title="Edit Vehicle"
+                    >
                       <PencilIcon className="h-4 w-4" />
-                    </button>
+                    </Link>
                   </div>
                 </div>
               </div>

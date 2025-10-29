@@ -62,7 +62,7 @@ export function AddVehicleStep({ onComplete }: AddVehicleStepProps) {
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Add Your First Vehicle</h2>
       <p className="text-gray-600 mb-8">
-        Let's start by adding your first vehicle to the fleet management system.
+        Let&apos;s start by adding your first vehicle to the fleet management system.
       </p>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
