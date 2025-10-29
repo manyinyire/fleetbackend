@@ -35,7 +35,7 @@ export function useTenant() {
     }
 
     fetchTenantSettings();
-  }, [(user as any)?.tenantId]);
+  }, [user]);
 
   return {
     tenantSettings,

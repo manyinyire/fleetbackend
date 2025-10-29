@@ -64,9 +64,9 @@ export default async function ProfilePage() {
               {user.email}
             </p>
             <div className="mt-4">
-                <span className="inline-flex rounded-full bg-blue-light-5 px-4 py-1.5 text-body-sm font-medium text-blue">
-                  {(user as any).role?.replace(/_/g, ' ') || 'Unknown'}
-                </span>
+              <span className="inline-flex rounded-full bg-blue-light-5 px-4 py-1.5 text-body-sm font-medium text-blue">
+                {(user as any).role?.replace(/_/g, ' ') || 'Unknown'}
+              </span>
             </div>
           </div>
 

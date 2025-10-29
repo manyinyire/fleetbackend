@@ -23,9 +23,13 @@ async function main() {
           email: superAdminEmail,
           password: hashedPassword,
           name: 'Super Admin',
-          role: 'SUPER_ADMIN',
-          tenantId: null,
         },
+      });
+
+      // Update the user role to SUPER_ADMIN
+      await prisma.user.update({
+        where: { email: superAdminEmail },
+        data: { role: 'SUPER_ADMIN' },
       });
 
       console.log('✅ Created SUPER_ADMIN user');
