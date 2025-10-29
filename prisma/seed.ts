@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { auth } from '../src/lib/auth';
+import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -14,10 +15,13 @@ async function main() {
 
   if (!existingSuperAdmin) {
     try {
-      const userResult = await auth.api.signUpEmail({
-        body: {
+      // Create SUPER_ADMIN user directly with Prisma
+      const hashedPassword = await hash('SuperAdmin@123!', 12);
+      
+      await prisma.user.create({
+        data: {
           email: superAdminEmail,
-          password: 'SuperAdmin@123!',
+          password: hashedPassword,
           name: 'Super Admin',
         },
       });
