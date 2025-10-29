@@ -1,26 +1,32 @@
 import { prisma } from './prisma';
 import { cache } from 'react';
 
+/**
+ * Set tenant context for Row-Level Security (RLS)
+ * Uses parameterized queries to safely set PostgreSQL session variables
+ * 
+ * @param tenantId - The tenant ID to set in the session
+ * @param isSuperAdmin - Whether the current user is a super admin
+ */
 export async function setTenantContext(
   tenantId: string, 
   isSuperAdmin: boolean = false
 ) {
-  // Set PostgreSQL session variables for RLS
-  await prisma.$executeRawUnsafe(
-    `SELECT set_config('app.current_tenant_id', $1::TEXT, FALSE)`,
-    tenantId
-  );
-  
-  await prisma.$executeRawUnsafe(
-    `SELECT set_config('app.is_super_admin', $1::TEXT, FALSE)`,
-    isSuperAdmin ? 'true' : 'false'
-  );
+  // Set PostgreSQL session variables for RLS using safe parameterized queries
+  // Note: Prisma doesn't have a "safe" version of set_config, but we use parameters
+  await prisma.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}::TEXT, FALSE)`;
+  await prisma.$executeRaw`SELECT set_config('app.is_super_admin', ${isSuperAdmin ? 'true' : 'false'}::TEXT, FALSE)`;
 }
 
+/**
+ * Get the current tenant ID from the PostgreSQL session
+ * 
+ * @returns The tenant ID or null if not set
+ */
 export async function getTenantId(): Promise<string | null> {
-  const result = await prisma.$queryRawUnsafe<Array<{ current_setting: string }>>(
-    `SELECT current_setting('app.current_tenant_id', true) as current_setting`
-  );
+  const result = await prisma.$queryRaw<Array<{ current_setting: string }>>`
+    SELECT current_setting('app.current_tenant_id', true) as current_setting
+  `;
   return result[0]?.current_setting || null;
 }
 

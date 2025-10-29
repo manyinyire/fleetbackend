@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { createPostHandler } from '@/middleware/api-middleware';
+import { loginSchema } from '@/lib/api-schemas';
+import { ApiErrors } from '@/lib/api-error';
+import { logAuthEvent } from '@/lib/logger';
 
-const prisma = new PrismaClient();
-
-export async function POST(request: NextRequest) {
-  try {
-    const { email, password, rememberDevice } = await request.json();
-
-    // Validate input
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
-    }
+export const POST = createPostHandler(
+  {
+    auth: 'none',
+    validate: { body: loginSchema },
+    rateLimit: true,
+  },
+  async (request, context) => {
+    const { email, password, rememberDevice } = context.body;
 
     // Check if user exists and is a super admin
     const user = await prisma.user.findUnique({
@@ -23,16 +22,10 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user || user.role !== 'SUPER_ADMIN') {
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+      logAuthEvent('failed_login', undefined, { email, reason: 'invalid_credentials' });
+      throw ApiErrors.unauthorized();
     }
 
-    // For now, we'll use BetterAuth for password verification
-    // In a real implementation, you'd verify the password here
-    // and then create a session with BetterAuth
-    
     // Create session using BetterAuth
     const session = await auth.api.signInEmail({
       body: {
@@ -44,13 +37,16 @@ export async function POST(request: NextRequest) {
     });
 
     if (!session) {
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+      logAuthEvent('failed_login', user.id, { email, reason: 'auth_failed' });
+      throw ApiErrors.unauthorized();
     }
 
-    // Log the login attempt
+    // Log the successful login
+    logAuthEvent('login', user.id, {
+      email: user.email,
+      rememberDevice: rememberDevice || false,
+    });
+
     await prisma.auditLog.create({
       data: {
         userId: user.id,
@@ -77,14 +73,5 @@ export async function POST(request: NextRequest) {
       },
       message: 'Login successful'
     });
-
-  } catch (error) {
-    console.error('Super Admin login error:', error);
-    return NextResponse.json(
-      { error: 'Login failed' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
   }
-}
+);

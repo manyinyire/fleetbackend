@@ -1,10 +1,25 @@
+/**
+ * Authentication helper functions for server-side operations
+ * @module auth-helpers
+ */
 import { auth } from './auth';
 import { headers } from 'next/headers';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { prisma } from './prisma';
 
-// Server-side: Get current user (cached per request)
+/**
+ * Get the current authenticated user (cached per request)
+ * 
+ * @returns The authenticated user or null if not authenticated
+ * @example
+ * ```ts
+ * const user = await getCurrentUser();
+ * if (!user) {
+ *   redirect('/auth/sign-in');
+ * }
+ * ```
+ */
 export const getCurrentUser = cache(async () => {
   try {
     const headersList = await headers();
@@ -30,7 +45,20 @@ export const getCurrentUser = cache(async () => {
   }
 });
 
-// Server-side: Require authentication
+/**
+ * Require authentication for a server-side operation
+ * Redirects to sign-in page if user is not authenticated
+ * 
+ * @returns The authenticated user
+ * @throws Redirects to /auth/sign-in if not authenticated
+ * @example
+ * ```ts
+ * export default async function ProtectedPage() {
+ *   const user = await requireAuth();
+ *   return <div>Welcome {user.name}</div>;
+ * }
+ * ```
+ */
 export async function requireAuth() {
   const user = await getCurrentUser();
 
@@ -41,7 +69,21 @@ export async function requireAuth() {
   return user;
 }
 
-// Server-side: Require specific role
+/**
+ * Require a specific role for a server-side operation
+ * Redirects if user doesn't have the required role
+ * 
+ * @param role - Required role(s) - can be a single role or array of roles
+ * @returns The authenticated user with the required role
+ * @throws Redirects to appropriate page if user lacks required role
+ * @example
+ * ```ts
+ * export default async function AdminPage() {
+ *   const user = await requireRole('SUPER_ADMIN');
+ *   // Only SUPER_ADMIN can access this
+ * }
+ * ```
+ */
 export async function requireRole(role: string | string[]) {
   const user = await requireAuth();
   const roles = Array.isArray(role) ? role : [role];
@@ -57,7 +99,21 @@ export async function requireRole(role: string | string[]) {
   return user;
 }
 
-// Server-side: Require tenant context (handles SUPER_ADMIN)
+/**
+ * Require tenant context for a server-side operation
+ * Returns null tenantId for SUPER_ADMIN users
+ * Checks tenant status and redirects if suspended/canceled
+ * 
+ * @returns Object containing user and tenantId (null for SUPER_ADMIN)
+ * @throws Redirects if user is not authenticated or tenant is suspended
+ * @example
+ * ```ts
+ * export default async function TenantPage() {
+ *   const { user, tenantId } = await requireTenant();
+ *   // Use tenantId to filter data
+ * }
+ * ```
+ */
 export async function requireTenant() {
   const user = await requireAuth();
 

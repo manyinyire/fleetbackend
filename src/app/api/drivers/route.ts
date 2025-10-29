@@ -1,82 +1,134 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenant } from '@/lib/auth-helpers';
-import { getTenantPrisma } from '@/lib/get-tenant-prisma';
-import { setTenantContext } from '@/lib/tenant';
+import { createGetHandler, createPostHandler } from '@/middleware/api-middleware';
+import { getDriversSchema, createDriverSchema } from '@/lib/api-schemas';
+import { parsePaginationParams, createPaginatedResponse, getSkipValue, buildOrderBy } from '@/lib/pagination';
 
-export async function GET(request: NextRequest) {
-  try {
-    const { user, tenantId } = await requireTenant();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
+/**
+ * GET /api/drivers
+ * List all drivers for the current tenant with pagination and filtering
+ */
+export const GET = createGetHandler(
+  {
+    auth: 'required',
+    requireTenant: true,
+    validate: { query: getDriversSchema },
+  },
+  async (request, context) => {
+    const { page, limit, sortBy, sortOrder } = parsePaginationParams(
+      context.searchParams!,
+      { sortBy: 'createdAt', sortOrder: 'desc' }
+    );
+
+    const search = context.searchParams?.get('search');
+    const status = context.searchParams?.get('status');
+    const paymentModel = context.searchParams?.get('paymentModel');
+
+    // Build where clause
+    const where: any = { tenantId: context.tenantId };
+
+    if (search) {
+      where.OR = [
+        { fullName: { contains: search, mode: 'insensitive' } },
+        { nationalId: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
+    if (status) {
+      where.status = status;
+    }
 
-    const drivers = await prisma.driver.findMany({
-      include: {
-        vehicles: {
-          include: {
-            vehicle: true
+    if (paymentModel) {
+      where.paymentModel = paymentModel;
+    }
+
+    // Fetch drivers with pagination
+    const [drivers, totalCount] = await Promise.all([
+      context.prisma.driver.findMany({
+        where,
+        include: {
+          vehicles: {
+            include: {
+              vehicle: true
+            }
+          },
+          remittances: {
+            orderBy: { date: 'desc' },
+            take: 5
           }
         },
-        remittances: {
-          orderBy: { date: 'desc' },
-          take: 5
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      where: {
-        tenantId: tenantId
-      }
-    });
+        orderBy: buildOrderBy(sortBy, sortOrder),
+        skip: getSkipValue(page, limit),
+        take: limit,
+      }),
+      context.prisma.driver.count({ where }),
+    ]);
 
-    return NextResponse.json(drivers);
-  } catch (error) {
-    console.error('Drivers fetch error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch drivers' },
-      { status: 500 }
+      createPaginatedResponse(drivers, page, limit, totalCount)
     );
   }
-}
+);
 
-export async function POST(request: NextRequest) {
-  try {
-    const { user, tenantId } = await requireTenant();
-    const data = await request.json();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
+/**
+ * POST /api/drivers
+ * Create a new driver for the current tenant
+ */
+export const POST = createPostHandler(
+  {
+    auth: 'required',
+    requireTenant: true,
+    validate: { body: createDriverSchema },
+  },
+  async (request, context) => {
+    const data = context.body;
+
+    // Check for duplicate national ID
+    const existing = await context.prisma.driver.findFirst({
+      where: {
+        tenantId: context.tenantId,
+        nationalId: data.nationalId,
+      },
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'CONFLICT',
+            message: 'A driver with this national ID already exists',
+          },
+        },
+        { status: 409 }
+      );
     }
 
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
-
-    const driver = await prisma.driver.create({
+    const driver = await context.prisma.driver.create({
       data: {
+        tenantId: context.tenantId,
         fullName: data.fullName,
         nationalId: data.nationalId,
         licenseNumber: data.licenseNumber,
-        licenseExpiry: new Date(data.licenseExpiry),
         phone: data.phone,
-        email: data.email,
+        email: data.email || null,
+        homeAddress: data.homeAddress,
+        nextOfKin: data.nextOfKin,
+        nextOfKinPhone: data.nextOfKinPhone,
+        hasDefensiveLicense: data.hasDefensiveLicense,
+        defensiveLicenseNumber: data.defensiveLicenseNumber || null,
+        defensiveLicenseExpiry: data.defensiveLicenseExpiry
+          ? new Date(data.defensiveLicenseExpiry)
+          : null,
         paymentModel: data.paymentModel,
-        paymentConfig: data.paymentConfig || {},
-        debtBalance: 0,
-        status: 'ACTIVE',
-      }
+        paymentConfig: data.paymentConfig,
+        debtBalance: data.debtBalance || 0,
+        status: data.status || 'ACTIVE',
+      },
+      include: {
+        vehicles: true,
+      },
     });
 
-    return NextResponse.json(driver);
-  } catch (error) {
-    console.error('Driver creation error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create driver' },
-      { status: 500 }
-    );
+    return NextResponse.json(driver, { status: 201 });
   }
-}
+);
