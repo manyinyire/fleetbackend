@@ -100,6 +100,36 @@ export async function signUp(formData: FormData) {
           role: 'TENANT_ADMIN',
         },
       });
+
+      // Send email verification
+      try {
+        const { emailVerificationService } = await import('@/lib/email-verification');
+        await emailVerificationService.sendEmailVerification(userResult.user.id);
+      } catch (emailError) {
+        console.error('Failed to send verification email:', emailError);
+        // Don't fail the signup process if email fails
+      }
+
+      // Generate and send free plan invoice
+      try {
+        const { invoiceGenerator } = await import('@/lib/invoice-generator');
+        const { emailService } = await import('@/lib/email');
+        
+        const { invoice, pdf } = await invoiceGenerator.createFreePlanInvoice(tenant.id);
+        
+        const invoiceData = {
+          invoiceNumber: invoice.invoiceNumber,
+          amount: Number(invoice.amount),
+          dueDate: invoice.dueDate.toLocaleDateString(),
+          companyName: tenant.name,
+          userName: name
+        };
+
+        await emailService.sendInvoiceEmail(email, invoiceData, pdf);
+      } catch (invoiceError) {
+        console.error('Failed to generate invoice:', invoiceError);
+        // Don't fail the signup process if invoice generation fails
+      }
     }
 
     revalidatePath('/');

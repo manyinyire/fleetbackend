@@ -27,13 +27,18 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Billing fields
+  subscriptionStartDate DateTime?
+  subscriptionEndDate   DateTime?
+  autoRenew            Boolean @default(true)
+
   // Relationships
   users     User[]
   vehicles  Vehicle[]
   drivers   Driver[]
   settings  TenantSettings?
   invoices  Invoice[]
-  payments  Payment[]
+  invoiceReminders InvoiceReminder[]
 
   @@map("tenants")
 }
@@ -63,11 +68,18 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // 2FA fields
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String?
+
   // Relationships
   tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sessions  Session[]
   accounts  Account[]
   auditLogs AuditLog[]
+
+  // Email verification
+  emailVerifications EmailVerification[]
 
   // Admin relationships
   adminSettings AdminSettings?
@@ -606,11 +618,9 @@ enum EmailType {
   INVOICE_NOTIFICATION
   SUBSCRIPTION_RENEWAL
   PAYMENT_FAILED
-  PAYMENT_CONFIRMATION
   TRIAL_EXPIRING
   ACCOUNT_SUSPENDED
   ADMIN_NOTIFICATION
-  ADMIN_PAYMENT_ALERT
 }
 
 model FeatureFlag {
@@ -629,51 +639,92 @@ model FeatureFlag {
 }
 
 // ============================================
-// PAYMENT AND INVOICE TABLES
+// EMAIL AND VERIFICATION TABLES
+// ============================================
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  type      VerificationType
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relationships
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("email_verifications")
+}
+
+enum VerificationType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  TWO_FACTOR
+}
+
+model OTP {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  type      OTPType
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([code])
+  @@index([expiresAt])
+  @@map("otps")
+}
+
+enum OTPType {
+  TWO_FACTOR
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
+// ============================================
+// INVOICE AND BILLING TABLES
 // ============================================
 
 model Invoice {
   id              String   @id @default(cuid())
   tenantId        String
   invoiceNumber   String   @unique
-  
-  // Invoice Details
-  description     String
+  type            InvoiceType
+  status          InvoiceStatus @default(PENDING)
   amount          Decimal  @db.Decimal(10, 2)
   currency        String   @default("USD")
-  
-  // Invoice Type
-  type            InvoiceType
-  subscriptionPlan SubscriptionPlan?
-  
-  // Status
-  status          InvoiceStatus @default(PENDING)
-  
-  // Dates
-  issueDate       DateTime @default(now())
   dueDate         DateTime
   paidAt          DateTime?
-  
-  // Metadata
-  metadata        Json?    // Additional invoice data
-  
+  plan            SubscriptionPlan
+  billingPeriod   String?  // e.g., "2024-01-01 to 2024-01-31"
+  description     String?
+  pdfUrl          String?  // S3 URL for generated PDF
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   // Relationships
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  payments        Payment[]
+  reminders       InvoiceReminder[]
 
   @@index([tenantId])
   @@index([status])
   @@index([dueDate])
+  @@index([type])
   @@map("invoices")
 }
 
 enum InvoiceType {
-  SUBSCRIPTION_UPGRADE
-  SUBSCRIPTION_RENEWAL
-  ONE_TIME
+  SUBSCRIPTION
+  UPGRADE
+  RENEWAL
+  OVERAGE
+  CUSTOM
 }
 
 enum InvoiceStatus {
@@ -681,72 +732,30 @@ enum InvoiceStatus {
   PAID
   OVERDUE
   CANCELLED
+  REFUNDED
 }
 
-model Payment {
-  id                String   @id @default(cuid())
-  tenantId          String
-  invoiceId         String?
-  
-  // Payment Details
-  amount            Decimal  @db.Decimal(10, 2)
-  currency          String   @default("USD")
-  
-  // Payment Gateway
-  gateway           PaymentGateway @default(PAYNOW)
-  
-  // PayNow Specific Fields
-  pollUrl           String?
-  paynowReference   String?  @unique
-  
-  // Status
-  status            PaymentStatus @default(PENDING)
-  
-  // Verification
-  verified          Boolean  @default(false)
-  verifiedAt        DateTime?
-  verificationHash  String?  // Hash for verification integrity
-  
-  // Actions Performed
-  upgradeActioned   Boolean  @default(false)
-  unsuspendActioned Boolean  @default(false)
-  emailSent         Boolean  @default(false)
-  adminNotified     Boolean  @default(false)
-  
-  // Metadata
-  paymentMetadata   Json?    // Raw payment data from gateway
-  errorMessage      String?
-  
-  // Reconciliation
-  reconciled        Boolean  @default(false)
-  reconciledAt      DateTime?
-  reconciledBy      String?
-  reconNotes        String?
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+model InvoiceReminder {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  tenantId    String
+  sentAt      DateTime
+  type        ReminderType
+  createdAt   DateTime @default(now())
 
   // Relationships
-  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoice           Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@index([tenantId])
   @@index([invoiceId])
-  @@index([status])
-  @@index([verified])
-  @@index([reconciled])
-  @@index([createdAt])
-  @@map("payments")
+  @@index([tenantId])
+  @@index([sentAt])
+  @@map("invoice_reminders")
 }
 
-enum PaymentGateway {
-  PAYNOW
-  MANUAL
-}
-
-enum PaymentStatus {
-  PENDING
-  PAID
-  FAILED
-  CANCELLED
+enum ReminderType {
+  SEVEN_DAYS
+  THREE_DAYS
+  ONE_DAY
+  OVERDUE
 }

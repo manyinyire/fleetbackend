@@ -1,270 +1,302 @@
-import { Resend } from "resend";
-import { prisma } from "./prisma";
+import nodemailer from 'nodemailer';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+interface EmailConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  auth: {
+    user: string;
+    pass: string;
+  };
+}
 
-export interface EmailOptions {
-  to: string;
+interface EmailOptions {
+  to: string | string[];
   subject: string;
-  html: string;
+  html?: string;
+  text?: string;
   attachments?: Array<{
     filename: string;
     content: Buffer | string;
+    contentType?: string;
   }>;
 }
 
-export async function sendEmail(options: EmailOptions) {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: "Azaire Fleet Manager <noreply@azaire.com>",
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-      attachments: options.attachments,
-    });
+class EmailService {
+  private transporter: nodemailer.Transporter | null = null;
+  private config: EmailConfig | null = null;
 
-    if (error) {
-      console.error("Email send error:", error);
-      return { success: false, error };
-    }
+  constructor() {
+    this.initializeTransporter();
+  }
 
-    return { success: true, data };
-  } catch (error) {
-    console.error("Email send exception:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Unknown error" 
+  private initializeTransporter() {
+    const config: EmailConfig = {
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER || '',
+        pass: process.env.SMTP_PASS || '',
+      },
     };
-  }
-}
 
-/**
- * Send payment confirmation email with invoice
- */
-export async function sendPaymentConfirmationEmail(
-  tenantEmail: string,
-  tenantName: string,
-  invoiceNumber: string,
-  amount: string,
-  paymentReference: string,
-  invoicePdf?: Buffer
-) {
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #1e3a8a; color: white; padding: 20px; text-align: center; }
-          .content { background: #f9f9f9; padding: 20px; }
-          .invoice-details { background: white; padding: 15px; margin: 20px 0; border-radius: 5px; }
-          .detail-row { display: flex; justify-content: space-between; margin: 10px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          .success-badge { background: #10b981; color: white; padding: 5px 15px; border-radius: 20px; display: inline-block; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Payment Confirmed</h1>
-          </div>
-          <div class="content">
-            <p>Dear ${tenantName},</p>
-            <p>We are pleased to confirm that we have received your payment.</p>
-            
-            <div class="invoice-details">
-              <div style="text-align: center; margin-bottom: 15px;">
-                <span class="success-badge">PAID</span>
-              </div>
-              <div class="detail-row">
-                <strong>Invoice Number:</strong>
-                <span>${invoiceNumber}</span>
-              </div>
-              <div class="detail-row">
-                <strong>Amount Paid:</strong>
-                <span>$${amount} USD</span>
-              </div>
-              <div class="detail-row">
-                <strong>Payment Reference:</strong>
-                <span>${paymentReference}</span>
-              </div>
-              <div class="detail-row">
-                <strong>Payment Date:</strong>
-                <span>${new Date().toLocaleDateString()}</span>
-              </div>
-            </div>
-
-            <p>Your invoice is attached to this email for your records.</p>
-            <p>If your account was suspended, it has now been automatically reactivated.</p>
-            <p>If this was an upgrade payment, your new plan features are now available.</p>
-
-            <p>Thank you for your business!</p>
-
-            <p>Best regards,<br/>
-            <strong>Azaire Fleet Manager Team</strong></p>
-          </div>
-          <div class="footer">
-            <p>This is an automated email. Please do not reply to this message.</p>
-            <p>&copy; ${new Date().getFullYear()} Azaire Fleet Manager. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-    </html>
-  `;
-
-  const attachments = invoicePdf
-    ? [{ filename: `invoice-${invoiceNumber}.pdf`, content: invoicePdf }]
-    : undefined;
-
-  return sendEmail({
-    to: tenantEmail,
-    subject: `Payment Confirmation - Invoice ${invoiceNumber}`,
-    html,
-    attachments,
-  });
-}
-
-/**
- * Send admin notification for new payment
- */
-export async function sendAdminPaymentAlert(
-  tenantName: string,
-  invoiceNumber: string,
-  amount: string,
-  paymentReference: string
-) {
-  // Get super admin emails
-  const superAdmins = await prisma.user.findMany({
-    where: { role: "SUPER_ADMIN" },
-    select: { email: true },
-  });
-
-  if (superAdmins.length === 0) {
-    console.warn("No super admins found to send payment alert");
-    return { success: false, error: "No super admins found" };
-  }
-
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #10b981; color: white; padding: 20px; text-align: center; }
-          .content { background: #f9f9f9; padding: 20px; }
-          .payment-details { background: white; padding: 15px; margin: 20px 0; border-radius: 5px; }
-          .detail-row { display: flex; justify-content: space-between; margin: 10px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>💰 New Payment Received</h1>
-          </div>
-          <div class="content">
-            <p>A new payment has been successfully processed and verified.</p>
-            
-            <div class="payment-details">
-              <div class="detail-row">
-                <strong>Tenant:</strong>
-                <span>${tenantName}</span>
-              </div>
-              <div class="detail-row">
-                <strong>Invoice Number:</strong>
-                <span>${invoiceNumber}</span>
-              </div>
-              <div class="detail-row">
-                <strong>Amount:</strong>
-                <span>$${amount} USD</span>
-              </div>
-              <div class="detail-row">
-                <strong>Payment Reference:</strong>
-                <span>${paymentReference}</span>
-              </div>
-              <div class="detail-row">
-                <strong>Date:</strong>
-                <span>${new Date().toLocaleString()}</span>
-              </div>
-            </div>
-
-            <p><strong>Actions Taken:</strong></p>
-            <ul>
-              <li>Payment verified with PayNow</li>
-              <li>Invoice marked as paid</li>
-              <li>Account unsuspended (if applicable)</li>
-              <li>Subscription upgraded (if applicable)</li>
-              <li>Confirmation email sent to tenant</li>
-            </ul>
-
-            <p>View the payment details in the admin dashboard.</p>
-          </div>
-          <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} Azaire Fleet Manager - Admin Alert</p>
-          </div>
-        </div>
-      </body>
-    </html>
-  `;
-
-  // Send to all super admins
-  const results = await Promise.all(
-    superAdmins.map((admin) =>
-      sendEmail({
-        to: admin.email,
-        subject: `🔔 New Payment: ${tenantName} - $${amount}`,
-        html,
-      })
-    )
-  );
-
-  const allSuccess = results.every((r) => r.success);
-  return { success: allSuccess, results };
-}
-
-/**
- * Generate invoice PDF (placeholder - implement with jsPDF)
- */
-export async function generateInvoicePdf(
-  invoiceId: string
-): Promise<Buffer | null> {
-  try {
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: invoiceId },
-      include: { tenant: true },
-    });
-
-    if (!invoice) {
-      return null;
+    // Validate configuration
+    if (!config.auth.user || !config.auth.pass) {
+      console.warn('SMTP configuration incomplete. Email service will not work.');
+      return;
     }
 
-    // TODO: Implement proper PDF generation with jsPDF
-    // For now, return a simple text buffer as placeholder
-    const invoiceText = `
-INVOICE
+    this.config = config;
+    this.transporter = nodemailer.createTransporter(config);
+  }
 
-Invoice Number: ${invoice.invoiceNumber}
-Date: ${invoice.issueDate.toLocaleDateString()}
-Due Date: ${invoice.dueDate.toLocaleDateString()}
+  async sendEmail(options: EmailOptions): Promise<boolean> {
+    if (!this.transporter) {
+      console.error('Email service not initialized. Check SMTP configuration.');
+      return false;
+    }
 
-Bill To:
-${invoice.tenant.name}
-${invoice.tenant.email}
+    try {
+      const mailOptions = {
+        from: `"${process.env.SMTP_FROM_NAME || 'Fleet Manager'}" <${this.config?.auth.user}>`,
+        to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+        attachments: options.attachments,
+      };
 
-Description: ${invoice.description}
-Amount: $${invoice.amount} ${invoice.currency}
+      const result = await this.transporter.sendMail(mailOptions);
+      console.log('Email sent successfully:', result.messageId);
+      return true;
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      return false;
+    }
+  }
 
-Status: ${invoice.status}
-${invoice.paidAt ? `Paid On: ${invoice.paidAt.toLocaleDateString()}` : ""}
+  async sendVerificationEmail(email: string, verificationToken: string, userName: string): Promise<boolean> {
+    const verificationUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Email Verification</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Fleet Manager!</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">Hi ${userName}!</h2>
+            
+            <p>Thank you for signing up for Fleet Manager. To complete your registration and start managing your fleet, please verify your email address by clicking the button below:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${verificationUrl}" 
+                 style="background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Verify Email Address
+              </a>
+            </div>
+            
+            <p style="color: #6c757d; font-size: 14px;">If the button doesn't work, you can also copy and paste this link into your browser:</p>
+            <p style="color: #6c757d; font-size: 14px; word-break: break-all;">${verificationUrl}</p>
+            
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+            
+            <p style="color: #6c757d; font-size: 14px; margin-bottom: 0;">
+              This verification link will expire in 24 hours. If you didn't create an account with Fleet Manager, you can safely ignore this email.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
 
-Thank you for your business!
-    `.trim();
+    return this.sendEmail({
+      to: email,
+      subject: 'Verify Your Email Address - Fleet Manager',
+      html,
+    });
+  }
 
-    return Buffer.from(invoiceText, "utf-8");
-  } catch (error) {
-    console.error("Error generating invoice PDF:", error);
-    return null;
+  async sendOTPEmail(email: string, otp: string, userName: string): Promise<boolean> {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Two-Factor Authentication Code</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">Two-Factor Authentication</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">Hi ${userName}!</h2>
+            
+            <p>You requested a two-factor authentication code for your Fleet Manager account. Use the code below to complete your login:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <div style="background: #fff; border: 2px solid #28a745; border-radius: 10px; padding: 20px; display: inline-block;">
+                <span style="font-size: 32px; font-weight: bold; color: #28a745; letter-spacing: 5px;">${otp}</span>
+              </div>
+            </div>
+            
+            <p style="color: #6c757d; font-size: 14px;">
+              This code will expire in 10 minutes. If you didn't request this code, please secure your account immediately.
+            </p>
+            
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+            
+            <p style="color: #6c757d; font-size: 14px; margin-bottom: 0;">
+              For security reasons, never share this code with anyone. Fleet Manager will never ask for your authentication code.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: 'Your Two-Factor Authentication Code - Fleet Manager',
+      html,
+    });
+  }
+
+  async sendInvoiceEmail(
+    email: string, 
+    invoiceData: {
+      invoiceNumber: string;
+      amount: number;
+      dueDate: string;
+      companyName: string;
+      userName: string;
+    },
+    invoicePdf: Buffer
+  ): Promise<boolean> {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Invoice - Fleet Manager</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">Invoice from Fleet Manager</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">Hi ${invoiceData.userName}!</h2>
+            
+            <p>Thank you for using Fleet Manager! Please find your invoice attached below:</p>
+            
+            <div style="background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #495057; margin-top: 0;">Invoice Details</h3>
+              <p><strong>Invoice Number:</strong> ${invoiceData.invoiceNumber}</p>
+              <p><strong>Amount:</strong> $${invoiceData.amount.toFixed(2)}</p>
+              <p><strong>Due Date:</strong> ${invoiceData.dueDate}</p>
+              <p><strong>Company:</strong> ${invoiceData.companyName}</p>
+            </div>
+            
+            <p style="color: #6c757d; font-size: 14px;">
+              The invoice PDF is attached to this email. Please keep this for your records.
+            </p>
+            
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+            
+            <p style="color: #6c757d; font-size: 14px; margin-bottom: 0;">
+              If you have any questions about this invoice, please contact our support team.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: `Invoice ${invoiceData.invoiceNumber} - Fleet Manager`,
+      html,
+      attachments: [{
+        filename: `invoice-${invoiceData.invoiceNumber}.pdf`,
+        content: invoicePdf,
+        contentType: 'application/pdf',
+      }],
+    });
+  }
+
+  async sendInvoiceReminderEmail(
+    email: string,
+    invoiceData: {
+      invoiceNumber: string;
+      amount: number;
+      dueDate: string;
+      companyName: string;
+      userName: string;
+    },
+    invoicePdf: Buffer
+  ): Promise<boolean> {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Invoice Reminder - Fleet Manager</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">Invoice Reminder</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">Hi ${invoiceData.userName}!</h2>
+            
+            <p>This is a friendly reminder that your Fleet Manager subscription invoice is due soon:</p>
+            
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #856404; margin-top: 0;">⚠️ Payment Due Soon</h3>
+              <p><strong>Invoice Number:</strong> ${invoiceData.invoiceNumber}</p>
+              <p><strong>Amount:</strong> $${invoiceData.amount.toFixed(2)}</p>
+              <p><strong>Due Date:</strong> ${invoiceData.dueDate}</p>
+              <p><strong>Company:</strong> ${invoiceData.companyName}</p>
+            </div>
+            
+            <p>Please ensure payment is made before the due date to avoid any service interruption. The invoice PDF is attached for your convenience.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/billing" 
+                 style="background: #fd7e14; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                View Billing Dashboard
+              </a>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+            
+            <p style="color: #6c757d; font-size: 14px; margin-bottom: 0;">
+              If you have already made payment, please ignore this reminder. For any billing questions, contact our support team.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: `Invoice Reminder - ${invoiceData.invoiceNumber} Due Soon`,
+      html,
+      attachments: [{
+        filename: `invoice-${invoiceData.invoiceNumber}.pdf`,
+        content: invoicePdf,
+        contentType: 'application/pdf',
+      }],
+    });
   }
 }
+
+export const emailService = new EmailService();
+export default emailService;
