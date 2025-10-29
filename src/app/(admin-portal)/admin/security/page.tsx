@@ -110,7 +110,7 @@ export default async function SecurityPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-gray-600 dark:text-gray-400">Issuer</span>
-              <span className="text-sm font-medium text-gray-900 dark:text-white">Let's Encrypt</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">Let&apos;s Encrypt</span>
             </div>
           </div>
         </div>

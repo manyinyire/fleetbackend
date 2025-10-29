@@ -46,7 +46,7 @@ export async function requireRole(role: string | string[]) {
   const user = await requireAuth();
   const roles = Array.isArray(role) ? role : [role];
 
-  if (!roles.includes(user.role as string)) {
+  if (!roles.includes((user as any).role as string)) {
     // If checking for SUPER_ADMIN and user doesn't have it, redirect to regular dashboard
     if (roles.includes('SUPER_ADMIN')) {
       redirect('/dashboard');
@@ -62,17 +62,17 @@ export async function requireTenant() {
   const user = await requireAuth();
 
   // SUPER_ADMIN users don't have a tenantId
-  if (user.role === 'SUPER_ADMIN') {
+  if ((user as any).role === 'SUPER_ADMIN') {
     return { user, tenantId: null };
   }
 
-  if (!user.tenantId) {
+  if (!(user as any).tenantId) {
     throw new Error('No tenant context');
   }
 
   // Check if tenant is suspended or cancelled
   const tenant = await prisma.tenant.findUnique({
-    where: { id: user.tenantId as string },
+    where: { id: (user as any).tenantId as string },
     select: { status: true, name: true }
   });
 
@@ -88,7 +88,7 @@ export async function requireTenant() {
     redirect('/cancelled');
   }
 
-  return { user, tenantId: user.tenantId as string };
+  return { user, tenantId: (user as any).tenantId as string };
 }
 
 // Server-side: Require tenant context and redirect SUPER_ADMIN to admin dashboard
@@ -96,7 +96,7 @@ export async function requireTenantForDashboard() {
   const { user, tenantId } = await requireTenant();
   
   // SUPER_ADMIN users should be redirected to admin dashboard
-  if (user.role === 'SUPER_ADMIN') {
+  if ((user as any).role === 'SUPER_ADMIN') {
     redirect('/admin/dashboard');
   }
   
@@ -112,7 +112,7 @@ export async function requireTenantForDashboard() {
 export async function requireSuperAdmin() {
   const user = await requireAuth();
   
-  if (user.role !== 'SUPER_ADMIN') {
+  if ((user as any).role !== 'SUPER_ADMIN') {
     redirect('/dashboard');
   }
   

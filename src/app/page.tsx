@@ -6,7 +6,7 @@ export default async function RootPage() {
 
   // If user is logged in, redirect based on role
   if (user) {
-    if (user.role === 'SUPER_ADMIN') {
+    if ((user as any).role === 'SUPER_ADMIN') {
       redirect('/admin/dashboard');
     } else {
       redirect('/dashboard');

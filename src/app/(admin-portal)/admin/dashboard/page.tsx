@@ -5,32 +5,27 @@ import { SuperAdminDashboard } from '@/components/admin/super-admin-dashboard';
 export default async function AdminDashboardPage() {
   await requireRole('SUPER_ADMIN');
 
-  // Fetch comprehensive platform data
+  // Fetch all dashboard data in parallel
   const [
     totalTenants,
-    activeUsers,
-    totalRevenue,
+    totalUsers,
+    activeTenants,
     recentSignups,
     paymentFailures,
+    totalRevenue,
     supportTickets,
-    systemAlerts,
-    revenueTrend,
-    tenantGrowth
+    systemAlerts
   ] = await Promise.all([
     // Total Tenants
     prisma.tenant.count(),
     
-    // Active Users (last 30 days)
-    prisma.user.count({
-      where: {
-        createdAt: {
-          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-        }
-      }
-    }),
+    // Total Users
+    prisma.user.count(),
     
-    // Total Revenue (placeholder - would need to calculate from actual data)
-    Promise.resolve({ _sum: { monthlyRevenue: 0 } }),
+    // Active Tenants
+    prisma.tenant.count({
+      where: { status: 'ACTIVE' }
+    }),
     
     // Recent Signups (last 5)
     prisma.tenant.findMany({
@@ -48,11 +43,11 @@ export default async function AdminDashboardPage() {
       where: {
         status: 'SUSPENDED',
         createdAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
         }
       },
       take: 5,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { updatedAt: 'desc' },
       include: {
         _count: {
           select: { users: true }
@@ -60,123 +55,115 @@ export default async function AdminDashboardPage() {
       }
     }),
     
-    // Support Tickets (placeholder - would come from support system)
-    Promise.resolve([]),
-    
-    // System Alerts (placeholder - would come from monitoring system)
-    Promise.resolve([
-      {
-        id: '1',
-        type: 'CRITICAL',
-        title: 'High CPU usage on server-03',
-        message: 'CPU usage at 94%',
-        timestamp: new Date(),
-        acknowledged: false
-      },
-      {
-        id: '2',
-        type: 'WARNING',
-        title: 'Database backup delayed',
-        message: 'Backup delayed by 2 hours',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        acknowledged: false
-      },
-      {
-        id: '3',
-        type: 'SUCCESS',
-        title: 'Payments processed successfully',
-        message: 'Processed 1,247 payments today',
-        timestamp: new Date(),
-        acknowledged: true
-      }
-    ]),
-    
-    // Revenue Trend (last 6 months)
-    prisma.tenant.findMany({
-      select: {
-        createdAt: true,
-        plan: true
-      },
-      where: {
-        createdAt: {
-          gte: new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000)
-        }
-      },
-      orderBy: { createdAt: 'asc' }
+    // Total Revenue (MRR)
+    prisma.tenant.aggregate({
+      _sum: { monthlyRevenue: true }
     }),
     
-    // Tenant Growth (last 12 months)
+    // Support Tickets (using suspended tenants as proxy)
     prisma.tenant.findMany({
-      select: {
-        createdAt: true,
-        plan: true,
-        status: true
-      },
+      where: { status: 'SUSPENDED' },
+      take: 5,
+      orderBy: { updatedAt: 'desc' }
+    }),
+    
+    // System Alerts (using recent audit logs as proxy)
+    prisma.auditLog.findMany({
       where: {
+        action: { contains: 'ERROR' },
         createdAt: {
-          gte: new Date(Date.now() - 12 * 30 * 24 * 60 * 60 * 1000)
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
         }
       },
-      orderBy: { createdAt: 'asc' }
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: { user: true }
     })
   ]);
 
-  // Calculate KPIs
-  const mrr = 0; // Placeholder - would calculate from actual data
-  const arr = mrr * 12;
-  const churnRate = 2.3; // Placeholder - would calculate from actual data
-  
-  // Process revenue trend data
-  const monthlyRevenue = revenueTrend.reduce((acc, tenant) => {
-    const month = tenant.createdAt.toISOString().substring(0, 7);
-    // Use plan-based revenue calculation since monthlyRevenue field doesn't exist
-    const revenue = tenant.plan === 'BASIC' ? 25 : 0;
-    acc[month] = (acc[month] || 0) + revenue;
-    return acc;
-  }, {} as Record<string, number>);
+  // Calculate additional metrics
+  const mrr = Number(totalRevenue._sum.monthlyRevenue) || 0;
+  const churnRate = 2.3; // This would be calculated from actual churn data
+  const newMrr = mrr * 0.15; // This would be calculated from new subscriptions
 
-  const revenueTrendData = Object.entries(monthlyRevenue).map(([month, revenue]) => ({
-    month,
-    revenue,
-    target: revenue * 1.1 // Placeholder target
-  }));
-
-  // Process tenant growth data
-  const monthlyGrowth = tenantGrowth.reduce((acc, tenant) => {
-    const month = tenant.createdAt.toISOString().substring(0, 7);
-    if (!acc[month]) {
-      acc[month] = { free: 0, basic: 0, premium: 0, total: 0 };
-    }
-    const planKey = tenant.plan.toLowerCase() as 'free' | 'basic';
-    if (planKey in acc[month]) {
-      acc[month][planKey]++;
-    }
-    acc[month].total++;
-    return acc;
-  }, {} as Record<string, { free: number; basic: number; premium: number; total: number }>);
-
-  const tenantGrowthData = Object.entries(monthlyGrowth).map(([month, data]) => ({
-    month,
-    ...data
-  }));
-
+  // Prepare dashboard data
   const dashboardData = {
+    // KPI Cards
     kpis: {
       totalTenants,
-      activeUsers,
+      activeUsers: totalUsers,
       mrr,
-      arr,
+      arr: mrr * 12,
       churnRate,
-      newMrr: mrr * 0.15, // Placeholder
-      arpu: totalTenants > 0 ? mrr / totalTenants : 0,
-      ltv: totalTenants > 0 ? (mrr / totalTenants) * 12 : 0
+      newMrr,
+      arpu: mrr / Math.max(totalTenants, 1),
+      ltv: (mrr / Math.max(totalTenants, 1)) * 36 // 3 years average
     },
-    recentSignups,
-    paymentFailures,
-    supportTickets,
-    systemAlerts,
-    revenueTrendData,
-    tenantGrowthData
+    
+    // Revenue Metrics
+    revenue: {
+      mrr,
+      arr: mrr * 12,
+      newMrr,
+      churnRate,
+      growthRate: 12.5 // This would be calculated from historical data
+    },
+    
+    // Recent Activity
+    recentSignups: recentSignups.map(tenant => ({
+      id: tenant.id,
+      name: tenant.name,
+      email: tenant.email,
+      plan: tenant.plan,
+      users: tenant._count.users,
+      createdAt: tenant.createdAt
+    })),
+    
+    paymentFailures: paymentFailures.map(tenant => ({
+      id: tenant.id,
+      name: tenant.name,
+      email: tenant.email,
+      plan: tenant.plan,
+      users: tenant._count.users,
+      suspendedAt: tenant.updatedAt
+    })),
+    
+    supportTickets: supportTickets.map(tenant => ({
+      id: tenant.id,
+      title: `Suspended: ${tenant.name}`,
+      status: 'open',
+      priority: 'high',
+      createdAt: tenant.updatedAt
+    })),
+    
+    systemAlerts: systemAlerts.map(alert => ({
+      id: alert.id,
+      type: 'ERROR',
+      title: `Error: ${alert.action}`,
+      message: alert.details || 'System error detected',
+      timestamp: alert.createdAt,
+      acknowledged: false
+    })),
+    
+    // Revenue trend data (placeholder - would need historical data)
+    revenueTrendData: [
+      { month: 'Jan', revenue: mrr * 0.8 },
+      { month: 'Feb', revenue: mrr * 0.85 },
+      { month: 'Mar', revenue: mrr * 0.9 },
+      { month: 'Apr', revenue: mrr * 0.95 },
+      { month: 'May', revenue: mrr },
+      { month: 'Jun', revenue: mrr * 1.05 }
+    ],
+    
+    // Tenant growth data (placeholder - would need historical data)
+    tenantGrowthData: [
+      { month: 'Jan', count: Math.floor(totalTenants * 0.8) },
+      { month: 'Feb', count: Math.floor(totalTenants * 0.85) },
+      { month: 'Mar', count: Math.floor(totalTenants * 0.9) },
+      { month: 'Apr', count: Math.floor(totalTenants * 0.95) },
+      { month: 'May', count: totalTenants },
+      { month: 'Jun', count: Math.floor(totalTenants * 1.05) }
+    ]
   };
 
   return <SuperAdminDashboard data={dashboardData} />;

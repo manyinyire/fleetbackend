@@ -25,7 +25,9 @@ import {
   ClipboardDocumentListIcon,
   UserGroupIcon,
   BookOpenIcon,
-  LifebuoyIcon
+  LifebuoyIcon,
+  BanknotesIcon,
+  ReceiptRefundIcon
 } from '@heroicons/react/24/outline';
 
 interface NavItem {
@@ -57,6 +59,13 @@ export function AdminSidebar() {
         { name: 'Users', href: '/admin/users', icon: UsersIcon },
         { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCardIcon },
         { name: 'Billing', href: '/admin/revenue', icon: CurrencyDollarIcon }
+      ]
+    },
+    {
+      title: 'PAYMENTS',
+      items: [
+        { name: 'Payments', href: '/admin/payments', icon: BanknotesIcon },
+        { name: 'Reconciliation', href: '/admin/reconciliation', icon: ReceiptRefundIcon }
       ]
     },
     {
