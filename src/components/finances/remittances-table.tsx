@@ -1,6 +1,19 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
+import {
+  Badge,
+  Table,
+  TableContainer,
+  Tbody,
+  Td,
+  Th,
+  Thead,
+  Tr,
+  useColorModeValue,
+} from "@chakra-ui/react";
+import { useRouter } from "next/navigation";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { DollarSign } from "lucide-react";
 
 interface Remittance {
   id: string;
@@ -21,77 +34,59 @@ interface RemittancesTableProps {
 
 export function RemittancesTable({ remittances }: RemittancesTableProps) {
   const router = useRouter();
+  const headerBg = useColorModeValue("gray.50", "whiteAlpha.100");
+  const rowHoverBg = useColorModeValue("gray.50", "whiteAlpha.50");
 
-  const handleRowClick = (remittanceId: string) => {
-    router.push(`/remittances/${remittanceId}`);
-  };
+  if (remittances.length === 0) {
+    return (
+      <EmptyState
+        title="No remittances"
+        description="Record driver remittances to monitor income against targets."
+        actionLabel="Add remittance"
+        onAction={() => router.push("/remittances/new")}
+      >
+        <DollarSign size={40} />
+      </EmptyState>
+    );
+  }
 
   return (
-    <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-      <table className="min-w-full divide-y divide-gray-300">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Date
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Driver
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Vehicle
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Amount
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Status
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {remittances.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                No remittances found. Add your first remittance to get started.
-              </td>
-            </tr>
-          ) : (
-            remittances.map((remittance) => (
-              <tr
+    <TableContainer>
+      <Table size="md" variant="simple">
+        <Thead bg={headerBg}>
+          <Tr>
+            <Th>Date</Th>
+            <Th>Driver</Th>
+            <Th>Vehicle</Th>
+            <Th isNumeric>Amount</Th>
+            <Th>Status</Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {remittances.map((remittance) => {
+            const statusScheme =
+              remittance.status === "APPROVED" ? "green" : remittance.status === "PENDING" ? "yellow" : "red";
+
+            return (
+              <Tr
                 key={remittance.id}
-                className="hover:bg-gray-50 cursor-pointer"
-                onClick={() => handleRowClick(remittance.id)}
+                _hover={{ bg: rowHoverBg, cursor: "pointer" }}
+                onClick={() => router.push(`/remittances/${remittance.id}`)}
               >
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {new Date(remittance.date).toLocaleDateString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {remittance.driver.fullName}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {remittance.vehicle.registrationNumber}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  ${Number(remittance.amount).toLocaleString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                      remittance.status === 'APPROVED'
-                        ? 'bg-green-100 text-green-800'
-                        : remittance.status === 'PENDING'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}
-                  >
+                <Td>{new Date(remittance.date).toLocaleDateString()}</Td>
+                <Td>{remittance.driver.fullName}</Td>
+                <Td>{remittance.vehicle.registrationNumber}</Td>
+                <Td isNumeric>${Number(remittance.amount).toLocaleString()}</Td>
+                <Td>
+                  <Badge borderRadius="full" colorScheme={statusScheme} variant="subtle">
                     {remittance.status}
-                  </span>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+                  </Badge>
+                </Td>
+              </Tr>
+            );
+          })}
+        </Tbody>
+      </Table>
+    </TableContainer>
   );
 }

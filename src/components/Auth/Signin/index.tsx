@@ -1,32 +1,31 @@
-import Link from "next/link";
+"use client";
+
+import NextLink from "next/link";
+import { Divider, HStack, Link, Stack, Text } from "@chakra-ui/react";
 import GoogleSigninButton from "../GoogleSigninButton";
 import SigninWithPassword from "../SigninWithPassword";
 
 export default function Signin() {
   return (
-    <>
+    <Stack spacing={8}>
       <GoogleSigninButton text="Sign in" />
 
-      <div className="my-6 flex items-center justify-center">
-        <span className="block h-px w-full bg-stroke dark:bg-dark-3"></span>
-        <div className="block w-full min-w-fit bg-white px-3 text-center font-medium dark:bg-gray-dark">
+      <HStack align="center" spacing={4}>
+        <Divider flex="1" />
+        <Text fontSize="sm" color="gray.500" whiteSpace="nowrap">
           Or sign in with email
-        </div>
-        <span className="block h-px w-full bg-stroke dark:bg-dark-3"></span>
-      </div>
+        </Text>
+        <Divider flex="1" />
+      </HStack>
 
-      <div>
-        <SigninWithPassword />
-      </div>
+      <SigninWithPassword />
 
-      <div className="mt-6 text-center">
-        <p>
-          Don&apos;t have an account?{" "}
-          <Link href="/auth/sign-up" className="text-primary">
-            Sign Up
-          </Link>
-        </p>
-      </div>
-    </>
+      <Text textAlign="center" fontSize="sm">
+        Don&apos;t have an account?{" "}
+        <Link as={NextLink} href="/auth/sign-up" color="brand.600" fontWeight="semibold">
+          Sign Up
+        </Link>
+      </Text>
+    </Stack>
   );
 }

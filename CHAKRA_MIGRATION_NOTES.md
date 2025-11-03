@@ -1,0 +1,24 @@
+## Chakra Migration Notes
+
+- **Overview**: The app now uses Chakra UI for theming and layout. Tailwind-based landing, auth, dashboard, vehicles, drivers, remittances, and audit pages were rebuilt with Chakra components while server logic and Prisma models remain intact.
+- **Providers & Theme**:
+  - `src/app/providers.tsx` wraps the app with `CacheProvider` and `ChakraProvider` using the brand theme defined in `src/theme/index.ts`.
+  - `ColorModeScript` is injected in `src/app/layout.tsx`; `next-themes` is still present for legacy screens but Chakra color mode powers new views.
+- **Design System**:
+  - Core primitives live under `src/components/ui/` (`PageHeader`, `StatCard`, `EmptyState`).
+  - `src/components/layout/AppShell.tsx` implements the responsive dashboard shell consumed via `TenantDashboardShell`.
+  - Navigation metadata has been extracted to `src/config/navigation.ts` for tenant vs. admin menus.
+- **Converted Features**:
+  - Marketing landing page (`src/components/marketing/LandingPage.tsx`) now delivers the hero, feature grid, workflow, and CTA sections with Chakra responsiveness.
+  - Auth flows (`/auth/sign-in`, `/auth/sign-up`) use Chakra form controls, `react-hook-form` + `zod`, and Chakra toasts.
+  - Tenant dashboards leverage new Chakra modules: `TenantStats`, `TenantVehiclesDrivers`, `TenantQuickActions`, `TenantRecentActivity` with server data fetched in RSC.
+  - Vehicles & Drivers directories render card-based grids instead of Tailwind lists.
+  - Remittances page features Chakra stat cards and table, and the audit trail uses a Chakra modal-based viewer.
+- **Migration Guidance**:
+  - Prefer Chakra components for future pages; import UI primitives from `src/components/ui` where possible.
+  - When migrating remaining Tailwind screens, follow the pattern of creating new Chakra components alongside existing server logic, then replace the old imports.
+  - Use `useColorModeValue` at the top level of components (avoid calling inside loops) to satisfy lint rules.
+- **Next Steps**:
+  - Convert remaining tailwind-heavy modules (finances reports, admin portal) to Chakra.
+  - Replace `AdvancedSearch` with a Chakra-based alternative and phase out legacy `next-themes` once all screens are migrated.
+  - Create shared icon wrappers if repeated Lucide usage demands standardization.

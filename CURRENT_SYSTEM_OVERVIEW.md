@@ -1,0 +1,35 @@
+## Current System Overview
+
+- **Platform**: Next.js 15 (app router) with React 19, Tailwind CSS, Radix UI primitives, and Better Auth for authentication. Multi-tenant SaaS model targeting fleet management for Zimbabwe.
+- **Core Domains**:
+  - `Tenant` lifecycle (status, subscription, billing metadata, settings customization) with row-level security context handled through `setTenantContext()` and tenant-scoped Prisma client via `getTenantPrisma()`.
+  - `User` management supporting roles (`SUPER_ADMIN`, `TENANT_ADMIN`, `FLEET_MANAGER`, `ACCOUNTANT`, `DRIVER`, `USER`), email verification, 2FA, and Better Auth sessions. Super admin flows live under `(admin-portal)` routes.
+  - Fleet operations: `Vehicle`, `Driver`, `DriverVehicleAssignment`, `MaintenanceRecord`, remittance tracking, expense/income accounting, profitability calculations (`vehicle-profitability.tsx`).
+  - Financial systems: `Invoice`, `Payment`, `InvoiceReminder`, PayNow integration with webhook verification, reconciliation tooling, reports, CSV export, Google Analytics instrumentation.
+  - Governance: `AuditLog`, `AdminSecurityLog`, `SystemAlert`, feature flags, admin impersonation, notifications.
+- **Key Server Actions** (in `src/server/actions`): CRUD for vehicles, drivers, remittances, tenant settings; driver/vehicle assignment management; bulk operations; auth flows. These enforce tenant scoping, Zod validation, cache revalidation, and toast-compatible error messages.
+- **API Routes** (in `src/app/api`):
+  - `/api/auth/*` provided by Better Auth.
+  - Tenant CRUD (`/api/admin/tenants`), super admin analytics (`/api/admin/*`), onboarding, invoices, payments, maintenance, remittances.
+  - Payment integration endpoints: `/api/payments/initiate`, `/api/payments/paynow/callback` with PayNow verification and auto actions (plan upgrades, unsuspension, notifications).
+- **UI Layouts**:
+  - Tenant dashboard shell at `(dashboard)` uses sidebar context, quick actions, tables, charts, modals—heavy Tailwind usage and custom components.
+  - Super admin portal at `(admin-portal)` with dedicated sidebar (`admin-sidebar.tsx`) and analytics/reconciliation pages.
+  - Auth pages (`/auth/sign-in`, `/auth/sign-up`) using Tailwind forms, Google sign-in button, 2FA setup component.
+  - Misc pages for tables, forms showcase, charts, calendar, etc.
+- **Integrations & Utilities**:
+  - `src/lib` hosts Prisma client, tenant scoping helpers, email (Resend), SMS (AfricasTalking), PayNow service, analytics wrappers, export utilities.
+  - Background sync hook (`use-background-sync`) supports PWA offline queue (`offline-queue.ts`).
+  - PWA setup with `next-pwa`, service worker in `public/sw.js`.
+- **Testing**: `tests/` directory includes API, component, e2e, integration, performance, and security test suites.
+- **Styling/Theming**: Tailwind configuration (`tailwind.config.ts`), custom CSS (`src/css/style.css`, `satoshi.css`), theme toggling via `next-themes`.
+- **Notable Flows**:
+  - Dashboard data fetches combine Prisma aggregates for stats, remittance/maintenance feeds, quick actions for navigation.
+  - Driver-vehicle assignment ensures unique active assignment, handles primary flags, and revalidates relevant routes.
+  - Driver/vehicle forms use `react-hook-form` + Zod validation, toast notifications, and server actions for persistence.
+  - Admin analytics includes payment reconciliation workflow, system health dashboards, email template management, and audit trails.
+- **Pain Points for Migration**:
+  - Tailwind-specific classnames embedded across 100+ components.
+  - Layout relies on custom sidebar context and CSS utilities incompatible with Chakra UI out of the box.
+  - Theme toggling uses `next-themes` (class-based) versus Chakra’s color mode provider.
+  - Some components mix server data fetching with client-only UI requiring careful segregation when refactoring to Chakra.

@@ -1,12 +1,13 @@
-import { requireTenantForDashboard } from '@/lib/auth-helpers';
-import { getTenantPrisma } from '@/lib/get-tenant-prisma';
-import { setTenantContext } from '@/lib/tenant';
-import { AuditTrailViewer } from '@/components/audit/audit-trail-viewer';
-import { AdvancedSearch } from '@/components/search/advanced-search';
-import { useState } from 'react';
+import { requireTenantForDashboard } from "@/lib/auth-helpers";
+import { getTenantPrisma } from "@/lib/get-tenant-prisma";
+import { setTenantContext } from "@/lib/tenant";
+import { AuditTrailViewer } from "@/components/audit/audit-trail-viewer";
+import { AdvancedSearch } from "@/components/search/advanced-search";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Stack } from "@chakra-ui/react";
 
 export default async function AuditPage() {
-  const { user, tenantId } = await requireTenantForDashboard();
+  const { tenantId } = await requireTenantForDashboard();
   
   // Set RLS context
   await setTenantContext(tenantId);
@@ -73,31 +74,24 @@ export default async function AuditPage() {
   ];
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Audit Trail</h1>
-        <p className="mt-2 text-gray-600">
-          Track all system activities and changes for compliance and security.
-        </p>
-      </div>
+    <Stack spacing={8}>
+      <PageHeader
+        title="Audit Trail"
+        description="Track system activities and changes for compliance and security."
+      />
 
       <AdvancedSearch
         onSearch={(searchData) => {
-          // This would be implemented with client-side filtering or server-side search
-          console.log('Search data:', searchData);
+          console.log("Search data:", searchData);
         }}
         onClear={() => {
-          // This would clear the search
-          console.log('Clear search');
+          console.log("Clear search");
         }}
         filters={filterOptions}
         placeholder="Search audit logs..."
       />
 
-      <AuditTrailViewer 
-        auditLogs={auditLogs}
-        currentUser={user}
-      />
-    </div>
+      <AuditTrailViewer auditLogs={auditLogs} />
+    </Stack>
   );
 }

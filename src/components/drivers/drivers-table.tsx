@@ -1,15 +1,21 @@
-'use client';
+"use client";
 
 import {
-  UserGroupIcon,
-  PhoneIcon,
-  TruckIcon,
-  CurrencyDollarIcon,
-  DocumentTextIcon,
-  EyeIcon,
-  PencilIcon
-} from '@heroicons/react/24/outline';
-import Link from 'next/link';
+  Avatar,
+  AvatarBadge,
+  Badge,
+  Box,
+  Button,
+  HStack,
+  IconButton,
+  SimpleGrid,
+  Stack,
+  Text,
+  useColorModeValue,
+} from "@chakra-ui/react";
+import NextLink from "next/link";
+import { DollarSign, Eye, Pencil, Phone, User, Truck } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 interface Driver {
   id: string;
@@ -42,137 +48,131 @@ interface DriversTableProps {
 }
 
 export function DriversTable({ drivers }: DriversTableProps) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'bg-green-100 text-green-800';
-      case 'INACTIVE':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'TERMINATED':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const cardBg = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.100", "gray.700");
+
+  const statusColor: Record<string, string> = {
+    ACTIVE: "green",
+    INACTIVE: "yellow",
+    TERMINATED: "red",
   };
 
-  const getPaymentModelLabel = (model: string) => {
-    switch (model) {
-      case 'OWNER_PAYS':
-        return 'Owner Pays';
-      case 'DRIVER_REMITS':
-        return 'Driver Remits';
-      case 'HYBRID':
-        return 'Hybrid';
-      default:
-        return model;
-    }
+  const paymentLabel: Record<string, string> = {
+    OWNER_PAYS: "Owner Pays",
+    DRIVER_REMITS: "Driver Remits",
+    HYBRID: "Hybrid",
   };
+
+  if (drivers.length === 0) {
+    return (
+      <EmptyState
+        title="No drivers yet"
+        description="Invite your first driver to start tracking remittances and assignments."
+        actionLabel="Add Driver"
+        onAction={() => window.location.assign("/drivers/new")}
+      >
+        <User size={40} />
+      </EmptyState>
+    );
+  }
 
   return (
-    <div className="bg-white shadow overflow-hidden sm:rounded-md">
-      {drivers.length === 0 ? (
-        <div className="text-center py-12">
-          <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No drivers</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Get started by adding your first driver to the system.
-          </p>
-          <div className="mt-6">
-            <Link
-              href="/drivers/new"
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-            >
-              <UserGroupIcon className="h-4 w-4 mr-2" />
-              Add Driver
-            </Link>
-          </div>
-        </div>
-      ) : (
-        <ul className="divide-y divide-gray-200">
-          {drivers.map((driver) => (
-            <li key={driver.id}>
-              <div className="px-4 py-4 flex items-center justify-between hover:bg-gray-50">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                      <UserGroupIcon className="h-6 w-6 text-indigo-600" />
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <div className="flex items-center">
-                      <p className="text-sm font-medium text-gray-900">
-                        {driver.fullName}
-                      </p>
-                      <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(driver.status)}`}>
-                        {driver.status}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex items-center space-x-4 text-xs text-gray-500">
-                      <span className="flex items-center">
-                        <PhoneIcon className="h-3 w-3 mr-1" />
-                        {driver.phone}
-                      </span>
-                      {driver.email && (
-                        <span className="flex items-center">
-                          {driver.email}
-                        </span>
-                      )}
-                      <span className="flex items-center">
-                        <TruckIcon className="h-3 w-3 mr-1" />
-                        {driver.vehicles.length} vehicle{driver.vehicles.length !== 1 ? 's' : ''}
-                      </span>
-                      <span className="flex items-center">
-                        <CurrencyDollarIcon className="h-3 w-3 mr-1" />
-                        {driver._count.remittances} remittances
-                      </span>
-                    </div>
-                    <div className="mt-1 text-xs text-gray-500">
-                      Payment Model: {getPaymentModelLabel(driver.paymentModel)}
-                      {driver.debtBalance > 0 && (
-                        <span className="ml-2 text-red-600">
-                          (Debt: ${driver.debtBalance.toFixed(2)})
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <div className="text-right">
-                    <p className="text-sm text-gray-900">
-                      {driver.vehicles.length > 0 ? driver.vehicles[0].vehicle.registrationNumber : 'No vehicle'}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {driver.remittances.length > 0 && (
-                        <>
-                          Last remittance: ${driver.remittances[0].amount} ({new Date(driver.remittances[0].date).toLocaleDateString()})
-                        </>
-                      )}
-                    </p>
-                  </div>
-                  
-                  <div className="flex space-x-1">
-                    <Link
-                      href={`/drivers/${driver.id}`}
-                      className="p-2 text-gray-400 hover:text-gray-600"
-                      title="View Driver"
-                    >
-                      <EyeIcon className="h-4 w-4" />
-                    </Link>
-                    <Link
-                      href={`/drivers/${driver.id}/edit`}
-                      className="p-2 text-gray-400 hover:text-gray-600"
-                      title="Edit Driver"
-                    >
-                      <PencilIcon className="h-4 w-4" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+      {drivers.map((driver) => {
+        const primaryVehicle = driver.vehicles[0]?.vehicle;
+        const lastRemittance = driver.remittances[0];
+        const statusScheme = statusColor[driver.status] ?? "gray";
+
+        return (
+          <Box
+            key={driver.id}
+            bg={cardBg}
+            borderRadius="2xl"
+            borderWidth="1px"
+            borderColor={borderColor}
+            shadow="sm"
+            p={5}
+          >
+            <HStack justify="space-between" align="flex-start">
+              <HStack spacing={4} align="flex-start">
+                <Avatar bg="brand.500" color="white" name={driver.fullName}>
+                  <AvatarBadge boxSize={4} bg={`${statusScheme}.400`} />
+                </Avatar>
+                <Stack spacing={1}>
+                  <HStack spacing={3}>
+                    <Text fontWeight="semibold" fontSize="lg">
+                      {driver.fullName}
+                    </Text>
+                    <Badge colorScheme={statusScheme}>{driver.status}</Badge>
+                  </HStack>
+                  <HStack spacing={3} fontSize="sm" color="gray.500">
+                    <HStack spacing={1}>
+                      <Phone size={16} />
+                      <Text>{driver.phone}</Text>
+                    </HStack>
+                    {driver.email && <Text>{driver.email}</Text>}
+                  </HStack>
+                  <HStack spacing={4} fontSize="xs" color="gray.500">
+                    <HStack spacing={1}>
+                      <Truck size={14} />
+                      <Text>{driver.vehicles.length} vehicles</Text>
+                    </HStack>
+                    <HStack spacing={1}>
+                      <DollarSign size={14} />
+                      <Text>{driver._count.remittances} remittances</Text>
+                    </HStack>
+                  </HStack>
+                  <Text fontSize="xs" color="gray.500">
+                    Payment Model: {paymentLabel[driver.paymentModel] ?? driver.paymentModel}
+                    {driver.debtBalance > 0 && (
+                      <Text as="span" color="red.500" ml={2}>
+                        (Debt: ${driver.debtBalance.toFixed(2)})
+                      </Text>
+                    )}
+                  </Text>
+                </Stack>
+              </HStack>
+
+              <HStack spacing={2}>
+                <IconButton
+                  as={NextLink}
+                  href={`/drivers/${driver.id}`}
+                  aria-label="View driver"
+                  variant="ghost"
+                  icon={<Eye size={16} />}
+                />
+                <IconButton
+                  as={NextLink}
+                  href={`/drivers/${driver.id}/edit`}
+                  aria-label="Edit driver"
+                  variant="ghost"
+                  icon={<Pencil size={16} />}
+                />
+              </HStack>
+            </HStack>
+
+            <Stack mt={4} spacing={3} fontSize="sm">
+              <HStack justify="space-between">
+                <Text color="gray.500">Primary vehicle</Text>
+                <Text fontWeight="medium">
+                  {primaryVehicle ? primaryVehicle.registrationNumber : "Unassigned"}
+                </Text>
+              </HStack>
+              <HStack justify="space-between">
+                <Text color="gray.500">Last remittance</Text>
+                <Text fontWeight="medium">
+                  {lastRemittance
+                    ? `$${Number(lastRemittance.amount).toLocaleString()} ? ${new Date(lastRemittance.date).toLocaleDateString()}`
+                    : "No remittances"}
+                </Text>
+              </HStack>
+              <Button as={NextLink} href={`/drivers/${driver.id}`} variant="ghost" size="sm" colorScheme="brand">
+                View driver profile
+              </Button>
+            </Stack>
+          </Box>
+        );
+      })}
+    </SimpleGrid>
   );
 }

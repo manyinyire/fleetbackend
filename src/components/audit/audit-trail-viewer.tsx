@@ -1,16 +1,37 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { 
-  ClockIcon, 
-  UserIcon, 
-  DocumentTextIcon,
-  EyeIcon,
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-  InformationCircleIcon
-} from '@heroicons/react/24/outline';
-import { AuditLogDetails } from './audit-log-details';
+import { useState } from "react";
+import {
+  Badge,
+  Box,
+  Button,
+  HStack,
+  Icon,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+  ModalOverlay,
+  Stack,
+  Text,
+  useColorModeValue,
+  useDisclosure,
+} from "@chakra-ui/react";
+import { formatDistanceToNow } from "date-fns";
+import { AuditLogDetails } from "./audit-log-details";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Info,
+  LogIn,
+  LogOut,
+  Mail,
+  MessageSquare,
+  User,
+} from "lucide-react";
 
 interface AuditLog {
   id: string;
@@ -30,193 +51,145 @@ interface AuditLog {
 
 interface AuditTrailViewerProps {
   auditLogs: AuditLog[];
-  currentUser: {
-    id: string;
-    name: string;
-    email: string;
-  };
 }
 
-export function AuditTrailViewer({ auditLogs, currentUser }: AuditTrailViewerProps) {
+const ACTION_META: Record<string, { icon: any; color: string }> = {
+  CREATE: { icon: CheckCircle2, color: "green" },
+  CREATED: { icon: CheckCircle2, color: "green" },
+  UPDATE: { icon: Info, color: "blue" },
+  UPDATED: { icon: Info, color: "blue" },
+  DELETE: { icon: AlertTriangle, color: "red" },
+  DELETED: { icon: AlertTriangle, color: "red" },
+  LOGIN: { icon: LogIn, color: "purple" },
+  LOGOUT: { icon: LogOut, color: "purple" },
+  SMS_SENT: { icon: MessageSquare, color: "yellow" },
+  EMAIL_SENT: { icon: Mail, color: "yellow" },
+  BULK_SMS_SENT: { icon: MessageSquare, color: "yellow" },
+};
+
+const FALLBACK_META = { icon: FileText, color: "gray" };
+
+const formatActionDescription = (log: AuditLog) => {
+  const entityType = log.entityType.replace(/_/g, " ").toLowerCase();
+
+  switch (log.action) {
+    case "CREATE":
+      return `Created new ${entityType}`;
+    case "UPDATE":
+      return `Updated ${entityType}`;
+    case "DELETE":
+      return `Deleted ${entityType}`;
+    case "LOGIN":
+      return "User logged in";
+    case "LOGOUT":
+      return "User logged out";
+    case "SMS_SENT":
+      return "SMS notification sent";
+    case "EMAIL_SENT":
+      return "Email notification sent";
+    case "BULK_SMS_SENT":
+      return "Bulk SMS notifications sent";
+    default:
+      return `${log.action.replace(/_/g, " ").toLowerCase()} ${entityType}`;
+  }
+};
+
+export function AuditTrailViewer({ auditLogs }: AuditTrailViewerProps) {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
+  const disclosure = useDisclosure();
+  const cardBg = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.100", "gray.700");
+  const hoverBg = useColorModeValue("gray.50", "whiteAlpha.50");
 
-  const getActionIcon = (action: string) => {
-    switch (action.toLowerCase()) {
-      case 'create':
-      case 'created':
-        return <CheckCircleIcon className="h-4 w-4 text-green-500" />;
-      case 'update':
-      case 'updated':
-        return <InformationCircleIcon className="h-4 w-4 text-blue-500" />;
-      case 'delete':
-      case 'deleted':
-        return <ExclamationTriangleIcon className="h-4 w-4 text-red-500" />;
-      case 'login':
-      case 'logout':
-        return <UserIcon className="h-4 w-4 text-purple-500" />;
-      case 'sms_sent':
-      case 'email_sent':
-        return <DocumentTextIcon className="h-4 w-4 text-yellow-500" />;
-      default:
-        return <InformationCircleIcon className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  const getActionColor = (action: string) => {
-    switch (action.toLowerCase()) {
-      case 'create':
-      case 'created':
-        return 'bg-green-100 text-green-800';
-      case 'update':
-      case 'updated':
-        return 'bg-blue-100 text-blue-800';
-      case 'delete':
-      case 'deleted':
-        return 'bg-red-100 text-red-800';
-      case 'login':
-      case 'logout':
-        return 'bg-purple-100 text-purple-800';
-      case 'sms_sent':
-      case 'email_sent':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getEntityTypeIcon = (entityType: string) => {
-    switch (entityType.toLowerCase()) {
-      case 'vehicle':
-        return '🚗';
-      case 'driver':
-        return '👤';
-      case 'remittance':
-        return '💰';
-      case 'expense':
-        return '💸';
-      case 'income':
-        return '📈';
-      case 'user':
-        return '👥';
-      case 'tenant':
-        return '🏢';
-      default:
-        return '📄';
-    }
-  };
-
-  const formatActionDescription = (log: AuditLog) => {
-    const action = log.action.replace(/_/g, ' ').toLowerCase();
-    const entityType = log.entityType.replace(/_/g, ' ').toLowerCase();
-    
-    switch (log.action) {
-      case 'CREATE':
-        return `Created new ${entityType}`;
-      case 'UPDATE':
-        return `Updated ${entityType}`;
-      case 'DELETE':
-        return `Deleted ${entityType}`;
-      case 'LOGIN':
-        return 'User logged in';
-      case 'LOGOUT':
-        return 'User logged out';
-      case 'SMS_SENT':
-        return 'SMS notification sent';
-      case 'EMAIL_SENT':
-        return 'Email notification sent';
-      case 'BULK_SMS_SENT':
-        return 'Bulk SMS notifications sent';
-      default:
-        return `${action} ${entityType}`;
-    }
-  };
-
-  const handleLogClick = (log: AuditLog) => {
-    setSelectedLog(log);
-    setShowDetails(true);
-  };
-
-  const handleCloseDetails = () => {
-    setShowDetails(false);
-    setSelectedLog(null);
-  };
+  if (auditLogs.length === 0) {
+    return (
+      <Box bg={cardBg} borderRadius="2xl" borderWidth="1px" borderColor={borderColor} py={16} textAlign="center">
+        <Icon as={Clock} boxSize={12} color="gray.400" />
+        <Text mt={3} fontSize="lg" fontWeight="semibold">
+          No audit logs yet
+        </Text>
+        <Text mt={2} fontSize="sm" color="gray.500">
+          Activities will appear here once users interact with the system.
+        </Text>
+      </Box>
+    );
+  }
 
   return (
     <>
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        {auditLogs.length === 0 ? (
-          <div className="text-center py-12">
-            <ClockIcon className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No audit logs</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Audit logs will appear here as activities are performed.
-            </p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-gray-200">
-            {auditLogs.map((log) => (
-              <li key={log.id}>
-                <div 
-                  onClick={() => handleLogClick(log)}
-                  className="px-4 py-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
-                >
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="flex items-center justify-center w-10 h-10 bg-gray-100 rounded-full">
-                        <span className="text-lg">{getEntityTypeIcon(log.entityType)}</span>
-                      </div>
-                    </div>
-                    <div className="ml-4">
-                      <div className="flex items-center">
-                        <div className="flex items-center">
-                          {getActionIcon(log.action)}
-                          <span className="ml-2 text-sm font-medium text-gray-900">
-                            {formatActionDescription(log)}
-                          </span>
-                        </div>
-                        <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getActionColor(log.action)}`}>
-                          {log.action.replace(/_/g, ' ')}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center text-sm text-gray-500">
-                        <UserIcon className="h-4 w-4 mr-1" />
-                        <span>{log.user.name}</span>
-                        <span className="mx-2">•</span>
-                        <ClockIcon className="h-4 w-4 mr-1" />
-                        <span>{new Date(log.createdAt).toLocaleString()}</span>
-                        {log.ipAddress && (
-                          <>
-                            <span className="mx-2">•</span>
-                            <span>IP: {log.ipAddress}</span>
-                          </>
-                        )}
-                      </div>
-                      {log.details && typeof log.details === 'object' && (
-                        <div className="mt-1 text-xs text-gray-400">
-                          {Object.keys(log.details).length} detail{Object.keys(log.details).length !== 1 ? 's' : ''}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center">
-                    <EyeIcon className="h-4 w-4 text-gray-400" />
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <Stack spacing={4}>
+        {auditLogs.map((log) => {
+          const meta = ACTION_META[log.action] ?? FALLBACK_META;
 
-      {/* Audit Log Details Modal */}
-      {showDetails && selectedLog && (
-        <AuditLogDetails
-          log={selectedLog}
-          onClose={handleCloseDetails}
-        />
-      )}
+          return (
+            <Box
+              key={log.id}
+              bg={cardBg}
+              borderRadius="xl"
+              borderWidth="1px"
+              borderColor={borderColor}
+              p={5}
+              _hover={{ bg: hoverBg, cursor: "pointer" }}
+              onClick={() => {
+                setSelectedLog(log);
+                disclosure.onOpen();
+              }}
+            >
+              <HStack justify="space-between" align="flex-start">
+                <HStack spacing={4} align="flex-start">
+                  <Box bg={`${meta.color}.100`} color={`${meta.color}.600`} p={2} borderRadius="lg">
+                    <Icon as={meta.icon} boxSize={5} />
+                  </Box>
+                  <Stack spacing={1}>
+                    <HStack spacing={3}>
+                      <Text fontWeight="semibold">{formatActionDescription(log)}</Text>
+                      <Badge colorScheme={meta.color} variant="subtle" borderRadius="full">
+                        {log.action.replace(/_/g, " ")}
+                      </Badge>
+                    </HStack>
+                    <HStack spacing={2} fontSize="sm" color="gray.500">
+                      <HStack spacing={1}>
+                        <Icon as={User} boxSize={4} />
+                        <Text>{log.user.name}</Text>
+                      </HStack>
+                      <Text>•</Text>
+                      <HStack spacing={1}>
+                        <Icon as={Clock} boxSize={4} />
+                        <Text>{formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}</Text>
+                      </HStack>
+                      {log.ipAddress && (
+                        <HStack spacing={1}>
+                          <Text>•</Text>
+                          <Text>IP: {log.ipAddress}</Text>
+                        </HStack>
+                      )}
+                    </HStack>
+                    {log.details && typeof log.details === "object" && (
+                      <Text fontSize="xs" color="gray.400">
+                        {Object.keys(log.details).length} detail{Object.keys(log.details).length !== 1 ? "s" : ""}
+                      </Text>
+                    )}
+                  </Stack>
+                </HStack>
+                <Button size="sm" variant="ghost" colorScheme="brand">
+                  View
+                </Button>
+              </HStack>
+            </Box>
+          );
+        })}
+      </Stack>
+
+      <Modal isOpen={disclosure.isOpen} onClose={disclosure.onClose} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Audit Log Details</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {selectedLog && <AuditLogDetails auditLog={selectedLog} isOpen onClose={disclosure.onClose} />}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </>
   );
 }

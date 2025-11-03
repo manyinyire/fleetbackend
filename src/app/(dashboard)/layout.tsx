@@ -1,19 +1,18 @@
-import { Sidebar } from "@/components/Layouts/sidebar";
-import { Header } from "@/components/Layouts/header";
 import type { PropsWithChildren } from "react";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth-helpers";
+import { TenantDashboardShell } from "@/components/layout/TenantDashboardShell";
 
-export default function DashboardLayout({ children }: PropsWithChildren) {
-  return (
-    <div className="flex min-h-screen">
-      <Sidebar />
+export default async function DashboardLayout({ children }: PropsWithChildren) {
+  const user = await getCurrentUser();
 
-      <div className="w-full bg-gray-2 dark:bg-[#020d1a]">
-        <Header />
+  if (!user) {
+    redirect("/auth/sign-in");
+  }
 
-        <main className="isolate mx-auto w-full max-w-screen-2xl overflow-hidden p-4 md:p-6 2xl:p-10">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+  if ((user as any).role === "SUPER_ADMIN") {
+    redirect("/admin/dashboard");
+  }
+
+  return <TenantDashboardShell user={user}>{children}</TenantDashboardShell>;
 }

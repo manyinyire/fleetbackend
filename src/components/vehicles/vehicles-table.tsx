@@ -1,14 +1,21 @@
-'use client';
+"use client";
 
 import {
-  TruckIcon,
-  UserGroupIcon,
-  WrenchScrewdriverIcon,
-  CurrencyDollarIcon,
-  EyeIcon,
-  PencilIcon
-} from '@heroicons/react/24/outline';
-import Link from 'next/link';
+  Avatar,
+  AvatarBadge,
+  Badge,
+  Box,
+  Button,
+  HStack,
+  IconButton,
+  SimpleGrid,
+  Stack,
+  Text,
+  useColorModeValue,
+} from "@chakra-ui/react";
+import NextLink from "next/link";
+import { Eye, Pencil, Truck } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 interface Vehicle {
   id: string;
@@ -29,7 +36,7 @@ interface Vehicle {
     id: string;
     type: string;
     date: string;
-    cost: number;
+    cost: any;
   }>;
   _count: {
     remittances: number;
@@ -41,128 +48,109 @@ interface VehiclesTableProps {
   vehicles: Vehicle[];
 }
 
-export function VehiclesTable({ vehicles }: VehiclesTableProps) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'bg-green-100 text-green-800';
-      case 'UNDER_MAINTENANCE':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'DECOMMISSIONED':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+const statusColor: Record<string, string> = {
+  ACTIVE: "green",
+  UNDER_MAINTENANCE: "yellow",
+  DECOMMISSIONED: "red",
+};
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'CAR':
-        return '🚗';
-      case 'OMNIBUS':
-        return '🚌';
-      case 'BIKE':
-        return '🏍️';
-      default:
-        return '🚗';
-    }
-  };
+export function VehiclesTable({ vehicles }: VehiclesTableProps) {
+  const cardBg = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.100", "gray.700");
+
+  if (vehicles.length === 0) {
+    return (
+      <EmptyState
+        title="No vehicles yet"
+        description="Start by adding your first vehicle to unlock analytics and remittance tracking."
+        actionLabel="Add Vehicle"
+        onAction={() => window.location.assign("/vehicles/new")}
+      >
+        <Truck size={40} />
+      </EmptyState>
+    );
+  }
 
   return (
-    <div className="bg-white shadow overflow-hidden sm:rounded-md">
-      {vehicles.length === 0 ? (
-        <div className="text-center py-12">
-          <TruckIcon className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No vehicles</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Get started by adding your first vehicle to the fleet.
-          </p>
-          <div className="mt-6">
-            <Link
-              href="/vehicles/new"
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-            >
-              <TruckIcon className="h-4 w-4 mr-2" />
-              Add Vehicle
-            </Link>
-          </div>
-        </div>
-      ) : (
-        <ul className="divide-y divide-gray-200">
-          {vehicles.map((vehicle) => (
-            <li key={vehicle.id}>
-              <div className="px-4 py-4 flex items-center justify-between hover:bg-gray-50">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                      <span className="text-lg">{getTypeIcon(vehicle.type)}</span>
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <div className="flex items-center">
-                      <p className="text-sm font-medium text-gray-900">
-                        {vehicle.registrationNumber}
-                      </p>
-                      <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(vehicle.status)}`}>
-                        {vehicle.status.replace('_', ' ')}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500">
-                      {vehicle.year} {vehicle.make} {vehicle.model}
-                    </p>
-                    <div className="mt-1 flex items-center space-x-4 text-xs text-gray-500">
-                      <span className="flex items-center">
-                        <TruckIcon className="h-3 w-3 mr-1" />
-                        {vehicle.currentMileage.toLocaleString()} miles
-                      </span>
-                      <span className="flex items-center">
-                        <UserGroupIcon className="h-3 w-3 mr-1" />
-                        {vehicle.drivers.length} driver{vehicle.drivers.length !== 1 ? 's' : ''}
-                      </span>
-                      <span className="flex items-center">
-                        <CurrencyDollarIcon className="h-3 w-3 mr-1" />
-                        {vehicle._count.remittances} remittances
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <div className="text-right">
-                    <p className="text-sm text-gray-900">
-                      {vehicle.drivers.length > 0 ? vehicle.drivers[0].driver.fullName : 'No driver'}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {vehicle.maintenanceRecords.length > 0 && (
-                        <>
-                          Last service: {new Date(vehicle.maintenanceRecords[0].date).toLocaleDateString()}
-                        </>
-                      )}
-                    </p>
-                  </div>
-                  
-                  <div className="flex space-x-1">
-                    <Link
-                      href={`/vehicles/${vehicle.id}`}
-                      className="p-2 text-gray-400 hover:text-gray-600"
-                      title="View Vehicle"
-                    >
-                      <EyeIcon className="h-4 w-4" />
-                    </Link>
-                    <Link
-                      href={`/vehicles/${vehicle.id}/edit`}
-                      className="p-2 text-gray-400 hover:text-gray-600"
-                      title="Edit Vehicle"
-                    >
-                      <PencilIcon className="h-4 w-4" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+      {vehicles.map((vehicle) => {
+        const assignedDriver = vehicle.drivers[0]?.driver;
+        const lastService = vehicle.maintenanceRecords[0];
+        const statusScheme = statusColor[vehicle.status] ?? "gray";
+
+        return (
+          <Box
+            key={vehicle.id}
+            bg={cardBg}
+            borderRadius="2xl"
+            borderWidth="1px"
+            borderColor={borderColor}
+            shadow="sm"
+            p={5}
+          >
+            <HStack justify="space-between" align="flex-start">
+              <HStack spacing={4} align="flex-start">
+                <Avatar bg="brand.500" color="white" name={vehicle.registrationNumber}>
+                  <AvatarBadge boxSize={4} bg={`${statusScheme}.400`} />
+                </Avatar>
+                <Stack spacing={1}>
+                  <HStack spacing={3}>
+                    <Text fontWeight="semibold" fontSize="lg">
+                      {vehicle.registrationNumber}
+                    </Text>
+                    <Badge colorScheme={statusScheme} variant="subtle" borderRadius="full">
+                      {vehicle.status.replace("_", " ")}
+                    </Badge>
+                  </HStack>
+                  <Text fontSize="sm" color="gray.500">
+                    {vehicle.year} {vehicle.make} {vehicle.model}
+                  </Text>
+                  <HStack spacing={4} fontSize="xs" color="gray.500">
+                    <Text>{vehicle.currentMileage.toLocaleString()} km</Text>
+                    <Text>{vehicle._count.remittances} remittances</Text>
+                    <Text>{vehicle._count.expenses} expenses</Text>
+                  </HStack>
+                </Stack>
+              </HStack>
+
+              <HStack spacing={2}>
+                <IconButton
+                  as={NextLink}
+                  href={`/vehicles/${vehicle.id}`}
+                  aria-label="View vehicle"
+                  variant="ghost"
+                  icon={<Eye size={16} />}
+                />
+                <IconButton
+                  as={NextLink}
+                  href={`/vehicles/${vehicle.id}/edit`}
+                  aria-label="Edit vehicle"
+                  variant="ghost"
+                  icon={<Pencil size={16} />}
+                />
+              </HStack>
+            </HStack>
+
+            <Stack mt={4} spacing={3} fontSize="sm">
+              <HStack justify="space-between">
+                <Text color="gray.500">Primary driver</Text>
+                <Text fontWeight="medium">
+                  {assignedDriver ? assignedDriver.fullName : "Unassigned"}
+                </Text>
+              </HStack>
+              <HStack justify="space-between">
+                <Text color="gray.500">Last service</Text>
+                <Text fontWeight="medium">
+                  {lastService ? new Date(lastService.date).toLocaleDateString() : "Not recorded"}
+                </Text>
+              </HStack>
+              <Button as={NextLink} href={`/vehicles/${vehicle.id}`} variant="ghost" size="sm" colorScheme="brand">
+                View full timeline
+              </Button>
+            </Stack>
+          </Box>
+        );
+      })}
+    </SimpleGrid>
   );
 }

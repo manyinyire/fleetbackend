@@ -1,150 +1,141 @@
 "use client";
-import { EmailIcon, PasswordIcon } from "@/assets/icons";
-import { UserIcon } from "lucide-react";
-import Link from "next/link";
-import React, { useState } from "react";
-import InputGroup from "../FormElements/InputGroup";
-import { signUp } from "@/server/actions/auth";
-import { toast } from "react-hot-toast";
 
-export default function SignupWithPassword() {
-  const [data, setData] = useState({
-    name: "",
-    email: "",
-    companyName: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Button,
+  FormControl,
+  FormErrorMessage,
+  FormLabel,
+  Grid,
+  GridItem,
+  Input,
+  Stack,
+  useToast,
+} from "@chakra-ui/react";
+import { signUp } from "@/server/actions/auth";
+
+const signUpSchema = z
+  .object({
+    name: z.string().min(1, "Full name is required"),
+    email: z.string().email("Enter a valid email"),
+    companyName: z.string().min(1, "Company name is required"),
+    phone: z.string().min(6, "Phone number is required"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords must match",
   });
 
-  const [loading, setLoading] = useState(false);
+type SignUpFormValues = z.infer<typeof signUpSchema>;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setData({
-      ...data,
-      [e.target.name]: e.target.value,
-    });
-  };
+export default function SignupWithPassword() {
+  const toast = useToast();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<SignUpFormValues>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      companyName: "",
+      phone: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
 
-    // Validate passwords match
-    if (data.password !== data.confirmPassword) {
-      toast.error("Passwords don't match");
-      return;
-    }
-
-    // Validate required fields
-    if (!data.name || !data.email || !data.companyName || !data.phone || !data.password) {
-      toast.error("All fields are required");
-      return;
-    }
-
-    setLoading(true);
-
+  const onSubmit = async (values: SignUpFormValues) => {
     try {
       const formData = new FormData();
-      formData.append('name', data.name);
-      formData.append('email', data.email);
-      formData.append('password', data.password);
-      formData.append('companyName', data.companyName);
-      formData.append('phone', data.phone);
+      formData.append("name", values.name);
+      formData.append("email", values.email);
+      formData.append("password", values.password);
+      formData.append("companyName", values.companyName);
+      formData.append("phone", values.phone);
 
       await signUp(formData);
-      // Server action will redirect to /onboarding automatically
+      toast({
+        status: "success",
+        title: "Account created",
+        description: "Redirecting you to onboarding...",
+      });
     } catch (error) {
-      console.error('Signup error:', error);
-      // Check if error is a redirect (which is expected)
-      if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-        // This is expected - let the redirect happen
+      if (error instanceof Error && error.message.includes("NEXT_REDIRECT")) {
         return;
       }
-      toast.error(error instanceof Error ? error.message : 'An unexpected error occurred');
-      setLoading(false);
+
+      console.error("Signup error:", error);
+      toast({
+        status: "error",
+        title: "Unable to create account",
+        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
+      });
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <InputGroup
-        type="text"
-        label="Full Name"
-        className="mb-4 [&_input]:py-[15px]"
-        placeholder="Enter your full name"
-        name="name"
-        handleChange={handleChange}
-        value={data.name}
-        icon={<UserIcon className="size-5" />}
-      />
+    <Stack as="form" spacing={6} onSubmit={handleSubmit(onSubmit)}>
+      <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={4}>
+        <GridItem>
+          <FormControl isInvalid={!!errors.name}>
+            <FormLabel>Full Name</FormLabel>
+            <Input placeholder="Jane Doe" autoComplete="name" {...register("name")} />
+            <FormErrorMessage>{errors.name?.message}</FormErrorMessage>
+          </FormControl>
+        </GridItem>
+        <GridItem>
+          <FormControl isInvalid={!!errors.companyName}>
+            <FormLabel>Company Name</FormLabel>
+            <Input placeholder="Azaire Transport" {...register("companyName")} />
+            <FormErrorMessage>{errors.companyName?.message}</FormErrorMessage>
+          </FormControl>
+        </GridItem>
+      </Grid>
 
-      <InputGroup
-        type="email"
-        label="Email"
-        className="mb-4 [&_input]:py-[15px]"
-        placeholder="Enter your email"
-        name="email"
-        handleChange={handleChange}
-        value={data.email}
-        icon={<EmailIcon />}
-      />
+      <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={4}>
+        <GridItem>
+          <FormControl isInvalid={!!errors.email}>
+            <FormLabel>Email</FormLabel>
+            <Input type="email" placeholder="you@example.com" autoComplete="email" {...register("email")} />
+            <FormErrorMessage>{errors.email?.message}</FormErrorMessage>
+          </FormControl>
+        </GridItem>
+        <GridItem>
+          <FormControl isInvalid={!!errors.phone}>
+            <FormLabel>Phone Number</FormLabel>
+            <Input type="tel" placeholder="+263 77 123 4567" autoComplete="tel" {...register("phone")} />
+            <FormErrorMessage>{errors.phone?.message}</FormErrorMessage>
+          </FormControl>
+        </GridItem>
+      </Grid>
 
-      <InputGroup
-        type="text"
-        label="Company Name"
-        className="mb-4 [&_input]:py-[15px]"
-        placeholder="Enter your company name"
-        name="companyName"
-        handleChange={handleChange}
-        value={data.companyName}
-        icon={<UserIcon className="size-5" />}
-      />
+      <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={4}>
+        <GridItem>
+          <FormControl isInvalid={!!errors.password}>
+            <FormLabel>Password</FormLabel>
+            <Input type="password" placeholder="Create a secure password" autoComplete="new-password" {...register("password")} />
+            <FormErrorMessage>{errors.password?.message}</FormErrorMessage>
+          </FormControl>
+        </GridItem>
+        <GridItem>
+          <FormControl isInvalid={!!errors.confirmPassword}>
+            <FormLabel>Confirm Password</FormLabel>
+            <Input type="password" placeholder="Re-enter your password" autoComplete="new-password" {...register("confirmPassword")} />
+            <FormErrorMessage>{errors.confirmPassword?.message}</FormErrorMessage>
+          </FormControl>
+        </GridItem>
+      </Grid>
 
-      <InputGroup
-        type="tel"
-        label="Phone Number"
-        className="mb-4 [&_input]:py-[15px]"
-        placeholder="+263 77 123 4567"
-        name="phone"
-        handleChange={handleChange}
-        value={data.phone}
-        icon={<UserIcon className="size-5" />}
-      />
-
-      <InputGroup
-        type="password"
-        label="Password"
-        className="mb-4 [&_input]:py-[15px]"
-        placeholder="Enter your password"
-        name="password"
-        handleChange={handleChange}
-        value={data.password}
-        icon={<PasswordIcon />}
-      />
-
-      <InputGroup
-        type="password"
-        label="Confirm Password"
-        className="mb-5 [&_input]:py-[15px]"
-        placeholder="Confirm your password"
-        name="confirmPassword"
-        handleChange={handleChange}
-        value={data.confirmPassword}
-        icon={<PasswordIcon />}
-      />
-
-      <div className="mb-4.5">
-        <button
-          type="submit"
-          disabled={loading}
-          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary p-4 font-medium text-white transition hover:bg-opacity-90 disabled:opacity-50"
-        >
-          Create Account
-          {loading && (
-            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-t-transparent dark:border-primary dark:border-t-transparent" />
-          )}
-        </button>
-      </div>
-    </form>
+      <Button type="submit" colorScheme="brand" size="lg" isLoading={isSubmitting} loadingText="Creating account">
+        Create Account
+      </Button>
+    </Stack>
   );
 }

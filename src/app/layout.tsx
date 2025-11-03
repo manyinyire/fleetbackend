@@ -10,8 +10,10 @@ import type { PropsWithChildren } from "react";
 import { Providers } from "./providers";
 import Script from "next/script";
 import { GA_MEASUREMENT_ID } from "@/lib/gtag";
-import { Suspense } from 'react';
+import { Suspense } from "react";
 import { AnalyticsTracker } from "@/components/analytics-tracker";
+import { ColorModeScript } from "@chakra-ui/react";
+import theme from "@/theme";
 
 export const metadata: Metadata = {
   title: {
@@ -74,6 +76,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
         )}
       </head>
       <body>
+        <ColorModeScript initialColorMode={theme.config.initialColorMode} />
         <Providers>
           <NextTopLoader color="#1e3a8a" showSpinner={false} />
           <Suspense fallback={null}>
