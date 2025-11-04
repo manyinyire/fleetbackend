@@ -1,5 +1,7 @@
-import { requireSuperAdmin } from '@/lib/auth-helpers';
-import { EmailTemplatesManager } from '@/components/admin/email-templates-manager';
+import { requireSuperAdmin } from "@/lib/auth-helpers";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { AdminFeaturePlaceholder } from "@/components/admin/AdminFeaturePlaceholder";
+import { Stack } from "@chakra-ui/react";
 
 export const metadata = {
   title: 'Email Templates | Super Admin',
@@ -10,15 +12,15 @@ export default async function EmailTemplatesPage() {
   await requireSuperAdmin();
 
   return (
-    <div className="space-y-8 p-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Email Templates</h1>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          Create and manage email templates for various system notifications
-        </p>
-      </div>
-
-      <EmailTemplatesManager />
-    </div>
+    <Stack spacing={8}>
+      <PageHeader
+        title="Email Templates"
+        description="Create reusable templates for onboarding, billing, and operational notifications."
+      />
+      <AdminFeaturePlaceholder
+        title="Template builder is being rebuilt"
+        description="The WYSIWYG designer, preview, and version history are migrating to Chakra UI. Please check back soon."
+      />
+    </Stack>
   );
 }

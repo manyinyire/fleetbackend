@@ -1,23 +1,10 @@
-import { AdminSidebar } from "@/components/Layouts/admin-sidebar";
-import { Header } from "@/components/Layouts/header";
+import { AdminDashboardShell } from "@/components/layout/AdminDashboardShell";
+import { getCurrentUser, requireRole } from "@/lib/auth-helpers";
 import type { PropsWithChildren } from "react";
-import { requireRole } from '@/lib/auth-helpers';
 
 export default async function AdminLayout({ children }: PropsWithChildren) {
-  // Ensure user has SUPER_ADMIN role
-  await requireRole('SUPER_ADMIN');
+  await requireRole("SUPER_ADMIN");
+  const user = await getCurrentUser();
 
-  return (
-    <div className="flex min-h-screen">
-      <AdminSidebar />
-
-      <div className="ml-64 w-full bg-gray-2 dark:bg-[#020d1a]">
-        <Header />
-
-        <main className="isolate mx-auto w-full max-w-screen-2xl overflow-hidden p-4 md:p-6 2xl:p-10">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+  return <AdminDashboardShell user={user}>{children}</AdminDashboardShell>;
 }

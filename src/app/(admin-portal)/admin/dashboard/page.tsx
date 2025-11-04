@@ -1,9 +1,11 @@
-import { requireRole } from '@/lib/auth-helpers';
-import { prisma } from '@/lib/prisma';
-import { SuperAdminDashboard } from '@/components/admin/super-admin-dashboard';
+import { requireRole } from "@/lib/auth-helpers";
+import { prisma } from "@/lib/prisma";
+import { SuperAdminDashboard } from "@/components/admin/super-admin-dashboard";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Stack } from "@chakra-ui/react";
 
 export default async function AdminDashboardPage() {
-  await requireRole('SUPER_ADMIN');
+  await requireRole("SUPER_ADMIN");
 
   // Fetch all dashboard data in parallel
   const [
@@ -166,5 +168,13 @@ export default async function AdminDashboardPage() {
     ]
   };
 
-  return <SuperAdminDashboard data={dashboardData} />;
+  return (
+    <Stack spacing={8}>
+      <PageHeader
+        title="Super Admin Dashboard"
+        description="Platform overview and system health monitoring"
+      />
+      <SuperAdminDashboard data={dashboardData} />
+    </Stack>
+  );
 }

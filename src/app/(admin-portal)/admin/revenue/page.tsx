@@ -1,9 +1,29 @@
-import { requireRole } from '@/lib/auth-helpers';
-import { prisma } from '@/lib/prisma';
-import { RevenueDashboard } from '@/components/admin/revenue-dashboard';
+import { requireRole } from "@/lib/auth-helpers";
+import { prisma } from "@/lib/prisma";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatCard } from "@/components/ui/StatCard";
+import { EmptyState } from "@/components/ui/EmptyState";
+import {
+  Badge,
+  Box,
+  Grid,
+  GridItem,
+  SimpleGrid,
+  Stack,
+  Table,
+  TableContainer,
+  Tbody,
+  Td,
+  Text,
+  Th,
+  Thead,
+  Tr,
+  useColorModeValue,
+} from "@chakra-ui/react";
+import { DollarSign, LineChart, TrendingUp, Wallet } from "lucide-react";
 
 export default async function RevenuePage() {
-  await requireRole('SUPER_ADMIN');
+  await requireRole("SUPER_ADMIN");
 
   // Fetch revenue data
   const [
@@ -11,7 +31,6 @@ export default async function RevenuePage() {
     revenueByPlan,
     topRevenueTenants,
     failedPayments,
-    cohortData,
     totalTenants
   ] = await Promise.all([
     // Total Revenue (MRR)
@@ -57,10 +76,6 @@ export default async function RevenuePage() {
         updatedAt: true
       }
     }),
-    
-    // Cohort Data (placeholder - would need actual cohort analysis)
-    Promise.resolve([]),
-    
     // Total Tenants for ARPU calculation
     prisma.tenant.count()
   ]);
@@ -106,27 +121,137 @@ export default async function RevenuePage() {
     { month: 'Jun', revenue: mrr * 1.05 }
   ];
 
-  const revenueData = {
-    metrics: {
-      mrr,
-      arr: mrr * 12,
-      newMrr,
-      churnedMrr: mrr * 0.05, // This would be calculated from actual churn
-      netMrrGrowth: newMrr - (mrr * 0.05), // New MRR minus churned MRR
-      arpu,
-      ltv: arpu * 36 // 3 years average
-    },
-    planRevenueData,
-    topRevenueTenants: topRevenueData,
-    failedPayments: failedPaymentsData,
-    revenueTrendData,
-    cohortData: cohortData as any[],
-    targets: {
-      mrr: mrr * 1.1, // 10% growth target
-      arr: mrr * 12 * 1.1,
-      newMrr: newMrr * 1.2
-    }
-  };
+  const surface = useColorModeValue("white", "gray.800");
+  const border = useColorModeValue("gray.100", "gray.700");
+  const hoverBg = useColorModeValue("gray.50", "whiteAlpha.50");
 
-  return <RevenueDashboard data={revenueData} />;
+  const statCards = [
+    { label: "Monthly Recurring Revenue", value: `$${mrr.toFixed(2)}`, helperText: "MRR", icon: DollarSign },
+    { label: "Annual Recurring Revenue", value: `$${(mrr * 12).toFixed(2)}`, helperText: "ARR", icon: LineChart },
+    { label: "New MRR", value: `$${newMrr.toFixed(2)}`, helperText: "Last 30 days", icon: TrendingUp },
+    { label: "ARPU", value: `$${arpu.toFixed(2)}`, helperText: "Avg per tenant", icon: Wallet },
+  ];
+
+  return (
+    <Stack spacing={8}>
+      <PageHeader
+        title="Revenue Intelligence"
+        description="Track recurring revenue, plan performance, and high value tenants at a glance."
+      />
+
+      <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={6}>
+        {statCards.map((card) => (
+          <StatCard key={card.label} label={card.label} value={card.value} helperText={card.helperText} icon={card.icon} />
+        ))}
+      </SimpleGrid>
+
+      <Grid templateColumns={{ base: "1fr", xl: "2fr 3fr" }} gap={6} alignItems="flex-start">
+        <GridItem>
+          <Box bg={surface} borderRadius="2xl" borderWidth="1px" borderColor={border} p={6}>
+            <Text fontWeight="semibold" mb={4}>
+              Revenue by Plan
+            </Text>
+            {planRevenueData.length === 0 ? (
+              <EmptyState title="No plan data" description="Revenue allocations will appear once tenants are active." />
+            ) : (
+              <Stack spacing={4}>
+                {planRevenueData.map((plan) => (
+                  <Stack key={plan.plan} direction="row" justify="space-between" align="center">
+                    <Stack spacing={0}>
+                      <Text fontWeight="medium">{plan.plan}</Text>
+                      <Text fontSize="sm" color="gray.500">
+                        {plan.count} tenants ? {plan.percentage.toFixed(1)}%
+                      </Text>
+                    </Stack>
+                    <Text fontWeight="semibold">${plan.revenue.toLocaleString()}</Text>
+                  </Stack>
+                ))}
+              </Stack>
+            )}
+          </Box>
+        </GridItem>
+        <GridItem>
+          <Box bg={surface} borderRadius="2xl" borderWidth="1px" borderColor={border} p={6}>
+            <Text fontWeight="semibold" mb={4}>
+              Revenue Trend (6 months)
+            </Text>
+            <Stack spacing={3}>
+              {revenueTrendData.map((point) => (
+                <Stack key={point.month} direction="row" justify="space-between">
+                  <Text>{point.month}</Text>
+                  <Text color="gray.500">${point.revenue.toFixed(2)}</Text>
+                </Stack>
+              ))}
+            </Stack>
+          </Box>
+        </GridItem>
+      </Grid>
+
+      <Grid templateColumns={{ base: "1fr", xl: "2fr 1fr" }} gap={6} alignItems="flex-start">
+        <GridItem>
+          <Box bg={surface} borderRadius="2xl" borderWidth="1px" borderColor={border} p={6}>
+            <Text fontWeight="semibold" mb={4}>
+              Top Revenue Tenants
+            </Text>
+            {topRevenueData.length === 0 ? (
+              <EmptyState title="No tenants" description="Revenue data appears after tenant onboarding." />
+            ) : (
+              <TableContainer>
+                <Table size="sm">
+                  <Thead>
+                    <Tr>
+                      <Th>Tenant</Th>
+                      <Th>Plan</Th>
+                      <Th>Status</Th>
+                      <Th isNumeric>MRR</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {topRevenueData.map((tenant) => (
+                      <Tr key={tenant.id} _hover={{ bg: hoverBg }}>
+                        <Td>{tenant.name}</Td>
+                        <Td>
+                          <Badge colorScheme={tenant.plan === "PREMIUM" ? "purple" : tenant.plan === "BASIC" ? "blue" : "gray"}>
+                            {tenant.plan}
+                          </Badge>
+                        </Td>
+                        <Td>
+                          <Badge colorScheme={tenant.status === "ACTIVE" ? "green" : "yellow"}>{tenant.status}</Badge>
+                        </Td>
+                        <Td isNumeric>${tenant.revenue.toLocaleString()}</Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </TableContainer>
+            )}
+          </Box>
+        </GridItem>
+        <GridItem>
+          <Box bg={surface} borderRadius="2xl" borderWidth="1px" borderColor={border} p={6}>
+            <Text fontWeight="semibold" mb={4}>
+              Failed Payments
+            </Text>
+            {failedPaymentsData.length === 0 ? (
+              <EmptyState title="No failures detected" description="Great news! All recent payments were successful." />
+            ) : (
+              <Stack spacing={3}>
+                {failedPaymentsData.map((payment) => (
+                  <Stack key={payment.id} spacing={1} borderLeftWidth="3px" borderLeftColor="red.400" pl={3}>
+                    <Text fontWeight="medium">{payment.name}</Text>
+                    <Text fontSize="sm" color="gray.500">
+                      {payment.plan} plan ? ${payment.amount.toFixed(2)}
+                    </Text>
+                    <Text fontSize="xs" color="gray.400">
+                      Failed {new Date(payment.failedAt).toLocaleDateString()}
+                    </Text>
+                  </Stack>
+                ))}
+              </Stack>
+            )}
+          </Box>
+        </GridItem>
+      </Grid>
+    </Stack>
+  );
 }
