@@ -9,10 +9,15 @@
     "lint": "next lint",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
+    "db:migrate:reset": "prisma migrate reset",
+    "db:migrate:create": "prisma migrate dev --create-only",
+    "db:push": "echo 'Warning: db:push is deprecated. Use db:migrate:dev instead.' && prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:setup": "prisma migrate deploy && tsx prisma/seed.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
