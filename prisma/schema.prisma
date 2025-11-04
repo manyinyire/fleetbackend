@@ -15,29 +15,29 @@ datasource db {
 // ============================================
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  email     String
-  phone     String?
-  status    TenantStatus @default(ACTIVE)
-  plan      SubscriptionPlan @default(FREE)
-  monthlyRevenue Decimal @db.Decimal(10, 2) @default(0)
-  suspendedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String           @id @default(cuid())
+  name           String
+  slug           String           @unique
+  email          String
+  phone          String?
+  status         TenantStatus     @default(ACTIVE)
+  plan           SubscriptionPlan @default(FREE)
+  monthlyRevenue Decimal          @default(0) @db.Decimal(10, 2)
+  suspendedAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   // Billing fields
   subscriptionStartDate DateTime?
   subscriptionEndDate   DateTime?
-  autoRenew            Boolean @default(true)
+  autoRenew             Boolean   @default(true)
 
   // Relationships
-  users     User[]
-  vehicles  Vehicle[]
-  drivers   Driver[]
-  settings  TenantSettings?
-  invoices  Invoice[]
+  users            User[]
+  vehicles         Vehicle[]
+  drivers          Driver[]
+  settings         TenantSettings?
+  invoices         Invoice[]
   invoiceReminders InvoiceReminder[]
 
   @@map("tenants")
@@ -56,24 +56,29 @@ enum SubscriptionPlan {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
+  id            String    @id @default(cuid())
+  email         String    @unique
   name          String
-  emailVerified Boolean  @default(false)
+  emailVerified Boolean   @default(false)
   image         String?
-  role          UserRole @default(USER)
-  tenantId      String?  // null for super_admin
-  password      String?  // Hashed password for email/password auth
+  role          String?   @default("user") // BetterAuth admin plugin uses string (can be comma-separated for multiple roles)
+  tenantId      String? // null for super_admin
+  password      String? // Hashed password for email/password auth
   lastLoginAt   DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // BetterAuth Admin plugin fields
+  banned     Boolean   @default(false)
+  banReason  String?
+  banExpires DateTime?
 
   // 2FA fields
   twoFactorEnabled Boolean @default(false)
   twoFactorSecret  String?
 
   // Relationships
-  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sessions  Session[]
   accounts  Account[]
   auditLogs AuditLog[]
@@ -82,8 +87,8 @@ model User {
   emailVerifications EmailVerification[]
 
   // Admin relationships
-  adminSettings AdminSettings?
-  adminSessions AdminSession[]
+  adminSettings    AdminSettings?
+  adminSessions    AdminSession[]
   adminIpWhitelist AdminIpWhitelist[]
 
   @@index([tenantId])
@@ -109,14 +114,17 @@ model Session {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // BetterAuth Admin plugin field
+  impersonatedBy String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("sessions")
 }
 
 model Account {
-  id                    String   @id @default(cuid())
+  id                    String    @id @default(cuid())
   userId                String
   accountId             String
   providerId            String
@@ -126,9 +134,9 @@ model Account {
   refreshTokenExpiresAt DateTime?
   scope                 String?
   idToken               String?
-  password              String?  // Hashed password for email/password auth
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  password              String? // Hashed password for email/password auth
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -152,21 +160,21 @@ model Verification {
 // ============================================
 
 model Vehicle {
-  id                 String   @id @default(cuid())
-  tenantId           String   // MANDATORY for RLS
+  id                 String        @id @default(cuid())
+  tenantId           String // MANDATORY for RLS
   registrationNumber String
   make               String
   model              String
   year               Int
   type               VehicleType
-  initialCost        Decimal  @db.Decimal(10, 2)
-  currentMileage     Int      @default(0)
+  initialCost        Decimal       @db.Decimal(10, 2)
+  currentMileage     Int           @default(0)
   status             VehicleStatus @default(ACTIVE)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   // Relationships
-  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant             Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   drivers            DriverVehicleAssignment[]
   remittances        Remittance[]
   maintenanceRecords MaintenanceRecord[]
@@ -192,32 +200,32 @@ enum VehicleStatus {
 }
 
 model Driver {
-  id                String   @id @default(cuid())
-  tenantId          String   // MANDATORY for RLS
-  fullName          String
-  nationalId        String
-  licenseNumber     String
-  phone             String
-  email             String?
-  homeAddress       String
-  nextOfKin         String
-  nextOfKinPhone    String
+  id                     String       @id @default(cuid())
+  tenantId               String // MANDATORY for RLS
+  fullName               String
+  nationalId             String
+  licenseNumber          String
+  phone                  String
+  email                  String?
+  homeAddress            String
+  nextOfKin              String
+  nextOfKinPhone         String
   // Defensive license for commuter omnibus
-  hasDefensiveLicense Boolean @default(false)
+  hasDefensiveLicense    Boolean      @default(false)
   defensiveLicenseNumber String?
   defensiveLicenseExpiry DateTime?
-  paymentModel      PaymentModel
-  paymentConfig     Json     // Stores model-specific config
-  debtBalance       Decimal  @db.Decimal(10, 2) @default(0)
-  status            DriverStatus @default(ACTIVE)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  paymentModel           PaymentModel
+  paymentConfig          Json // Stores model-specific config
+  debtBalance            Decimal      @default(0) @db.Decimal(10, 2)
+  status                 DriverStatus @default(ACTIVE)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 
   // Relationships
-  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  vehicles          DriverVehicleAssignment[]
-  remittances       Remittance[]
-  contracts         Contract[]
+  tenant      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicles    DriverVehicleAssignment[]
+  remittances Remittance[]
+  contracts   Contract[]
 
   @@unique([tenantId, nationalId])
   @@index([tenantId, status])
@@ -225,9 +233,9 @@ model Driver {
 }
 
 enum PaymentModel {
-  OWNER_PAYS        // Model A: Percentage-based
-  DRIVER_REMITS     // Model B: Fixed target
-  HYBRID            // Model C: Base + performance
+  OWNER_PAYS // Model A: Percentage-based
+  DRIVER_REMITS // Model B: Fixed target
+  HYBRID // Model C: Base + performance
 }
 
 enum DriverStatus {
@@ -237,18 +245,18 @@ enum DriverStatus {
 }
 
 model DriverVehicleAssignment {
-  id          String   @id @default(cuid())
-  tenantId    String   // MANDATORY for RLS
-  driverId    String
-  vehicleId   String
-  isPrimary   Boolean  @default(true)
-  startDate   DateTime
-  endDate     DateTime?
-  createdAt   DateTime @default(now())
+  id        String    @id @default(cuid())
+  tenantId  String // MANDATORY for RLS
+  driverId  String
+  vehicleId String
+  isPrimary Boolean   @default(true)
+  startDate DateTime
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
 
   // Relationships
-  driver      Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driver  Driver  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@unique([driverId, vehicleId, startDate])
   @@index([tenantId])
@@ -257,23 +265,23 @@ model DriverVehicleAssignment {
 }
 
 model Remittance {
-  id            String   @id @default(cuid())
-  tenantId      String   // MANDATORY for RLS
-  driverId      String
-  vehicleId     String
-  amount        Decimal  @db.Decimal(10, 2)
-  date          DateTime
-  status        RemittanceStatus @default(PENDING)
+  id             String           @id @default(cuid())
+  tenantId       String // MANDATORY for RLS
+  driverId       String
+  vehicleId      String
+  amount         Decimal          @db.Decimal(10, 2)
+  date           DateTime
+  status         RemittanceStatus @default(PENDING)
   proofOfPayment String? // S3 URL
-  notes         String?
-  approvedBy    String?
-  approvedAt    DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  notes          String?
+  approvedBy     String?
+  approvedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   // Relationships
-  driver        Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  vehicle       Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driver  Driver  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, status])
   @@index([tenantId, date])
@@ -289,21 +297,21 @@ enum RemittanceStatus {
 }
 
 model MaintenanceRecord {
-  id          String   @id @default(cuid())
-  tenantId    String   // MANDATORY for RLS
+  id          String          @id @default(cuid())
+  tenantId    String // MANDATORY for RLS
   vehicleId   String
   date        DateTime
   mileage     Int
   type        MaintenanceType
   description String
-  cost        Decimal  @db.Decimal(10, 2)
+  cost        Decimal         @db.Decimal(10, 2)
   provider    String
-  invoice     String?  // S3 URL
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  invoice     String? // S3 URL
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   // Relationships
-  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([vehicleId])
@@ -322,19 +330,19 @@ enum MaintenanceType {
 }
 
 model Contract {
-  id            String   @id @default(cuid())
-  tenantId      String   // MANDATORY for RLS
-  driverId      String
-  contractNumber String  @unique
-  status        ContractStatus @default(DRAFT)
-  signedAt      DateTime?
-  signatureData String?  // Base64 signature
-  pdfUrl        String?  // S3 URL of signed PDF
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String         @id @default(cuid())
+  tenantId       String // MANDATORY for RLS
+  driverId       String
+  contractNumber String         @unique
+  status         ContractStatus @default(DRAFT)
+  signedAt       DateTime?
+  signatureData  String? // Base64 signature
+  pdfUrl         String? // S3 URL of signed PDF
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   // Relationships
-  driver        Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([driverId])
@@ -348,21 +356,21 @@ enum ContractStatus {
 }
 
 model Expense {
-  id          String   @id @default(cuid())
-  tenantId    String   // MANDATORY for RLS
+  id          String          @id @default(cuid())
+  tenantId    String // MANDATORY for RLS
   vehicleId   String?
   category    ExpenseCategory
-  amount      Decimal  @db.Decimal(10, 2)
+  amount      Decimal         @db.Decimal(10, 2)
   date        DateTime
   description String
-  receipt     String?  // S3 URL
-  status      ExpenseStatus @default(PENDING)
+  receipt     String? // S3 URL
+  status      ExpenseStatus   @default(PENDING)
   approvedBy  String?
   approvedAt  DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime        @default(now())
 
   // Relationships
-  vehicle     Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([tenantId, category])
@@ -388,17 +396,17 @@ enum ExpenseStatus {
 }
 
 model Income {
-  id          String   @id @default(cuid())
-  tenantId    String   // MANDATORY for RLS
+  id          String       @id @default(cuid())
+  tenantId    String // MANDATORY for RLS
   vehicleId   String?
   source      IncomeSource
-  amount      Decimal  @db.Decimal(10, 2)
+  amount      Decimal      @db.Decimal(10, 2)
   date        DateTime
   description String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime     @default(now())
 
   // Relationships
-  vehicle     Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([tenantId, source])
@@ -412,61 +420,61 @@ enum IncomeSource {
 }
 
 model TenantSettings {
-  id              String   @id @default(cuid())
-  tenantId        String   @unique // MANDATORY for RLS
-  
+  id       String @id @default(cuid())
+  tenantId String @unique // MANDATORY for RLS
+
   // Branding
-  companyName     String
-  logoUrl         String?  // S3 URL
-  primaryColor    String   @default("#1e3a8a")
-  
+  companyName  String
+  logoUrl      String? // S3 URL
+  primaryColor String  @default("#1e3a8a")
+
   // Contact Information
-  email           String
-  phone           String
-  address         String?
-  city            String?
-  country         String   @default("Zimbabwe")
-  
+  email   String
+  phone   String
+  address String?
+  city    String?
+  country String  @default("Zimbabwe")
+
   // Invoice Settings
-  invoicePrefix   String   @default("INV")
-  invoiceFooter   String?
-  taxNumber       String?
-  bankDetails     String?  // JSON with bank account info
-  
+  invoicePrefix String  @default("INV")
+  invoiceFooter String?
+  taxNumber     String?
+  bankDetails   String? // JSON with bank account info
+
   // Notification Settings
   emailNotifications Boolean @default(true)
   smsNotifications   Boolean @default(false)
-  
+
   // Business Settings
-  currency        String   @default("USD")
-  timezone        String   @default("Africa/Harare")
-  dateFormat      String   @default("YYYY-MM-DD")
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  currency   String @default("USD")
+  timezone   String @default("Africa/Harare")
+  dateFormat String @default("YYYY-MM-DD")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relationships
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@map("tenant_settings")
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  tenantId    String?  // null for system-wide actions
-  userId      String
-  action      String
-  entityType  String
-  entityId    String?
-  oldValues   Json?
-  newValues   Json?
-  details     Json?
-  ipAddress   String
-  userAgent   String
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  tenantId   String? // null for system-wide actions
+  userId     String
+  action     String
+  entityType String
+  entityId   String?
+  oldValues  Json?
+  newValues  Json?
+  details    Json?
+  ipAddress  String
+  userAgent  String
+  createdAt  DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([userId])
@@ -478,45 +486,72 @@ model AuditLog {
 // SUPER ADMIN TABLES
 // ============================================
 
+model PlatformSettings {
+  id                       String   @id @default(cuid())
+  platformName             String   @default("Azaire Fleet Manager")
+  platformUrl              String   @default("https://azaire.com")
+  platformLogo             String?  // Logo URL or base64
+  platformAddress          String?  // Physical address
+  platformEmail            String?  // Support/contact email
+  defaultTimezone          String   @default("Africa/Harare")
+  defaultCurrency          String   @default("USD")
+  allowSignups             Boolean  @default(true)
+  requireEmailVerification Boolean  @default(true)
+  requireAdminApproval     Boolean  @default(false)
+  enableTrials             Boolean  @default(true)
+  trialDuration            Int      @default(30)
+  requirePaymentUpfront    Boolean  @default(true)
+  failedLoginAttempts      Int      @default(5)
+  emailNotifications       Boolean  @default(true)
+  smsNotifications         Boolean  @default(false)
+  webhookUrl               String?
+  alertFrequency           String   @default("immediate")
+  maintenanceMode          Boolean  @default(false)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
 model AdminSettings {
-  id                    String   @id @default(cuid())
-  userId                String   @unique
-  
+  id     String @id @default(cuid())
+  userId String @unique
+
   // 2FA Settings
-  twoFactorEnabled      Boolean  @default(false)
-  twoFactorSecret       String?
-  
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String?
+
   // IP Whitelist
-  ipWhitelistEnabled    Boolean  @default(false)
-  
+  ipWhitelistEnabled Boolean @default(false)
+
   // Session Management
-  maxConcurrentSessions Int      @default(2)
-  sessionTimeout        Int      @default(30) // minutes
-  
+  maxConcurrentSessions Int @default(2)
+  sessionTimeout        Int @default(30) // minutes
+
   // Security Settings
-  requirePasswordChange Boolean  @default(false)
-  passwordChangeDays    Int      @default(90)
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  requirePasswordChange Boolean @default(false)
+  passwordChangeDays    Int     @default(90)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relationships
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("admin_settings")
 }
 
 model AdminSession {
-  id            String   @id @default(cuid())
-  userId        String
-  ipAddress     String
-  userAgent     String
-  expiresAt     DateTime
-  rememberDevice Boolean @default(false)
-  createdAt     DateTime @default(now())
+  id             String   @id @default(cuid())
+  userId         String
+  ipAddress      String
+  userAgent      String
+  expiresAt      DateTime
+  rememberDevice Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
   // Relationships
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -532,7 +567,7 @@ model AdminIpWhitelist {
   createdAt   DateTime @default(now())
 
   // Relationships
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("admin_ip_whitelist")
@@ -550,18 +585,18 @@ model AdminSecurityLog {
 }
 
 model SystemAlert {
-  id          String   @id @default(cuid())
-  type        AlertType
-  severity    AlertSeverity
-  title       String
-  message     String
-  data        Json?
-  acknowledged Boolean @default(false)
+  id             String        @id @default(cuid())
+  type           AlertType
+  severity       AlertSeverity
+  title          String
+  message        String
+  data           Json?
+  acknowledged   Boolean       @default(false)
   acknowledgedBy String?
   acknowledgedAt DateTime?
-  resolved    Boolean @default(false)
-  resolvedAt  DateTime?
-  createdAt   DateTime @default(now())
+  resolved       Boolean       @default(false)
+  resolvedAt     DateTime?
+  createdAt      DateTime      @default(now())
 
   @@index([type])
   @@index([severity])
@@ -597,15 +632,15 @@ model PlatformMetrics {
 }
 
 model EmailTemplate {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  type        EmailType
-  subject     String
-  body        String
-  variables   Json?    // Available template variables
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String    @id @default(cuid())
+  name      String    @unique
+  type      EmailType
+  subject   String
+  body      String
+  variables Json? // Available template variables
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([type])
   @@index([isActive])
@@ -624,15 +659,15 @@ enum EmailType {
 }
 
 model FeatureFlag {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  isEnabled   Boolean  @default(false)
-  rolloutPercentage Int @default(0) // 0-100
-  targetTenants Json?  // Array of tenant IDs or conditions
-  environments Json?   // Array of environments (prod, staging, dev)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String?
+  isEnabled         Boolean  @default(false)
+  rolloutPercentage Int      @default(0) // 0-100
+  targetTenants     Json? // Array of tenant IDs or conditions
+  environments      Json? // Array of environments (prod, staging, dev)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([isEnabled])
   @@map("feature_flags")
@@ -643,16 +678,16 @@ model FeatureFlag {
 // ============================================
 
 model EmailVerification {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   userId    String
-  token     String   @unique
+  token     String           @unique
   type      VerificationType
   expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  used      Boolean          @default(false)
+  createdAt DateTime         @default(now())
 
   // Relationships
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([token])
@@ -666,51 +701,30 @@ enum VerificationType {
   TWO_FACTOR
 }
 
-model OTP {
-  id        String   @id @default(cuid())
-  userId    String
-  code      String
-  type      OTPType
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([code])
-  @@index([expiresAt])
-  @@map("otps")
-}
-
-enum OTPType {
-  TWO_FACTOR
-  PASSWORD_RESET
-  EMAIL_VERIFICATION
-}
-
 // ============================================
 // INVOICE AND BILLING TABLES
 // ============================================
 
 model Invoice {
-  id              String   @id @default(cuid())
-  tenantId        String
-  invoiceNumber   String   @unique
-  type            InvoiceType
-  status          InvoiceStatus @default(PENDING)
-  amount          Decimal  @db.Decimal(10, 2)
-  currency        String   @default("USD")
-  dueDate         DateTime
-  paidAt          DateTime?
-  plan            SubscriptionPlan
-  billingPeriod   String?  // e.g., "2024-01-01 to 2024-01-31"
-  description     String?
-  pdfUrl          String?  // S3 URL for generated PDF
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String           @id @default(cuid())
+  tenantId      String
+  invoiceNumber String           @unique
+  type          InvoiceType
+  status        InvoiceStatus    @default(PENDING)
+  amount        Decimal          @db.Decimal(10, 2)
+  currency      String           @default("USD")
+  dueDate       DateTime
+  paidAt        DateTime?
+  plan          SubscriptionPlan
+  billingPeriod String? // e.g., "2024-01-01 to 2024-01-31"
+  description   String?
+  pdfUrl        String? // S3 URL for generated PDF
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   // Relationships
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  reminders       InvoiceReminder[]
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reminders InvoiceReminder[]
 
   @@index([tenantId])
   @@index([status])
@@ -736,16 +750,16 @@ enum InvoiceStatus {
 }
 
 model InvoiceReminder {
-  id          String   @id @default(cuid())
-  invoiceId   String
-  tenantId    String
-  sentAt      DateTime
-  type        ReminderType
-  createdAt   DateTime @default(now())
+  id        String       @id @default(cuid())
+  invoiceId String
+  tenantId  String
+  sentAt    DateTime
+  type      ReminderType
+  createdAt DateTime     @default(now())
 
   // Relationships
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
   @@index([tenantId])

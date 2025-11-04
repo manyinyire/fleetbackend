@@ -63,6 +63,9 @@ export default function BillingPage() {
   const [billingData, setBillingData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [failedPayments, setFailedPayments] = useState<any[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
 
   const tabs = [
     { id: "overview", name: "Overview" },
@@ -74,6 +77,12 @@ export default function BillingPage() {
   useEffect(() => {
     loadBillingData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "transactions" || activeTab === "failed-payments") {
+      loadInvoices();
+    }
+  }, [activeTab]);
 
   const loadBillingData = async () => {
     try {
@@ -90,6 +99,41 @@ export default function BillingPage() {
       setError('Failed to load billing data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadInvoices = async () => {
+    try {
+      setInvoicesLoading(true);
+      const response = await superAdminAPI.getInvoices({
+        status: activeTab === "failed-payments" ? "OVERDUE" : undefined,
+        limit: 100
+      });
+
+      if (response.success) {
+        if (activeTab === "failed-payments") {
+          setFailedPayments(response.data.invoices || []);
+        } else {
+          setInvoices(response.data.invoices || []);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading invoices:', err);
+    } finally {
+      setInvoicesLoading(false);
+    }
+  };
+
+  const handleRetryPayment = async (invoiceId: string) => {
+    if (!confirm('Are you sure you want to retry this payment?')) {
+      return;
+    }
+    try {
+      await superAdminAPI.retryPayment(invoiceId);
+      loadInvoices();
+      alert('Payment retry initiated');
+    } catch (err) {
+      alert('Failed to retry payment');
     }
   };
 
@@ -268,16 +312,66 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Other tabs - placeholder content */}
+      {/* Transactions Tab */}
       {activeTab === "transactions" && (
-        <div className="text-center py-12">
-          <CurrencyDollarIcon className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-            Transactions
-          </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Transaction management coming soon.
-          </p>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">All Invoices</h3>
+            <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm">
+              Export CSV
+            </button>
+          </div>
+          {invoicesLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            </div>
+          ) : invoices.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Invoice #</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tenant</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Due Date</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {invoices.map((invoice: any) => (
+                    <tr key={invoice.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{invoice.invoiceNumber}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{invoice.tenant?.name || 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${Number(invoice.amount).toFixed(2)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          invoice.status === 'PAID' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                          invoice.status === 'OVERDUE' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
+                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                        }`}>
+                          {invoice.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(invoice.dueDate).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end space-x-2">
+                          <button className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400">View</button>
+                          {invoice.pdfUrl && (
+                            <button className="text-gray-600 hover:text-gray-900 dark:text-gray-400">Download</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400 text-center py-8">No invoices found</p>
+          )}
         </div>
       )}
 
@@ -293,15 +387,61 @@ export default function BillingPage() {
         </div>
       )}
 
+      {/* Failed Payments Tab */}
       {activeTab === "failed-payments" && (
-        <div className="text-center py-12">
-          <ExclamationTriangleIcon className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-            Failed Payments
-          </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Failed payment management coming soon.
-          </p>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Failed Payments</h3>
+            {failedPayments.length > 0 && (
+              <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm">
+                Retry Selected
+              </button>
+            )}
+          </div>
+          {invoicesLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            </div>
+          ) : failedPayments.length > 0 ? (
+            <div className="space-y-4">
+              {failedPayments.map((invoice: any) => (
+                <div key={invoice.id} className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{invoice.tenant?.name || 'Unknown Tenant'}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Invoice #{invoice.invoiceNumber} • ${Number(invoice.amount).toFixed(2)}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Due: {new Date(invoice.dueDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleRetryPayment(invoice.id)}
+                        className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                      >
+                        Retry Payment
+                      </button>
+                      <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300">
+                        Contact
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <ExclamationTriangleIcon className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+                No Failed Payments
+              </h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                All payments are processing successfully.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

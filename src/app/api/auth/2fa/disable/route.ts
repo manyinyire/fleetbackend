@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { otpService } from '@/lib/otp-service';
 import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,16 +15,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const success = await otpService.disableTwoFactor(session.user.id);
+    // Disable 2FA in user record
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: {
+        twoFactorEnabled: false,
+        twoFactorSecret: null
+      }
+    });
 
-    if (success) {
-      return NextResponse.json({ message: 'Two-factor authentication disabled' });
-    } else {
-      return NextResponse.json(
-        { error: 'Failed to disable two-factor authentication' },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json({ message: 'Two-factor authentication disabled' });
   } catch (error) {
     console.error('Disable 2FA error:', error);
     return NextResponse.json(

@@ -4,6 +4,7 @@ import "@/css/style.css";
 import { SuperAdminSidebar } from "@/components/superadmin/Layouts/sidebar";
 import { SuperAdminHeader } from "@/components/superadmin/Layouts/header";
 import { SidebarProvider } from "@/components/superadmin/Layouts/sidebar/sidebar-context";
+import { ImpersonationBanner } from "@/components/superadmin/ImpersonationBanner";
 
 import "flatpickr/dist/flatpickr.min.css";
 import "jsvectormap/dist/jsvectormap.css";
@@ -80,6 +81,7 @@ export default function SuperAdminLayout({ children }: PropsWithChildren) {
               <SuperAdminSidebar />
 
               <div className="w-full bg-white dark:bg-gray-800">
+                <ImpersonationBanner />
                 <SuperAdminHeader />
 
                 <main className="isolate mx-auto w-full max-w-screen-2xl overflow-hidden p-4 md:p-6 2xl:p-10">

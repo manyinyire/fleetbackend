@@ -13,6 +13,6 @@ export default async function RootPage() {
     }
   }
 
-  // If not logged in, redirect to login
-  redirect('/auth/sign-in');
+  // If not logged in, show landing page
+  redirect('/landing');
 }

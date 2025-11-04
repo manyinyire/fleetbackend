@@ -15,6 +15,7 @@ import {
   ChartBarIcon
 } from "@heroicons/react/24/outline";
 import { superAdminAPI } from "@/lib/superadmin-api";
+import { CreateTenantModal } from "@/components/superadmin/CreateTenantModal";
 
 interface Tenant {
   id: string;
@@ -53,6 +54,7 @@ export default function TenantsPage() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedPlan, setSelectedPlan] = useState("all");
   const [selectedTenants, setSelectedTenants] = useState<string[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -124,20 +126,22 @@ export default function TenantsPage() {
     }
   };
 
-  const handleTenantAction = (tenantId: string, action: string) => {
+  const handleTenantAction = async (tenantId: string, action: string) => {
     switch (action) {
       case 'view':
-        // Navigate to tenant details
-        console.log('View tenant:', tenantId);
+        window.location.href = `/superadmin/tenants/${tenantId}`;
         break;
       case 'edit':
-        // Navigate to edit tenant
-        console.log('Edit tenant:', tenantId);
+        window.location.href = `/superadmin/tenants/${tenantId}`;
         break;
       case 'delete':
-        if (confirm('Are you sure you want to delete this tenant?')) {
-          // Implement delete logic
-          console.log('Delete tenant:', tenantId);
+        if (confirm('Are you sure you want to delete this tenant? This action cannot be undone.')) {
+          try {
+            await superAdminAPI.deleteTenant(tenantId);
+            loadTenants();
+          } catch (err) {
+            alert('Failed to delete tenant');
+          }
         }
         break;
     }
@@ -199,7 +203,10 @@ export default function TenantsPage() {
             Manage all tenants and their subscriptions
           </p>
         </div>
-        <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+        <button 
+          onClick={() => setShowCreateModal(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center"
+        >
           <PlusIcon className="h-5 w-5 mr-2" />
           Add New Tenant
         </button>
@@ -448,6 +455,16 @@ export default function TenantsPage() {
           </table>
         </div>
       </div>
+
+      {/* Create Tenant Modal */}
+      <CreateTenantModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          setShowCreateModal(false);
+          loadTenants();
+        }}
+      />
     </div>
   );
 }

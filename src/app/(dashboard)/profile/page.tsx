@@ -153,10 +153,10 @@ export default async function ProfilePage() {
               </div>
             </div>
 
-            <div className="rounded-[10px] bg-yellow-light-4 p-4">
+            <div className="rounded-[10px] bg-blue-light-4 p-4">
               <div className="flex items-start gap-3">
                 <svg
-                  className="mt-0.5 h-5 w-5 shrink-0 text-yellow-dark"
+                  className="mt-0.5 h-5 w-5 shrink-0 text-blue"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -169,13 +169,14 @@ export default async function ProfilePage() {
                   />
                 </svg>
                 <div>
-                  <p className="text-body-sm font-medium text-yellow-dark-2">
-                    Profile Edit Functionality Coming Soon
+                  <p className="text-body-sm font-medium text-blue">
+                    Profile Management Available
                   </p>
-                  <p className="mt-1 text-body-xs text-yellow-dark-2">
-                    The ability to edit your profile information will be available
-                    in a future update. For now, please contact your administrator
-                    to make changes.
+                  <p className="mt-1 text-body-xs text-blue-light-2">
+                    You can now edit your profile, change email, password, and manage linked accounts in{" "}
+                    <a href="/account-settings" className="font-medium underline hover:text-blue-dark">
+                      Account Settings
+                    </a>
                   </p>
                 </div>
               </div>

@@ -60,22 +60,21 @@ Copy the example environment file and configure:
 cp .env.example .env
 ```
 
-Update the following variables in `.env`:
+Update the following **required** variables in `.env`:
 
 ```env
-# Database
+# Required: Database
 DATABASE_URL="postgresql://username:password@localhost:5432/azaire_dev"
 
-# BetterAuth
-BETTER_AUTH_SECRET="your-secret-key-here"
+# Required: BetterAuth
+BETTER_AUTH_SECRET="your-secret-key-here"  # Generate with: openssl rand -base64 32
 BETTER_AUTH_URL="http://localhost:3000"
 
-# Optional services (for production)
-AWS_ACCESS_KEY_ID="your-aws-key"
-AWS_SECRET_ACCESS_KEY="your-aws-secret"
-REDIS_URL="redis://localhost:6379"
-RESEND_API_KEY="your-resend-key"
+# Required: Application URL
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
+
+**Note:** See `.env.example` for all available configuration options including email, payments, SMS, analytics, and cloud storage.
 
 ### 3. Database Setup
 
@@ -232,16 +231,28 @@ npx prisma studio
 
 ### Environment Variables for Production
 
+Copy `.env.example` to `.env` and fill in all values. Minimum required:
+
 ```env
+# Required
 DATABASE_URL="postgresql://..."
-BETTER_AUTH_SECRET="secure-random-string"
+BETTER_AUTH_SECRET="secure-random-string"  # Generate with: openssl rand -base64 32
 BETTER_AUTH_URL="https://your-domain.com"
+NEXT_PUBLIC_APP_URL="https://your-domain.com"
+
+# Recommended for production
+RESEND_API_KEY="re_..."  # Or configure SMTP
+PAYNOW_INTEGRATION_ID="..."
+PAYNOW_INTEGRATION_KEY="..."
+NEXT_PUBLIC_GA_MEASUREMENT_ID="G-..."
+
+# Optional
 AWS_ACCESS_KEY_ID="..."
 AWS_SECRET_ACCESS_KEY="..."
 REDIS_URL="redis://..."
-RESEND_API_KEY="..."
-NEXT_PUBLIC_GA_MEASUREMENT_ID="G-..."
 ```
+
+**Platform Settings:** Most platform configuration is now stored in the database (`PlatformSettings` table) and can be managed through the Super Admin UI. Environment variables are only used as fallbacks during initial setup.
 
 ### Database Setup for Production
 

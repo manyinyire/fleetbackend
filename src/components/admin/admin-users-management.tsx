@@ -67,21 +67,23 @@ export function AdminUsersManagement({ users: initialUsers, stats }: AdminUsersM
     setLoading(true);
 
     try {
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch('/api/superadmin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(createForm)
+        body: JSON.stringify({
+          ...createForm,
+          password: 'TempPassword123!' // TODO: Get password from form
+        })
       });
 
-      if (response.ok) {
-        const newUser = await response.json();
-        setUsers([newUser, ...users]);
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setUsers([data.data, ...users]);
         setShowCreateModal(false);
         setCreateForm({ name: '', email: '', role: 'USER', tenantId: '' });
         toast.success('User created successfully');
         router.refresh();
       } else {
-        const data = await response.json();
         toast.error(data.error || 'Failed to create user');
       }
     } catch (error) {
@@ -98,21 +100,20 @@ export function AdminUsersManagement({ users: initialUsers, stats }: AdminUsersM
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
-        method: 'PATCH',
+      const response = await fetch(`/api/superadmin/users/${selectedUser.id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm)
       });
 
-      if (response.ok) {
-        const updatedUser = await response.json();
-        setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setUsers(users.map(u => u.id === data.data.id ? data.data : u));
         setShowEditModal(false);
         setSelectedUser(null);
         toast.success('User updated successfully');
         router.refresh();
       } else {
-        const data = await response.json();
         toast.error(data.error || 'Failed to update user');
       }
     } catch (error) {
@@ -128,7 +129,7 @@ export function AdminUsersManagement({ users: initialUsers, stats }: AdminUsersM
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      const response = await fetch(`/api/superadmin/users/${userId}`, {
         method: 'DELETE'
       });
 

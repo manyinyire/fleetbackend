@@ -65,6 +65,12 @@ export const NAV_DATA = [
         url: "/profile",
         items: [],
       },
+      {
+        title: "Account Settings",
+        icon: Icons.Settings,
+        url: "/account-settings",
+        items: [],
+      },
     ],
   },
 ];

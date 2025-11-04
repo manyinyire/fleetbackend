@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       const revenue = (premiumTenants * 60) + (basicTenants * 15);
 
       revenueData.push({
-        month: monthStart.toISOString().slice(0, 7), // YYYY-MM format
+        date: monthStart.toISOString(),
         revenue,
         premiumTenants,
         basicTenants
@@ -75,10 +75,32 @@ export async function GET(request: NextRequest) {
         }
       });
 
+      // Count tenants by plan at this point in time
+      const freeAtDate = await prisma.tenant.count({
+        where: {
+          plan: 'FREE',
+          createdAt: { lte: monthEnd }
+        }
+      });
+      const basicAtDate = await prisma.tenant.count({
+        where: {
+          plan: 'BASIC',
+          createdAt: { lte: monthEnd }
+        }
+      });
+      const premiumAtDate = await prisma.tenant.count({
+        where: {
+          plan: 'PREMIUM',
+          createdAt: { lte: monthEnd }
+        }
+      });
+
       tenantGrowthData.push({
-        month: monthStart.toISOString().slice(0, 7),
-        newTenants,
-        totalTenants
+        date: monthStart.toISOString(),
+        free: freeAtDate,
+        basic: basicAtDate,
+        premium: premiumAtDate,
+        total: totalTenants
       });
     }
 

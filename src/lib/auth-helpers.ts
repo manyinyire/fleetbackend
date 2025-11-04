@@ -38,6 +38,11 @@ export async function requireAuth() {
     redirect('/auth/sign-in');
   }
 
+  // Check email verification (unless SUPER_ADMIN)
+  if ((user as any).role !== 'SUPER_ADMIN' && !user.emailVerified) {
+    redirect('/auth/email-verified?unverified=true');
+  }
+
   return user;
 }
 

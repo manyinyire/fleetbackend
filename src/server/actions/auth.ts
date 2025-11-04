@@ -87,6 +87,8 @@ export async function signUp(formData: FormData) {
     });
 
     // User created successfully
+    // Note: BetterAuth with requireEmailVerification: true should NOT create a session
+    // The user will need to verify their email before they can log in
 
     // Mark that we shouldn't cleanup if we reach here
     shouldCleanup = false;
@@ -98,13 +100,19 @@ export async function signUp(formData: FormData) {
         data: {
           tenantId: tenant.id,
           role: 'TENANT_ADMIN',
+          emailVerified: false, // Explicitly set to false
         },
       });
 
-      // Send email verification
+      // Send email verification OTP using BetterAuth's emailOTP plugin
       try {
-        const { emailVerificationService } = await import('@/lib/email-verification');
-        await emailVerificationService.sendEmailVerification(userResult.user.id);
+        // Use BetterAuth's emailOTP to send verification OTP
+        await auth.api.sendVerificationOTP({
+          body: {
+            email,
+            type: 'email-verification',
+          },
+        });
       } catch (emailError) {
         console.error('Failed to send verification email:', emailError);
         // Don't fail the signup process if email fails
@@ -154,6 +162,7 @@ export async function signUp(formData: FormData) {
     throw error;
   }
 
-  // Redirect outside of try-catch to avoid catching the redirect error
-  redirect('/onboarding');
+  // Redirect to email verification page instead of onboarding
+  // User must verify email before they can access the dashboard
+  redirect('/auth/email-verified?unverified=true&email=' + encodeURIComponent(email));
 }

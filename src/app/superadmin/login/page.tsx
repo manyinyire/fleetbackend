@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EyeIcon, EyeSlashIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { Logo } from "@/components/logo";
+import { TwoFactorModal } from "@/components/superadmin/TwoFactorModal";
+import { superAdminAPI } from "@/lib/superadmin-api";
 
 export default function SuperAdminLogin() {
   const [email, setEmail] = useState("");
@@ -14,20 +16,51 @@ export default function SuperAdminLogin() {
   const [error, setError] = useState("");
   const router = useRouter();
 
+  const [show2FA, setShow2FA] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
     try {
-      // TODO: Implement actual authentication
-      // For now, just simulate login
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await superAdminAPI.login(email, password, rememberDevice);
       
-      // Redirect to dashboard
-      router.push("/superadmin/dashboard");
-    } catch (err) {
-      setError("Invalid credentials. Please try again.");
+      if (response.success) {
+        // Check if 2FA is required
+        if (response.data?.requires2FA) {
+          setShow2FA(true);
+          setOtpSent(true);
+        } else {
+          router.push("/superadmin/dashboard");
+        }
+      } else {
+        setError(response.error || "Invalid credentials. Please try again.");
+      }
+    } catch (err: any) {
+      setError(err.message || "Invalid credentials. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handle2FAVerify = async (code: string): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      // Verify OTP and complete login
+      const response = await superAdminAPI.login(email, password, rememberDevice, code);
+      
+      if (response.success) {
+        router.push("/superadmin/dashboard");
+        return true;
+      } else {
+        setError(response.error || "Invalid OTP code. Please try again.");
+        return false;
+      }
+    } catch (err: any) {
+      setError(err.message || "Verification failed. Please try again.");
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -152,6 +185,17 @@ export default function SuperAdminLogin() {
           </form>
         </div>
       </div>
+
+      {/* 2FA Modal */}
+      <TwoFactorModal
+        isOpen={show2FA}
+        onVerify={handle2FAVerify}
+        onCancel={() => {
+          setShow2FA(false);
+          setEmail("");
+          setPassword("");
+        }}
+      />
     </div>
   );
 }

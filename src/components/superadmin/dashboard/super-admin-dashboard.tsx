@@ -14,6 +14,7 @@ import {
   BellIcon
 } from "@heroicons/react/24/outline";
 import { superAdminAPI } from "@/lib/superadmin-api";
+import { RevenueTrendChart, TenantGrowthChart } from "./Charts";
 
 interface KPIData {
   totalTenants: {
@@ -70,9 +71,17 @@ export default function SuperAdminDashboard() {
   const [activityFeed, setActivityFeed] = useState<ActivityFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [chartData, setChartData] = useState<any>(null);
 
   useEffect(() => {
     loadDashboardData();
+    
+    // Set up polling for real-time updates (every 30 seconds)
+    const interval = setInterval(() => {
+      loadDashboardData();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const loadDashboardData = async () => {
@@ -80,14 +89,19 @@ export default function SuperAdminDashboard() {
       setLoading(true);
       setError(null);
 
-      const [statsResponse, alertsResponse, activityResponse] = await Promise.all([
+      const [statsResponse, alertsResponse, activityResponse, chartsResponse] = await Promise.all([
         superAdminAPI.getDashboardStats(),
         superAdminAPI.getDashboardAlerts(),
-        superAdminAPI.getDashboardActivity(10)
+        superAdminAPI.getDashboardActivity(10),
+        superAdminAPI.getDashboardCharts('12')
       ]);
 
       if (statsResponse.success) {
         setKpiData(statsResponse.data);
+      }
+
+      if (chartsResponse.success) {
+        setChartData(chartsResponse.data);
       }
 
       if (alertsResponse.success) {
@@ -332,19 +346,27 @@ export default function SuperAdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Revenue Trend
+            Revenue Trend (Last 12 Months)
           </h3>
-          <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
-            [Chart Placeholder - Revenue Trend]
-          </div>
+          {chartData?.revenueTrend ? (
+            <RevenueTrendChart data={chartData.revenueTrend} />
+          ) : (
+            <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
+              Loading chart data...
+            </div>
+          )}
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Tenant Growth
+            Tenant Growth (Last 12 Months)
           </h3>
-          <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
-            [Chart Placeholder - Tenant Growth]
-          </div>
+          {chartData?.tenantGrowth ? (
+            <TenantGrowthChart data={chartData.tenantGrowth} />
+          ) : (
+            <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
+              Loading chart data...
+            </div>
+          )}
         </div>
       </div>
 

@@ -26,11 +26,30 @@ class SuperAdminAPI {
   }
 
   // Authentication
-  async login(email: string, password: string, rememberDevice: boolean = false) {
+  async login(email: string, password: string, rememberDevice: boolean = false, otp?: string) {
     return this.request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password, rememberDevice }),
+      body: JSON.stringify({ email, password, rememberDevice, otp }),
     });
+  }
+
+  // 2FA OTP
+  async sendOTP(email: string) {
+    const response = await fetch('/api/auth/send-verification-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, type: 'sign-in' }),
+    });
+    return response.json();
+  }
+
+  async verifyOTP(email: string, otp: string) {
+    const response = await fetch('/api/auth/check-verification-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, type: 'sign-in', otp }),
+    });
+    return response.json();
   }
 
   async logout() {
@@ -116,7 +135,7 @@ class SuperAdminAPI {
     });
   }
 
-  // Users
+  // Users (using BetterAuth admin plugin)
   async getUsers(params: {
     page?: number;
     limit?: number;
@@ -150,6 +169,56 @@ class SuperAdminAPI {
     });
   }
 
+  async updateUser(userId: string, data: Record<string, any>) {
+    return this.request(`/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteUser(userId: string) {
+    return this.request(`/users/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async banUser(userId: string, banReason?: string, banExpiresIn?: number) {
+    return this.request(`/users/${userId}/ban`, {
+      method: 'POST',
+      body: JSON.stringify({ banReason, banExpiresIn }),
+    });
+  }
+
+  async unbanUser(userId: string) {
+    return this.request(`/users/${userId}/unban`, {
+      method: 'POST',
+    });
+  }
+
+  async setUserRole(userId: string, role: string | string[]) {
+    return this.request(`/users/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    });
+  }
+
+  async setUserPassword(userId: string, newPassword: string) {
+    return this.request(`/users/${userId}/password`, {
+      method: 'PUT',
+      body: JSON.stringify({ newPassword }),
+    });
+  }
+
+  async getUserSessions(userId: string) {
+    return this.request(`/users/${userId}/sessions`);
+  }
+
+  async revokeUserSessions(userId: string) {
+    return this.request(`/users/${userId}/sessions`, {
+      method: 'DELETE',
+    });
+  }
+
   // System Health
   async getSystemHealth() {
     return this.request('/system/health');
@@ -180,6 +249,55 @@ class SuperAdminAPI {
     });
     
     return this.request(`/audit/logs?${searchParams.toString()}`);
+  }
+
+  // Invoices
+  async getInvoices(params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    tenantId?: string;
+  } = {}) {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+    
+    return this.request(`/invoices?${searchParams.toString()}`);
+  }
+
+  async retryPayment(invoiceId: string) {
+    return this.request(`/invoices/${invoiceId}/retry`, {
+      method: 'POST'
+    });
+  }
+
+  // Impersonation
+  async impersonateTenant(tenantId: string, reason: string) {
+    return this.request(`/tenants/${tenantId}/impersonate`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    });
+  }
+
+  async stopImpersonation() {
+    return this.request('/impersonation/stop', {
+      method: 'POST'
+    });
+  }
+
+  // Settings
+  async getSettings() {
+    return this.request('/settings');
+  }
+
+  async updateSettings(data: any) {
+    return this.request('/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
   }
 }
 

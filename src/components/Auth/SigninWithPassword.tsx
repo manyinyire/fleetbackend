@@ -41,6 +41,16 @@ export default function SigninWithPassword() {
         return;
       }
 
+      // Check if email is verified
+      const user = result.data?.user;
+      if (user && !user.emailVerified && (user as any).role !== 'SUPER_ADMIN') {
+        toast.error('Please verify your email address before logging in. Check your inbox for the verification code.');
+        setLoading(false);
+        // Redirect to email verification page
+        router.push(`/auth/email-verified?unverified=true&email=${encodeURIComponent(user.email || data.email)}`);
+        return;
+      }
+
       toast.success('Login successful!');
 
       // Give time for the session cookie to be set

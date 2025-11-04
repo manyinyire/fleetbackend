@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { otpService } from '@/lib/otp-service';
 import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { randomBytes } from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,19 +16,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await otpService.enableTwoFactor(session.user.id);
+    // Generate a secret (stored but not used for email OTP - kept for compatibility)
+    const secret = randomBytes(20).toString('base32');
+    
+    // Enable 2FA in user record
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: {
+        twoFactorEnabled: true,
+        twoFactorSecret: secret
+      }
+    });
 
-    if (result.success) {
-      return NextResponse.json({ 
-        message: 'Two-factor authentication enabled',
-        secret: result.secret 
-      });
-    } else {
-      return NextResponse.json(
-        { error: 'Failed to enable two-factor authentication' },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json({ 
+      message: 'Two-factor authentication enabled',
+      secret: secret 
+    });
   } catch (error) {
     console.error('Enable 2FA error:', error);
     return NextResponse.json(

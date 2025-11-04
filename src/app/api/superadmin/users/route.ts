@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -14,85 +16,72 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '25');
     const search = searchParams.get('search') || '';
     const role = searchParams.get('role') || '';
-    const status = searchParams.get('status') || '';
     const tenantId = searchParams.get('tenantId') || '';
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
 
-    const skip = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-    // Build where clause
-    const where: any = {};
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } }
-      ];
-    }
-
-    if (role) {
-      where.role = role;
-    }
-
-    if (tenantId) {
-      where.tenantId = tenantId;
-    }
-
-    // Note: We don't have a status field in the User model yet
-    // You might want to add one or implement status logic differently
-
-    // Get users with pagination
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { [sortBy]: sortOrder },
-        include: {
-          tenant: {
-            select: {
-              id: true,
-              name: true,
-              slug: true
-            }
-          },
-          sessions: {
-            select: {
-              createdAt: true,
-              expiresAt: true
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 1
-          }
-        }
-      }),
-      prisma.user.count({ where })
-    ]);
-
-    // Calculate additional metrics for each user
-    const usersWithMetrics = users.map(user => {
-      const lastLogin = user.sessions[0]?.createdAt || null;
-      const isActive = lastLogin && new Date(lastLogin) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      
-      return {
-        ...user,
-        lastLogin,
-        isActive,
-        tenantName: user.tenant?.name || 'No Tenant',
-        tenantSlug: user.tenant?.slug || null
-      };
+    // Use BetterAuth admin plugin to list users
+    const headersList = await headers();
+    const usersResult = await auth.api.listUsers({
+      query: {
+        searchValue: search,
+        searchField: search ? 'name' : undefined,
+        searchOperator: 'contains',
+        limit: limit.toString(),
+        offset: offset.toString(),
+        sortBy: sortBy === 'createdAt' ? undefined : sortBy, // BetterAuth may not support createdAt sorting
+        sortDirection: sortOrder as 'asc' | 'desc',
+        filterField: role ? 'role' : tenantId ? 'tenantId' : undefined,
+        filterValue: role || tenantId || undefined,
+        filterOperator: 'eq',
+      },
+      headers: headersList,
     });
+
+    // Enhance with tenant information and additional metrics
+    const usersWithTenant = await Promise.all(
+      usersResult.users.map(async (user: any) => {
+        const fullUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          include: {
+            tenant: {
+              select: {
+                id: true,
+                name: true,
+                slug: true
+              }
+            },
+            sessions: {
+              select: {
+                createdAt: true,
+                expiresAt: true
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 1
+            }
+          }
+        });
+
+        const lastLogin = fullUser?.sessions[0]?.createdAt || null;
+        const isActive = lastLogin && new Date(lastLogin) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+        return {
+          ...user,
+          lastLogin,
+          isActive,
+          tenantName: fullUser?.tenant?.name || 'No Tenant',
+          tenantSlug: fullUser?.tenant?.slug || null,
+          tenantId: fullUser?.tenantId || null
+        };
+      })
+    );
 
     // Get summary statistics
     const roleStats = await prisma.user.groupBy({
       by: ['role'],
       _count: { role: true }
-    });
-
-    const tenantStats = await prisma.user.groupBy({
-      by: ['tenantId'],
-      _count: { tenantId: true }
     });
 
     // Calculate active users (logged in within last 7 days)
@@ -111,15 +100,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        users: usersWithMetrics,
+        users: usersWithTenant,
         pagination: {
           page,
           limit,
-          total,
-          pages: Math.ceil(total / limit)
+          total: usersResult.total,
+          pages: Math.ceil(usersResult.total / limit)
         },
         stats: {
-          total: total,
+          total: usersResult.total,
           active: activeUsers,
           superAdmins: roleStats.find(r => r.role === 'SUPER_ADMIN')?._count.role || 0,
           tenantAdmins: roleStats.find(r => r.role === 'TENANT_ADMIN')?._count.role || 0,
@@ -150,21 +139,9 @@ export async function POST(request: NextRequest) {
     const { name, email, password, role, tenantId } = data;
 
     // Validate required fields
-    if (!name || !email || !password || !role) {
+    if (!name || !email || !password) {
       return NextResponse.json(
-        { error: 'Name, email, password, and role are required' },
-        { status: 400 }
-      );
-    }
-
-    // Check if email already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    });
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'User with this email already exists' },
+        { error: 'Name, email, and password are required' },
         { status: 400 }
       );
     }
@@ -183,24 +160,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create user (password will be hashed by BetterAuth)
-    const newUser = await prisma.user.create({
-      data: {
-        name,
+    // Use BetterAuth admin plugin to create user
+    const headersList = await headers();
+    const newUser = await auth.api.createUser({
+      body: {
         email,
-        password, // This should be hashed before saving
-        role,
-        tenantId: tenantId || null
-      },
-      include: {
-        tenant: {
-          select: {
-            id: true,
-            name: true,
-            slug: true
-          }
+        password,
+        name,
+        role: role || 'USER',
+        data: {
+          tenantId: tenantId || null
         }
-      }
+      },
+      headers: headersList,
     });
 
     // Log the creation
@@ -214,26 +186,33 @@ export async function POST(request: NextRequest) {
           name: newUser.name,
           email: newUser.email,
           role: newUser.role,
-          tenantId: newUser.tenantId
+          tenantId: tenantId || null
         },
         ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });
 
+    // Get tenant info if exists
+    const tenant = tenantId ? await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, name: true, slug: true }
+    }) : null;
+
     return NextResponse.json({
       success: true,
       data: {
         ...newUser,
-        tenantName: newUser.tenant?.name || 'No Tenant',
-        tenantSlug: newUser.tenant?.slug || null
+        tenantName: tenant?.name || 'No Tenant',
+        tenantSlug: tenant?.slug || null,
+        tenantId: tenantId || null
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('User creation error:', error);
     return NextResponse.json(
-      { error: 'Failed to create user' },
+      { error: error.message || 'Failed to create user' },
       { status: 500 }
     );
   } finally {
