@@ -15,13 +15,22 @@ export default async function NewRemittancePage() {
   // Get scoped Prisma client
   const prisma = getTenantPrisma(tenantId);
 
-  // Fetch drivers with their vehicle assignments
+  // Fetch drivers with their vehicle assignments and payment config
   const driversRaw = await prisma.driver.findMany({
     where: { status: 'ACTIVE' },
     include: {
       vehicles: {
         include: {
-          vehicle: true,
+          vehicle: {
+            select: {
+              id: true,
+              registrationNumber: true,
+              make: true,
+              model: true,
+              paymentModel: true,
+              paymentConfig: true,
+            },
+          },
         },
         orderBy: { startDate: 'desc' },
       },

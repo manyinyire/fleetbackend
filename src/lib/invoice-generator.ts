@@ -217,13 +217,27 @@ class InvoiceGenerator {
     });
   }
 
-  async createUpgradeInvoice(tenantId: string, newPlan: 'BASIC' | 'PREMIUM'): Promise<{ invoice: any; pdf: Buffer }> {
+  async createUpgradeInvoice(tenantId: string, newPlan: 'BASIC' | 'PREMIUM', currentPlan?: 'FREE' | 'BASIC' | 'PREMIUM'): Promise<{ invoice: any; pdf: Buffer }> {
+    // Get current tenant plan if not provided
+    if (!currentPlan) {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { plan: true },
+      });
+      currentPlan = tenant?.plan || 'FREE';
+    }
+
+    // Calculate upgrade amount (difference between new and current plan)
+    const currentPricing = this.getPlanPricing(currentPlan);
+    const newPricing = this.getPlanPricing(newPlan);
+    const upgradeAmount = newPricing.monthly - currentPricing.monthly;
+
     return this.generateInvoice({
       tenantId,
       type: 'UPGRADE',
       plan: newPlan,
-      amount: 0, // Will be calculated based on plan pricing
-      description: `Upgrade to ${newPlan} plan`
+      amount: upgradeAmount,
+      description: `Upgrade from ${currentPlan} to ${newPlan} plan`
     });
   }
 

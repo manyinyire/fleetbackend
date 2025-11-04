@@ -63,18 +63,37 @@ export function TenantActions({ tenant }: TenantActionsProps) {
     setLoading(true);
 
     try {
+      const planOrder = ['FREE', 'BASIC', 'PREMIUM'];
+      const currentIndex = planOrder.indexOf(tenant.plan);
+      const newIndex = planOrder.indexOf(selectedPlan);
+      const isUpgrade = newIndex > currentIndex;
+      const isDowngrade = newIndex < currentIndex;
+
       const response = await fetch(`/api/admin/tenants/${tenant.id}/plan`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: selectedPlan })
+        body: JSON.stringify({ 
+          plan: selectedPlan,
+          skipInvoice: isDowngrade || selectedPlan === 'FREE' // Skip invoice for downgrades
+        })
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        toast.success(`Plan changed to ${selectedPlan} successfully`);
+        if (data.invoice) {
+          // Upgrade invoice created - show invoice info
+          toast.success(
+            `Upgrade invoice ${data.invoice.invoiceNumber} created and sent! Plan will upgrade automatically upon payment.`,
+            { duration: 6000 }
+          );
+        } else {
+          // Immediate plan change (downgrade or skipInvoice)
+          toast.success(`Plan changed to ${selectedPlan} successfully`);
+        }
         setShowUpgradeModal(false);
         router.refresh();
       } else {
-        const data = await response.json();
         toast.error(data.error || 'Failed to change plan');
       }
     } catch (error) {
@@ -228,9 +247,24 @@ export function TenantActions({ tenant }: TenantActionsProps) {
               </button>
             </div>
             <form onSubmit={handleUpgrade} className="space-y-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Current Plan: <span className="font-medium">{tenant.plan}</span>
               </p>
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="text-xs text-blue-800 dark:text-blue-300">
+                  {(() => {
+                    const planOrder = ['FREE', 'BASIC', 'PREMIUM'];
+                    const currentIndex = planOrder.indexOf(tenant.plan);
+                    const newIndex = planOrder.indexOf(selectedPlan);
+                    if (newIndex > currentIndex) {
+                      return '⚠️ Upgrading will create an invoice. Plan will upgrade automatically once payment is confirmed.';
+                    } else if (newIndex < currentIndex) {
+                      return 'ℹ️ Downgrading will change the plan immediately without creating an invoice.';
+                    }
+                    return '';
+                  })()}
+                </p>
+              </div>
               <div className="space-y-3">
                 <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
                   <input
@@ -257,7 +291,7 @@ export function TenantActions({ tenant }: TenantActionsProps) {
                   />
                   <div className="flex-1">
                     <div className="font-medium text-gray-900 dark:text-white">Basic Plan</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">$15/month • Standard features</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">$29.99/month • Standard features</div>
                   </div>
                 </label>
                 <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -271,7 +305,7 @@ export function TenantActions({ tenant }: TenantActionsProps) {
                   />
                   <div className="flex-1">
                     <div className="font-medium text-gray-900 dark:text-white">Premium Plan</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">$45/month • All features</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">$99.99/month • All features</div>
                   </div>
                 </label>
               </div>

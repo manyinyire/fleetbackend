@@ -8,7 +8,10 @@ import {
   GlobeAltIcon,
   DatabaseIcon,
   CloudIcon,
-  CheckIcon
+  CheckIcon,
+  PaintBrushIcon,
+  DocumentTextIcon,
+  BriefcaseIcon
 } from "@heroicons/react/24/outline";
 import { superAdminAPI } from "@/lib/superadmin-api";
 import { toast } from "react-hot-toast";
@@ -20,6 +23,9 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: "general", name: "General", icon: Cog6ToothIcon },
+    { id: "branding", name: "Branding", icon: PaintBrushIcon },
+    { id: "business", name: "Business", icon: BriefcaseIcon },
+    { id: "invoice", name: "Invoice", icon: DocumentTextIcon },
     { id: "security", name: "Security", icon: ShieldCheckIcon },
     { id: "notifications", name: "Notifications", icon: BellIcon },
     { id: "integrations", name: "Integrations", icon: GlobeAltIcon },
@@ -37,12 +43,11 @@ export default function SettingsPage() {
         key: "platformName"
       },
       {
-        title: "Platform Logo",
-        description: "Logo URL or base64 image for the platform",
-        value: "",
+        title: "Platform URL",
+        description: "The main URL for the platform",
+        value: "https://azaire.com",
         type: "text",
-        key: "platformLogo",
-        placeholder: "https://example.com/logo.png or data:image/png;base64,..."
+        key: "platformUrl"
       },
       {
         title: "Platform Address",
@@ -61,11 +66,31 @@ export default function SettingsPage() {
         placeholder: "support@azaire.com"
       },
       {
-        title: "Platform URL",
-        description: "The main URL for the platform",
-        value: "https://azaire.com",
+        title: "Maintenance Mode",
+        description: "Enable maintenance mode to restrict access",
+        value: false,
+        type: "toggle",
+        key: "maintenanceMode"
+      }
+    ],
+    branding: [
+      {
+        title: "Platform Logo",
+        description: "Logo URL or base64 image for the platform (system-wide branding)",
+        value: "",
         type: "text",
-        key: "platformUrl"
+        key: "platformLogo",
+        placeholder: "https://example.com/logo.png or data:image/png;base64,..."
+      }
+    ],
+    business: [
+      {
+        title: "Default Currency",
+        description: "Default currency for all tenants",
+        value: "USD",
+        type: "select",
+        options: ["USD", "ZWL", "EUR", "GBP"],
+        key: "defaultCurrency"
       },
       {
         title: "Default Timezone",
@@ -76,11 +101,46 @@ export default function SettingsPage() {
         key: "defaultTimezone"
       },
       {
-        title: "Maintenance Mode",
-        description: "Enable maintenance mode to restrict access",
-        value: false,
-        type: "toggle",
-        key: "maintenanceMode"
+        title: "Default Date Format",
+        description: "Default date format for all tenants",
+        value: "YYYY-MM-DD",
+        type: "select",
+        options: ["YYYY-MM-DD", "MM/DD/YYYY", "DD/MM/YYYY"],
+        key: "defaultDateFormat"
+      }
+    ],
+    invoice: [
+      {
+        title: "Invoice Prefix",
+        description: "Prefix for invoice numbers (e.g., INV will generate INV-202510-001)",
+        value: "INV",
+        type: "text",
+        key: "invoicePrefix",
+        placeholder: "INV"
+      },
+      {
+        title: "Tax Number / VAT",
+        description: "Tax identification number for invoices",
+        value: "",
+        type: "text",
+        key: "taxNumber",
+        placeholder: "Tax/VAT number"
+      },
+      {
+        title: "Invoice Footer",
+        description: "Footer text displayed on all invoices",
+        value: "",
+        type: "textarea",
+        key: "invoiceFooter",
+        placeholder: "Thank you for your business!"
+      },
+      {
+        title: "Bank Details",
+        description: "Bank account information for invoices (JSON format)",
+        value: "",
+        type: "textarea",
+        key: "bankDetails",
+        placeholder: '{"bankName": "...", "accountNumber": "...", "swiftCode": "..."}'
       }
     ],
     security: [
@@ -158,6 +218,9 @@ export default function SettingsPage() {
         const data = response.data;
         setSettings({
           general: settings.general.map(s => ({ ...s, value: data[s.key] ?? s.value })),
+          branding: settings.branding.map(s => ({ ...s, value: data[s.key] ?? s.value })),
+          business: settings.business.map(s => ({ ...s, value: data[s.key] ?? s.value })),
+          invoice: settings.invoice.map(s => ({ ...s, value: data[s.key] ?? s.value })),
           security: settings.security.map(s => ({ ...s, value: data[s.key] ?? s.value })),
           notifications: settings.notifications.map(s => ({ ...s, value: data[s.key] ?? s.value }))
         });
@@ -174,7 +237,7 @@ export default function SettingsPage() {
       setSaving(true);
       const settingsData: any = {};
       
-      [...settings.general, ...settings.security, ...settings.notifications].forEach(setting => {
+      [...settings.general, ...settings.branding, ...settings.business, ...settings.invoice, ...settings.security, ...settings.notifications].forEach(setting => {
         if (setting.key) {
           settingsData[setting.key] = setting.value;
         }
@@ -344,6 +407,66 @@ export default function SettingsPage() {
                       </div>
                       <div className="ml-6 w-64">
                         {renderSetting(setting, "general", index)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === "branding" && (
+                <div className="space-y-6">
+                  {settings.branding.map((setting, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                          {setting.title}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {setting.description}
+                        </p>
+                      </div>
+                      <div className="ml-6 w-64">
+                        {renderSetting(setting, "branding", index)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === "business" && (
+                <div className="space-y-6">
+                  {settings.business.map((setting, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                          {setting.title}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {setting.description}
+                        </p>
+                      </div>
+                      <div className="ml-6 w-64">
+                        {renderSetting(setting, "business", index)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === "invoice" && (
+                <div className="space-y-6">
+                  {settings.invoice.map((setting, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                          {setting.title}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {setting.description}
+                        </p>
+                      </div>
+                      <div className="ml-6 w-64">
+                        {renderSetting(setting, "invoice", index)}
                       </div>
                     </div>
                   ))}

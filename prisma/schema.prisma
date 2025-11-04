@@ -272,6 +272,8 @@ model Remittance {
   driverId       String
   vehicleId      String
   amount         Decimal          @db.Decimal(10, 2)
+  targetAmount   Decimal?         @db.Decimal(10, 2) // Target amount from vehicle's paymentConfig (for DRIVER_REMITS)
+  targetReached  Boolean          @default(false) // Whether the remittance amount meets or exceeds the target
   date           DateTime
   status         RemittanceStatus @default(PENDING)
   proofOfPayment String? // S3 URL
@@ -289,6 +291,7 @@ model Remittance {
   @@index([tenantId, date])
   @@index([driverId])
   @@index([vehicleId])
+  @@index([targetReached])
   @@map("remittances")
 }
 
@@ -497,6 +500,7 @@ model PlatformSettings {
   platformEmail            String?  // Support/contact email
   defaultTimezone          String   @default("Africa/Harare")
   defaultCurrency          String   @default("USD")
+  defaultDateFormat        String   @default("YYYY-MM-DD")
   allowSignups             Boolean  @default(true)
   requireEmailVerification Boolean  @default(true)
   requireAdminApproval     Boolean  @default(false)
@@ -509,6 +513,11 @@ model PlatformSettings {
   webhookUrl               String?
   alertFrequency           String   @default("immediate")
   maintenanceMode          Boolean  @default(false)
+  // Invoice Settings
+  invoicePrefix            String   @default("INV")
+  invoiceFooter            String?
+  taxNumber                String?
+  bankDetails              String?  // JSON with bank account info
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 

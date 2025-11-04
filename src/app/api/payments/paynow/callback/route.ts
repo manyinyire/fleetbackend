@@ -233,41 +233,51 @@ async function performAutoActions(
 
     // Auto-upgrade if this is an upgrade invoice
     if (
-      invoice.type === "SUBSCRIPTION_UPGRADE" &&
-      invoice.subscriptionPlan &&
+      invoice.type === "UPGRADE" &&
+      invoice.plan &&
       !payment.upgradeActioned
     ) {
-      await prisma.tenant.update({
+      const tenant = await prisma.tenant.findUnique({
         where: { id: invoice.tenantId },
-        data: {
-          plan: invoice.subscriptionPlan,
-        },
+        select: { plan: true },
       });
 
-      await prisma.auditLog.create({
-        data: {
-          userId: "system",
-          tenantId: invoice.tenantId,
-          action: "AUTO_UPGRADE",
-          entityType: "Tenant",
-          entityId: invoice.tenantId,
-          details: {
-            paymentId: payment.id,
-            oldPlan: invoice.tenant.plan,
-            newPlan: invoice.subscriptionPlan,
-            analytics: {
-              event: "subscription_upgrade",
-              from: invoice.tenant.plan,
-              to: invoice.subscriptionPlan,
-            },
+      if (tenant) {
+        await prisma.tenant.update({
+          where: { id: invoice.tenantId },
+          data: {
+            plan: invoice.plan,
+            monthlyRevenue: invoice.plan === 'FREE' ? 0 : invoice.plan === 'BASIC' ? 29.99 : 99.99,
           },
-          ipAddress: "system",
-          userAgent: "auto-action",
-        },
-      });
+        });
 
-      actionsPerformed.upgraded = true;
-      console.log(`Auto-upgraded tenant ${invoice.tenantId} to ${invoice.subscriptionPlan}`);
+        await prisma.auditLog.create({
+          data: {
+            userId: "system",
+            tenantId: invoice.tenantId,
+            action: "AUTO_UPGRADE",
+            entityType: "Tenant",
+            entityId: invoice.tenantId,
+            oldValues: { plan: tenant.plan },
+            newValues: { plan: invoice.plan },
+            details: {
+              paymentId: payment.id,
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoiceNumber,
+              analytics: {
+                event: "subscription_upgrade",
+                from: tenant.plan,
+                to: invoice.plan,
+              },
+            },
+            ipAddress: "system",
+            userAgent: "auto-action",
+          },
+        });
+
+        actionsPerformed.upgraded = true;
+        console.log(`Auto-upgraded tenant ${invoice.tenantId} from ${tenant.plan} to ${invoice.plan}`);
+      }
     }
 
     // Auto-unsuspend if account was suspended

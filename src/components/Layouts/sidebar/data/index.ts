@@ -50,29 +50,6 @@ export const NAV_DATA = [
       },
     ],
   },
-  {
-    label: "SYSTEM",
-    items: [
-      {
-        title: "Settings",
-        icon: Icons.Settings,
-        url: "/settings",
-        items: [],
-      },
-      {
-        title: "Profile",
-        icon: Icons.User,
-        url: "/profile",
-        items: [],
-      },
-      {
-        title: "Account Settings",
-        icon: Icons.Settings,
-        url: "/account-settings",
-        items: [],
-      },
-    ],
-  },
 ];
 
 export const SUPER_ADMIN_NAV_DATA = [
@@ -216,17 +193,6 @@ export const SUPER_ADMIN_NAV_DATA = [
         title: "Compliance",
         icon: Icons.CheckBadgeIcon,
         url: "/admin/compliance",
-        items: [],
-      },
-    ],
-  },
-  {
-    label: "ACCOUNT",
-    items: [
-      {
-        title: "Profile",
-        icon: Icons.User,
-        url: "/profile",
         items: [],
       },
     ],

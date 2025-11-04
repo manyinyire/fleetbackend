@@ -9,16 +9,49 @@ import {
 import { cn, getInitials } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LogOutIcon, SettingsIcon, UserIcon } from "./icons";
 import { useAuth } from "@/hooks/use-auth";
 import { signOut } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
+import { SparklesIcon, ArrowUpIcon } from "@heroicons/react/24/outline";
+
+interface PlanInfo {
+  id: string;
+  name: string;
+  monthly: number;
+}
 
 export function UserInfo() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const [currentPlan, setCurrentPlan] = useState<PlanInfo | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState(true);
+
+  useEffect(() => {
+    if (user?.tenantId) {
+      fetchPlan();
+    } else {
+      setLoadingPlan(false);
+    }
+  }, [user?.tenantId]);
+
+  const fetchPlan = async () => {
+    try {
+      const response = await fetch('/api/tenant/plan');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setCurrentPlan(data.currentPlan);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching plan:', error);
+    } finally {
+      setLoadingPlan(false);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -121,6 +154,34 @@ export function UserInfo() {
 
             <span className="mr-auto text-base font-medium">View profile</span>
           </Link>
+
+          {/* Current Package */}
+          {!loadingPlan && currentPlan && (
+            <div className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[9px] hover:bg-gray-2 hover:text-dark dark:hover:bg-dark-3 dark:hover:text-white">
+              <SparklesIcon className="h-5 w-5 text-primary" />
+              <div className="mr-auto flex flex-col">
+                <span className="text-base font-medium">Current Plan</span>
+                <span className="text-xs text-dark-5 dark:text-dark-6">
+                  {currentPlan.name} {currentPlan.monthly > 0 ? `($${currentPlan.monthly}/mo)` : '(Free)'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Upgrade Option */}
+          {!loadingPlan && currentPlan && currentPlan.id !== 'PREMIUM' && (
+            <Link
+              href={"/upgrade"}
+              onClick={() => setIsOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[9px] hover:bg-gray-2 hover:text-dark dark:hover:bg-dark-3 dark:hover:text-white"
+            >
+              <ArrowUpIcon className="h-5 w-5 text-green-600" />
+
+              <span className="mr-auto text-base font-medium">
+                Upgrade Plan
+              </span>
+            </Link>
+          )}
 
           <Link
             href={"/account-settings"}

@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { createRemittance, updateRemittance, type CreateRemittanceInput } from '@/server/actions/remittances';
+import { createRemittance, updateRemittance, getRemainingBalance, type CreateRemittanceInput } from '@/server/actions/remittances';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
-import { CalendarIcon, CurrencyDollarIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, CurrencyDollarIcon, PhotoIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { ChevronUpIcon } from '@/assets/icons';
+import { isTargetReached } from '@/lib/remittance-target';
 
 const remittanceFormSchema = z.object({
   driverId: z.string().min(1, 'Driver is required'),
@@ -31,6 +32,8 @@ interface Driver {
       registrationNumber: string;
       make: string;
       model: string;
+      paymentModel?: string;
+      paymentConfig?: any;
     };
     endDate: string | null;
   }[];
@@ -67,6 +70,17 @@ export function RemittanceForm({ drivers, remittance, onSuccess }: RemittanceFor
   });
 
   const selectedDriverId = watch('driverId');
+  const amount = watch('amount');
+  const date = watch('date');
+
+  // State for remaining balance info
+  const [balanceInfo, setBalanceInfo] = useState<{
+    fullTarget: number | null;
+    existingSum: number;
+    remainingBalance: number | null;
+    frequency?: string;
+  } | null>(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
 
   // Find selected driver and their active vehicle
   useEffect(() => {
@@ -75,11 +89,57 @@ export function RemittanceForm({ drivers, remittance, onSuccess }: RemittanceFor
       setSelectedDriver(driver || null);
     } else {
       setSelectedDriver(null);
+      setBalanceInfo(null);
     }
   }, [selectedDriverId, drivers]);
 
   // Get active vehicle for selected driver
   const activeVehicle = selectedDriver?.vehicles?.find(v => !v.endDate)?.vehicle;
+
+  // Fetch remaining balance when driver, vehicle, or date changes
+  useEffect(() => {
+    if (!activeVehicle || !selectedDriverId || !date) {
+      setBalanceInfo(null);
+      return;
+    }
+
+    const fetchBalance = async () => {
+      setLoadingBalance(true);
+      try {
+        const balance = await getRemainingBalance(
+          selectedDriverId,
+          activeVehicle.id,
+          new Date(date)
+        );
+        setBalanceInfo(balance);
+      } catch (error) {
+        console.error('Error fetching remaining balance:', error);
+        setBalanceInfo(null);
+      } finally {
+        setLoadingBalance(false);
+      }
+    };
+
+    fetchBalance();
+  }, [selectedDriverId, activeVehicle?.id, date]);
+
+  // Calculate target amount and check if reached
+  const targetInfo = useMemo(() => {
+    if (!balanceInfo) {
+      return { targetAmount: null, targetReached: false, fullTarget: null, existingSum: 0 };
+    }
+    
+    const targetAmount = balanceInfo.remainingBalance; // Use remaining balance as target
+    const targetReached = amount && targetAmount ? isTargetReached(amount, targetAmount) : false;
+    
+    return { 
+      targetAmount, 
+      targetReached,
+      fullTarget: balanceInfo.fullTarget,
+      existingSum: balanceInfo.existingSum,
+      frequency: balanceInfo.frequency,
+    };
+  }, [balanceInfo, amount]);
 
   const onSubmit = async (data: RemittanceFormData) => {
     setLoading(true);
@@ -224,6 +284,61 @@ export function RemittanceForm({ drivers, remittance, onSuccess }: RemittanceFor
            </div>
            {errors.amount && (
              <p className="text-sm text-red-600 mt-1">{errors.amount.message}</p>
+           )}
+           
+           {/* Target Amount Display */}
+           {activeVehicle && targetInfo.targetAmount !== null && !loadingBalance && (
+             <div className="mt-3 rounded-lg border border-stroke bg-gray-50 dark:bg-dark-2 dark:border-dark-3 px-4 py-3">
+               <div className="space-y-2">
+                 <div className="flex items-center justify-between">
+                   <div className="flex items-center gap-2">
+                     <span className="text-sm font-medium text-dark dark:text-white">
+                       {targetInfo.frequency === 'WEEKLY' ? 'Weekly' : targetInfo.frequency === 'MONTHLY' ? 'Monthly' : 'Daily'} Target:
+                     </span>
+                     <span className="text-sm text-dark-6 dark:text-dark-6">
+                       {targetInfo.fullTarget?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                     </span>
+                   </div>
+                 </div>
+                 {targetInfo.existingSum > 0 && (
+                   <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                     <span>Already remitted this period:</span>
+                     <span className="font-medium">{targetInfo.existingSum.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                   </div>
+                 )}
+                 <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+                   <div className="flex items-center gap-2">
+                     <span className="text-sm font-semibold text-dark dark:text-white">
+                       Remaining Balance:
+                     </span>
+                     <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                       {targetInfo.targetAmount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                     </span>
+                   </div>
+                   <div className="flex items-center gap-2">
+                     {targetInfo.targetReached ? (
+                       <>
+                         <CheckCircleIcon className="h-5 w-5 text-green-600" />
+                         <span className="text-sm font-medium text-green-600">Target Reached</span>
+                       </>
+                     ) : (
+                       <>
+                         <XCircleIcon className="h-5 w-5 text-orange-600" />
+                         <span className="text-sm font-medium text-orange-600">Target Not Met</span>
+                       </>
+                     )}
+                   </div>
+                 </div>
+                 {!targetInfo.targetReached && amount && targetInfo.targetAmount > 0 && (
+                   <p className="text-xs text-orange-600 mt-1">
+                     Need {((targetInfo.targetAmount || 0) - amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} more to reach target
+                   </p>
+                 )}
+               </div>
+             </div>
+           )}
+           {loadingBalance && (
+             <div className="mt-3 text-xs text-gray-500">Calculating remaining balance...</div>
            )}
          </div>
 

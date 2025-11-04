@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
           platformUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://azaire.com',
           defaultTimezone: process.env.DEFAULT_TIMEZONE || 'Africa/Harare',
           defaultCurrency: process.env.DEFAULT_CURRENCY || 'USD',
+          defaultDateFormat: 'YYYY-MM-DD',
           allowSignups: true,
           requireEmailVerification: true,
           requireAdminApproval: false,
@@ -45,6 +46,10 @@ export async function GET(request: NextRequest) {
           webhookUrl: process.env.WEBHOOK_URL || null,
           alertFrequency: 'immediate',
           maintenanceMode: false,
+          invoicePrefix: 'INV',
+          invoiceFooter: null,
+          taxNumber: null,
+          bankDetails: null,
         },
       });
     }
@@ -58,6 +63,7 @@ export async function GET(request: NextRequest) {
       platformEmail: platformSettings.platformEmail || "",
       defaultTimezone: platformSettings.defaultTimezone,
       defaultCurrency: platformSettings.defaultCurrency,
+      defaultDateFormat: platformSettings.defaultDateFormat || "YYYY-MM-DD",
       allowSignups: platformSettings.allowSignups,
       requireEmailVerification: platformSettings.requireEmailVerification,
       requireAdminApproval: platformSettings.requireAdminApproval,
@@ -72,7 +78,11 @@ export async function GET(request: NextRequest) {
       smsNotifications: platformSettings.smsNotifications,
       webhookUrl: platformSettings.webhookUrl || "",
       alertFrequency: platformSettings.alertFrequency,
-      maintenanceMode: platformSettings.maintenanceMode
+      maintenanceMode: platformSettings.maintenanceMode,
+      invoicePrefix: platformSettings.invoicePrefix || "INV",
+      invoiceFooter: platformSettings.invoiceFooter || "",
+      taxNumber: platformSettings.taxNumber || "",
+      bankDetails: platformSettings.bankDetails || ""
     };
 
     return NextResponse.json({
@@ -104,6 +114,7 @@ export async function PUT(request: NextRequest) {
       'platformEmail',
       'defaultTimezone',
       'defaultCurrency',
+      'defaultDateFormat',
       'allowSignups',
       'requireEmailVerification',
       'requireAdminApproval',
@@ -115,7 +126,11 @@ export async function PUT(request: NextRequest) {
       'smsNotifications',
       'webhookUrl',
       'alertFrequency',
-      'maintenanceMode'
+      'maintenanceMode',
+      'invoicePrefix',
+      'invoiceFooter',
+      'taxNumber',
+      'bankDetails'
     ];
 
     const adminSettingsFields = ['force2FA', 'sessionTimeout', 'enableIPWhitelist'];

@@ -120,3 +120,8 @@ export function serializePrismaArray<T>(data: T[]): T[] {
   }
   return data.map(serializePrismaData);
 }
+
+/**
+ * Alias for serializePrismaArray for backward compatibility
+ */
+export const serializePrismaResults = serializePrismaArray;

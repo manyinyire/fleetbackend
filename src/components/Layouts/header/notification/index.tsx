@@ -7,43 +7,70 @@ import {
 } from "@/components/ui/dropdown";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BellIcon } from "./icons";
+import { 
+  CurrencyDollarIcon, 
+  IdentificationIcon,
+  ExclamationCircleIcon 
+} from "@heroicons/react/24/outline";
 
-const notificationList = [
-  {
-    image: "/images/user/user-15.png",
-    title: "Piter Joined the Team!",
-    subTitle: "Congratulate him",
-  },
-  {
-    image: "/images/user/user-03.png",
-    title: "New message",
-    subTitle: "Devid sent a new message",
-  },
-  {
-    image: "/images/user/user-26.png",
-    title: "New Payment received",
-    subTitle: "Check your earnings",
-  },
-  {
-    image: "/images/user/user-28.png",
-    title: "Jolly completed tasks",
-    subTitle: "Assign new task",
-  },
-  {
-    image: "/images/user/user-27.png",
-    title: "Roman Joined the Team!",
-    subTitle: "Congratulate him",
-  },
-];
+interface Notification {
+  id: string;
+  type: 'remittance_due' | 'license_expiring';
+  title: string;
+  message: string;
+  link: string;
+  severity: 'warning' | 'critical';
+  date: string;
+}
 
 export function Notification() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isDotVisible, setIsDotVisible] = useState(true);
+  const [isDotVisible, setIsDotVisible] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    fetchNotifications();
+    // Refresh notifications every 5 minutes
+    const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await fetch('/api/notifications');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setNotifications(data.notifications || []);
+          setIsDotVisible((data.notifications || []).length > 0);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    if (type === 'remittance_due') {
+      return <CurrencyDollarIcon className="h-5 w-5 text-white" />;
+    } else if (type === 'license_expiring') {
+      return <IdentificationIcon className="h-5 w-5 text-white" />;
+    }
+    return <BellIcon />;
+  };
+
+  const getNotificationColor = (severity: string) => {
+    return severity === 'critical' 
+      ? 'bg-red-500' 
+      : 'bg-amber-500';
+  };
 
   return (
     <Dropdown
@@ -81,48 +108,68 @@ export function Notification() {
           <span className="text-lg font-medium text-dark dark:text-white">
             Notifications
           </span>
-          <span className="rounded-md bg-primary px-[9px] py-0.5 text-xs font-medium text-white">
-            5 new
-          </span>
+          {notifications.length > 0 && (
+            <span className="rounded-md bg-primary px-[9px] py-0.5 text-xs font-medium text-white">
+              {notifications.length} {notifications.length === 1 ? 'new' : 'new'}
+            </span>
+          )}
         </div>
 
-        <ul className="mb-3 max-h-[23rem] space-y-1.5 overflow-y-auto">
-          {notificationList.map((item, index) => (
-            <li key={index} role="menuitem">
-              <Link
-                href="#"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center gap-4 rounded-lg px-2 py-1.5 outline-none hover:bg-gray-2 focus-visible:bg-gray-2 dark:hover:bg-dark-3 dark:focus-visible:bg-dark-3"
-              >
-                <Image
-                  src={item.image}
-                  className="size-14 rounded-full object-cover"
-                  width={200}
-                  height={200}
-                  alt="User"
-                />
+        {loading ? (
+          <div className="py-8 text-center">
+            <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+            <p className="mt-2 text-sm text-dark-5 dark:text-dark-6">Loading notifications...</p>
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="py-8 text-center">
+            <BellIcon className="mx-auto h-8 w-8 text-dark-5 dark:text-dark-6" />
+            <p className="mt-2 text-sm text-dark-5 dark:text-dark-6">No notifications</p>
+          </div>
+        ) : (
+          <ul className="mb-3 max-h-[23rem] space-y-1.5 overflow-y-auto">
+            {notifications.map((notification) => (
+              <li key={notification.id} role="menuitem">
+                <Link
+                  href={notification.link}
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-start gap-3 rounded-lg px-2 py-1.5 outline-none hover:bg-gray-2 focus-visible:bg-gray-2 dark:hover:bg-dark-3 dark:focus-visible:bg-dark-3"
+                >
+                  <div className={`flex-shrink-0 p-2 rounded-md ${getNotificationColor(notification.severity)}`}>
+                    {getNotificationIcon(notification.type)}
+                  </div>
 
-                <div>
-                  <strong className="block text-sm font-medium text-dark dark:text-white">
-                    {item.title}
-                  </strong>
+                  <div className="flex-1 min-w-0">
+                    <strong className="block text-sm font-medium text-dark dark:text-white">
+                      {notification.title}
+                    </strong>
 
-                  <span className="truncate text-sm font-medium text-dark-5 dark:text-dark-6">
-                    {item.subTitle}
-                  </span>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                    <span className="block text-xs text-dark-5 dark:text-dark-6 mt-0.5">
+                      {notification.message}
+                    </span>
+                    
+                    <span className="block text-xs text-dark-5 dark:text-dark-6 mt-1">
+                      {new Date(notification.date).toLocaleDateString()}
+                    </span>
+                  </div>
+                  
+                  {notification.severity === 'critical' && (
+                    <ExclamationCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-1" />
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
 
-        <Link
-          href="#"
-          onClick={() => setIsOpen(false)}
-          className="block rounded-lg border border-primary p-2 text-center text-sm font-medium tracking-wide text-primary outline-none transition-colors hover:bg-blue-light-5 focus:bg-blue-light-5 focus:text-primary focus-visible:border-primary dark:border-dark-3 dark:text-dark-6 dark:hover:border-dark-5 dark:hover:bg-dark-3 dark:hover:text-dark-7 dark:focus-visible:border-dark-5 dark:focus-visible:bg-dark-3 dark:focus-visible:text-dark-7"
-        >
-          See all notifications
-        </Link>
+        {notifications.length > 0 && (
+          <Link
+            href="/remittances"
+            onClick={() => setIsOpen(false)}
+            className="block rounded-lg border border-primary p-2 text-center text-sm font-medium tracking-wide text-primary outline-none transition-colors hover:bg-blue-light-5 focus:bg-blue-light-5 focus:text-primary focus-visible:border-primary dark:border-dark-3 dark:text-dark-6 dark:hover:border-dark-5 dark:hover:bg-dark-3 dark:hover:text-dark-7 dark:focus-visible:border-dark-5 dark:focus-visible:bg-dark-3 dark:focus-visible:text-dark-7"
+          >
+            View all remittances
+          </Link>
+        )}
       </DropdownContent>
     </Dropdown>
   );

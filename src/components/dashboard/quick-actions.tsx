@@ -41,7 +41,7 @@ export function QuickActions() {
     },
     {
       name: 'Generate Report',
-      href: '/reports',
+      href: '/finances/reports',
       icon: DocumentTextIcon,
       color: 'bg-purple-500',
       description: 'Create fleet report'
