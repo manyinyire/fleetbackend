@@ -273,6 +273,7 @@ export class AdminService {
 
   /**
    * Update tenant plan
+   * @deprecated Use SubscriptionService.changePlan instead for proper lifecycle management
    */
   async updateTenantPlan(
     tenantId: string,
@@ -280,18 +281,17 @@ export class AdminService {
     userId: string
   ) {
     try {
-      // Get plan pricing
-      const planPricing: Record<SubscriptionPlan, number> = {
-        FREE: 0,
-        BASIC: 50,
-        PREMIUM: 150,
-      };
+      // Import subscription service dynamically to avoid circular dependency
+      const { subscriptionService } = await import('./subscription.service');
+
+      // Get plan pricing from subscription service
+      const planConfig = await subscriptionService.getPlanConfig(plan);
 
       const tenant = await prisma.tenant.update({
         where: { id: tenantId },
         data: {
           plan,
-          monthlyRevenue: planPricing[plan],
+          monthlyRevenue: planConfig.monthlyPrice,
         },
       });
 
