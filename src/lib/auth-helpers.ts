@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { prisma } from './prisma';
+import { authLogger } from './logger';
 
 // Server-side: Get current user (cached per request)
 export const getCurrentUser = cache(async () => {
@@ -12,12 +13,12 @@ export const getCurrentUser = cache(async () => {
       headers: headersList,
     });
 
-    console.log('Session check:', {
+    authLogger.debug({
       hasSession: !!session,
       hasUser: !!session?.user,
       userId: session?.user?.id,
       userEmail: session?.user?.email,
-    });
+    }, 'Session check');
 
     if (!session?.user) {
       return null;
@@ -25,7 +26,7 @@ export const getCurrentUser = cache(async () => {
 
     return session.user;
   } catch (error) {
-    console.error('Error getting session:', error);
+    authLogger.error({ err: error }, 'Error getting session');
     return null;
   }
 });
