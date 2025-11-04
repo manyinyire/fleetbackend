@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
           plan: tenant.plan,
           status: tenant.status
         },
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });

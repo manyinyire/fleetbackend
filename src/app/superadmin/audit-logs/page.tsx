@@ -107,9 +107,9 @@ export default function AuditLogsPage() {
         action: selectedAction !== 'all' ? selectedAction : undefined,
         page: 1,
         limit: 100
-      });
+      }) as { success: boolean; data?: { logs: any[]; stats: any } };
 
-      if (response.success) {
+      if (response.success && response.data) {
         setLogs(response.data.logs);
         setStats(response.data.stats);
       }

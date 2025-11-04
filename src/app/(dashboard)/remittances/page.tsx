@@ -28,7 +28,7 @@ export default async function RemittancesPage() {
   });
 
   // Serialize all Decimal fields to numbers for client components
-  const remittances = serializePrismaArray(remittancesRaw);
+  const remittances = serializePrismaArray(remittancesRaw) as typeof remittancesRaw;
 
   const stats = {
     total: remittances.length,
@@ -37,7 +37,7 @@ export default async function RemittancesPage() {
     rejected: remittances.filter((r: any) => r.status === 'REJECTED').length,
     totalAmount: remittances
       .filter((r: any) => r.status === 'APPROVED')
-      .reduce((sum: any, r: any) => sum + Number(r.amount), 0),
+      .reduce((sum: number, r: any) => sum + Number(r.amount), 0) as number,
   };
 
   return (

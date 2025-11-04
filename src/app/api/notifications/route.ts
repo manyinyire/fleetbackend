@@ -88,7 +88,7 @@ export async function GET() {
             });
             
             const existingSum = approvedRemittances.reduce(
-              (sum, r) => sum + Number(r.amount),
+              (sum: number, r: any) => sum + Number(r.amount),
               0
             );
             

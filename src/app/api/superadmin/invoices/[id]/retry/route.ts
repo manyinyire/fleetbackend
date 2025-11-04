@@ -6,11 +6,12 @@ const prisma = new PrismaClient();
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const user = await requireRole('SUPER_ADMIN');
-    const invoiceId = params.id;
+    const invoiceId = id;
 
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
@@ -45,7 +46,7 @@ export async function POST(
           tenantId: invoice.tenantId,
           retryAt: new Date().toISOString()
         },
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });

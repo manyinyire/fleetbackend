@@ -7,7 +7,7 @@ import {
   XCircleIcon,
   ClockIcon,
   ServerIcon,
-  DatabaseIcon,
+  CircleStackIcon,
   CloudIcon,
   BellIcon,
   ArrowUpIcon,
@@ -80,9 +80,9 @@ export default function SystemHealthPage() {
       setLoading(true);
       setError(null);
 
-      const response = await superAdminAPI.getSystemHealth();
+      const response = await superAdminAPI.getSystemHealth() as { success: boolean; data?: any };
 
-      if (response.success) {
+      if (response.success && response.data) {
         setSystemHealth(response.data);
       }
     } catch (err) {
@@ -381,7 +381,7 @@ export default function SystemHealthPage() {
             <div key={db.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
-                  <DatabaseIcon className="h-6 w-6 text-gray-400 mr-3" />
+                  <CircleStackIcon className="h-6 w-6 text-gray-400 mr-3" />
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                     {db.name}
                   </h3>

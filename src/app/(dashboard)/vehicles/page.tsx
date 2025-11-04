@@ -47,7 +47,7 @@ export default async function VehiclesPage() {
   }
 
   // Serialize all Decimal fields to numbers for client components
-  const vehiclesForClient = serializePrismaArray(vehicles);
+  const vehiclesForClient = serializePrismaArray(vehicles) as typeof vehicles;
 
   // Debug: Log the data
   console.log('Vehicles page - vehicles count:', vehicles.length);

@@ -375,7 +375,7 @@ export default async function TenantDetailsPage({
                         {user.name}
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {user.email} • {user.role.replace('_', ' ')}
+                        {user.email} • {user.role?.replace('_', ' ') || 'user'}
                       </p>
                     </div>
                   </div>

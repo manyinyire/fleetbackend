@@ -80,11 +80,11 @@ export default function TenantsPage() {
         plan: selectedPlan !== 'all' ? selectedPlan : undefined,
         page: 1,
         limit: 100
-      });
+      }) as { success: boolean; data?: { tenants?: any[]; stats?: any } };
 
-      if (response.success) {
-        setTenants(response.data.tenants);
-        setStats(response.data.stats);
+      if (response.success && response.data) {
+        setTenants(response.data.tenants || []);
+        setStats(response.data.stats || {});
       }
     } catch (err) {
       console.error('Error loading tenants:', err);

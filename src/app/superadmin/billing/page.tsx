@@ -89,9 +89,9 @@ export default function BillingPage() {
       setLoading(true);
       setError(null);
 
-      const response = await superAdminAPI.getBillingOverview('30');
+      const response = await superAdminAPI.getBillingOverview('30') as { success: boolean; data?: any };
 
-      if (response.success) {
+      if (response.success && response.data) {
         setBillingData(response.data);
       }
     } catch (err) {
@@ -108,9 +108,9 @@ export default function BillingPage() {
       const response = await superAdminAPI.getInvoices({
         status: activeTab === "failed-payments" ? "OVERDUE" : undefined,
         limit: 100
-      });
+      }) as { success: boolean; data?: { invoices?: any[] } };
 
-      if (response.success) {
+      if (response.success && response.data) {
         if (activeTab === "failed-payments") {
           setFailedPayments(response.data.invoices || []);
         } else {

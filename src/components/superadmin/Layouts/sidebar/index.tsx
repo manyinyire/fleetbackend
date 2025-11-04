@@ -23,13 +23,14 @@ export function SuperAdminSidebar() {
     // Keep collapsible open, when it's subpage is active
     SUPER_ADMIN_NAV_DATA.some((section) => {
       return section.items.some((item) => {
-        return item.items.some((subItem) => {
+        return item.items?.some((subItem: any) => {
           if (subItem.url === pathname) {
             if (!expandedItems.includes(item.title)) {
               toggleExpanded(item.title);
             }
             return true;
           }
+          return false;
         });
       });
     });
@@ -98,7 +99,7 @@ export function SuperAdminSidebar() {
                           <div>
                             <MenuItem
                               isActive={item.items.some(
-                                ({ url }) => url === pathname,
+                                (subItem: any) => subItem.url === pathname,
                               )}
                               onClick={() => toggleExpanded(item.title)}
                             >
@@ -124,7 +125,7 @@ export function SuperAdminSidebar() {
                                 className="ml-9 mr-0 space-y-1.5 pb-[15px] pr-0 pt-2"
                                 role="menu"
                               >
-                                {item.items.map((subItem) => (
+                                {item.items.map((subItem: any) => (
                                   <li key={subItem.title} role="none">
                                     <MenuItem
                                       as="link"
@@ -140,11 +141,8 @@ export function SuperAdminSidebar() {
                           </div>
                         ) : (
                           (() => {
-                            const href =
-                              "url" in item
-                                ? item.url + ""
-                                : "/superadmin/" +
-                                  item.title.toLowerCase().split(" ").join("-");
+                            const href = item.url || 
+                              "/superadmin/" + item.title.toLowerCase().split(" ").join("-");
 
                             return (
                               <MenuItem

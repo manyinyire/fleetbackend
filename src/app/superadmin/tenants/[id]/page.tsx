@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeftIcon,
@@ -62,8 +62,10 @@ const planColors = {
   PREMIUM: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
 };
 
-export default function TenantDetailsPage({ params }: { params: { id: string } }) {
+export default function TenantDetailsPage() {
   const router = useRouter();
+  const params = useParams();
+  const tenantId = params.id as string;
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,14 +74,14 @@ export default function TenantDetailsPage({ params }: { params: { id: string } }
 
   useEffect(() => {
     loadTenant();
-  }, [params.id]);
+  }, [tenantId]);
 
   const loadTenant = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await superAdminAPI.getTenant(params.id);
-      if (response.success) {
+      const response = await superAdminAPI.getTenant(tenantId) as { success: boolean; data?: any };
+      if (response.success && response.data) {
         setTenant(response.data);
       } else {
         setError("Failed to load tenant");
@@ -104,8 +106,8 @@ export default function TenantDetailsPage({ params }: { params: { id: string } }
     }
 
     try {
-      const response = await superAdminAPI.impersonateTenant(params.id, reason);
-      if (response.success) {
+      const response = await superAdminAPI.impersonateTenant(tenantId, reason) as { success: boolean; data?: { redirectUrl?: string }; error?: string };
+      if (response.success && response.data) {
         // Redirect to tenant dashboard
         window.location.href = response.data.redirectUrl || '/dashboard';
       } else {
@@ -122,7 +124,7 @@ export default function TenantDetailsPage({ params }: { params: { id: string } }
       return;
     }
     try {
-      await superAdminAPI.updateTenant(params.id, { status: "SUSPENDED" });
+      await superAdminAPI.updateTenant(tenantId, { status: "SUSPENDED" });
       loadTenant();
     } catch (err) {
       alert("Failed to suspend tenant");
@@ -134,7 +136,7 @@ export default function TenantDetailsPage({ params }: { params: { id: string } }
       return;
     }
     try {
-      await superAdminAPI.updateTenant(params.id, { status: "CANCELED" });
+      await superAdminAPI.updateTenant(tenantId, { status: "CANCELED" });
       loadTenant();
     } catch (err) {
       alert("Failed to cancel tenant");

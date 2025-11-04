@@ -8,8 +8,9 @@ const prisma = new PrismaClient();
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const adminUser = await requireRole('SUPER_ADMIN');
 
@@ -17,7 +18,7 @@ export async function POST(
     const headersList = await headers();
     await auth.api.unbanUser({
       body: {
-        userId: params.id,
+        userId: id,
       },
       headers: headersList,
     });
@@ -28,11 +29,11 @@ export async function POST(
         userId: adminUser.id,
         action: 'USER_UNBANNED',
         entityType: 'User',
-        entityId: params.id,
+        entityId: id,
         newValues: {
           unbannedAt: new Date().toISOString()
         },
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });

@@ -178,7 +178,7 @@ export function AddDriverStep({ onComplete }: AddDriverStepProps) {
             <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
               <p className="text-sm text-blue-800">
                 <strong>Note:</strong> Payment configuration is now set on vehicles. 
-                When you assign this driver to a vehicle, they will inherit the vehicle's payment settings.
+                When you assign this driver to a vehicle, they will inherit the vehicle&apos;s payment settings.
               </p>
             </div>
           </div>

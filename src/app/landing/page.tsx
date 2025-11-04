@@ -154,7 +154,7 @@ export default function LandingPage() {
               Tired of juggling spreadsheets?
             </h2>
             <p className="text-xl text-dark-5 dark:text-dark-6 max-w-2xl mx-auto">
-              Fleet management shouldn't require a computer science degree. Here's what most people deal with:
+              Fleet management shouldn&apos;t require a computer science degree. Here&apos;s what most people deal with:
             </p>
           </div>
 
@@ -172,7 +172,7 @@ export default function LandingPage() {
               },
               {
                 title: "No Real-Time Visibility",
-                description: "Can't see what's happening right now. Problems discovered too late.",
+                description: "Can&apos;t see what&apos;s happening right now. Problems discovered too late.",
                 icon: "👁️",
               },
             ].map((item, i) => (
@@ -207,10 +207,10 @@ export default function LandingPage() {
               </p>
               <div className="space-y-5">
                 {[
-                  "Track every vehicle's status, maintenance, and history",
+                  "Track every vehicle&apos;s status, maintenance, and history",
                   "Manage driver contracts and payments digitally",
                   "Monitor income, expenses, and profitability in real-time",
-                  "Work offline and sync when you're back online",
+                  "Work offline and sync when you&apos;re back online",
                 ].map((feature, i) => (
                   <div key={i} className="flex items-start gap-4 group">
                     <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-green flex items-center justify-center mt-0.5 group-hover:scale-110 transition-transform">
@@ -289,7 +289,7 @@ export default function LandingPage() {
               },
               {
                 title: "Offline Capable",
-                description: "Works without internet. Queue actions when offline, sync automatically when you're back online. Perfect for remote areas.",
+                description: "Works without internet. Queue actions when offline, sync automatically when you&apos;re back online. Perfect for remote areas.",
                 color: "from-red-500 to-red-600",
               },
               {

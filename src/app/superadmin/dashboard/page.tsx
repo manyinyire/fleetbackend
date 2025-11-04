@@ -12,7 +12,7 @@ import {
   ArrowUpIcon,
   ArrowDownIcon
 } from "@heroicons/react/24/outline";
-import { SuperAdminDashboard } from "@/components/superadmin/dashboard/super-admin-dashboard";
+import SuperAdminDashboard from "@/components/superadmin/dashboard/super-admin-dashboard";
 
 export default function SuperAdminDashboardPage() {
   return <SuperAdminDashboard />;

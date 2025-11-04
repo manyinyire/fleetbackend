@@ -23,7 +23,7 @@ export default async function UsersPage() {
     total: users.length,
     superAdmins: users.filter(u => u.role === 'SUPER_ADMIN').length,
     tenantAdmins: users.filter(u => u.role === 'TENANT_ADMIN').length,
-    regularUsers: users.filter(u => !['SUPER_ADMIN', 'TENANT_ADMIN'].includes(u.role)).length,
+    regularUsers: users.filter(u => u.role && !['SUPER_ADMIN', 'TENANT_ADMIN'].includes(u.role)).length,
   };
 
   return (
@@ -212,7 +212,7 @@ export default async function UsersPage() {
                             ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
                         }`}>
-                          {user.role.replace('_', ' ')}
+                          {user.role?.replace('_', ' ') || 'user'}
                         </span>
                       </div>
                       <div className="mt-1">

@@ -35,52 +35,17 @@ export async function GET(request: NextRequest) {
     }
     if (tenantId) where.tenantId = tenantId;
 
-    // Get payments with related data
-    const [payments, total] = await Promise.all([
-      prisma.payment.findMany({
-        where,
-        include: {
-          tenant: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              slug: true,
-            },
-          },
-          invoice: {
-            select: {
-              id: true,
-              invoiceNumber: true,
-              description: true,
-              type: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-      }),
-      prisma.payment.count({ where }),
-    ]);
+    // TODO: Payment model doesn't exist in schema yet - returning empty data for now
+    // This route should be updated once Payment model is added to schema
+    const payments: any[] = [];
+    const total = 0;
 
     // Calculate statistics
-    const stats = await prisma.payment.groupBy({
-      by: ["status"],
-      _sum: {
-        amount: true,
-      },
-      _count: true,
-    });
+    const stats: any[] = [];
 
-    const totalRevenue = await prisma.payment.aggregate({
-      where: { status: "PAID", verified: true },
-      _sum: { amount: true },
-    });
+    const totalRevenue = { _sum: { amount: null } };
 
-    const unreconciledCount = await prisma.payment.count({
-      where: { status: "PAID", verified: true, reconciled: false },
-    });
+    const unreconciledCount = 0;
 
     return NextResponse.json({
       payments,
@@ -128,39 +93,12 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const payment = await prisma.payment.update({
-      where: { id: paymentId },
-      data: {
-        reconciled: reconciled !== undefined ? reconciled : undefined,
-        reconciledAt: reconciled ? new Date() : undefined,
-        reconciledBy: reconciled ? session.user.id : undefined,
-        reconNotes: reconNotes !== undefined ? reconNotes : undefined,
-      },
-      include: {
-        tenant: true,
-        invoice: true,
-      },
-    });
-
-    // Create audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        tenantId: null,
-        action: "PAYMENT_RECONCILED",
-        entityType: "Payment",
-        entityId: payment.id,
-        details: {
-          reconciled,
-          reconNotes,
-          amount: payment.amount.toString(),
-        },
-        ipAddress: request.headers.get("x-forwarded-for") || "unknown",
-        userAgent: request.headers.get("user-agent") || "unknown",
-      },
-    });
-
-    return NextResponse.json({ success: true, payment });
+    // TODO: Payment model doesn't exist in schema yet
+    // This route should be updated once Payment model is added to schema
+    return NextResponse.json(
+      { error: "Payment model not implemented yet" },
+      { status: 501 }
+    );
   } catch (error) {
     console.error("Update payment error:", error);
     return NextResponse.json(

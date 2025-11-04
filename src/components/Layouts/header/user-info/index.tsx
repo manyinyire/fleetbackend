@@ -30,12 +30,12 @@ export function UserInfo() {
   const [loadingPlan, setLoadingPlan] = useState(true);
 
   useEffect(() => {
-    if (user?.tenantId) {
+    if ((user as any)?.tenantId) {
       fetchPlan();
     } else {
       setLoadingPlan(false);
     }
-  }, [user?.tenantId]);
+  }, [(user as any)?.tenantId]);
 
   const fetchPlan = async () => {
     try {

@@ -8,7 +8,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: string | null;
   emailVerified: boolean;
   createdAt: Date;
   tenant?: {
@@ -153,7 +153,7 @@ export function AdminUsersManagement({ users: initialUsers, stats }: AdminUsersM
     setEditForm({
       name: user.name,
       email: user.email,
-      role: user.role,
+      role: user.role || 'user',
       tenantId: user.tenant?.name || ''
     });
     setShowEditModal(true);
@@ -350,7 +350,7 @@ export function AdminUsersManagement({ users: initialUsers, stats }: AdminUsersM
                             ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
                         }`}>
-                          {user.role.replace('_', ' ')}
+                          {(user.role || 'user').replace('_', ' ')}
                         </span>
                       </div>
                       <div className="mt-1">

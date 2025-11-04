@@ -53,7 +53,7 @@ export default async function DriversPage() {
   }
 
   // Serialize all Decimal fields to numbers for client components
-  const driversForClient = serializePrismaArray(drivers);
+  const driversForClient = serializePrismaArray(drivers) as typeof drivers;
 
   // Debug: Log the data
   console.log('Drivers page - drivers count:', drivers.length);

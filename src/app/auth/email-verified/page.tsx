@@ -31,7 +31,7 @@ export default async function EmailVerifiedPage({
                 Email Verification Required
               </h2>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                We've sent a 6-digit verification code to <strong>{email}</strong>. Please enter it below to verify your email address.
+                We&apos;ve sent a 6-digit verification code to <strong>{email}</strong>. Please enter it below to verify your email address.
               </p>
             </>
           ) : (

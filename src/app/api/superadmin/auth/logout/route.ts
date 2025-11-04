@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
         action: 'LOGOUT',
         entityType: 'Super Admin Portal',
         entityId: session.user.id,
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });

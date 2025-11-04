@@ -155,7 +155,7 @@ export function UpgradePageClient() {
             <CheckIcon className="h-6 w-6 text-green-600" />
             <div>
               <h3 className="text-lg font-semibold text-gray-900">
-                You're on the Premium Plan!
+                You&apos;re on the Premium Plan!
               </h3>
               <p className="text-sm text-gray-600">
                 You have access to all features and unlimited resources.
@@ -248,7 +248,7 @@ export function UpgradePageClient() {
               <li>• An invoice will be generated for the upgrade amount</li>
               <li>• The invoice will be sent to your email immediately</li>
               <li>• Your plan will be upgraded automatically once payment is confirmed</li>
-              <li>• You'll be charged the difference between your current and new plan</li>
+              <li>• You&apos;ll be charged the difference between your current and new plan</li>
             </ul>
           </div>
         </div>

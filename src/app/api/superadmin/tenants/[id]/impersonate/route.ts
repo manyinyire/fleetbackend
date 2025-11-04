@@ -8,11 +8,12 @@ const prisma = new PrismaClient();
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const adminUser = await requireRole('SUPER_ADMIN');
-    const tenantId = params.id;
+    const tenantId = id;
     const { reason, userId } = await request.json();
 
     if (!reason || reason.trim().length === 0) {
@@ -86,7 +87,7 @@ export async function POST(
           reason: reason,
           startedAt: new Date().toISOString()
         },
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });

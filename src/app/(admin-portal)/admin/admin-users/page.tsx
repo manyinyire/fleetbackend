@@ -19,7 +19,7 @@ export default async function AdminUsersPage() {
     total: users.length,
     superAdmins: users.filter(u => u.role === 'SUPER_ADMIN').length,
     tenantAdmins: users.filter(u => u.role === 'TENANT_ADMIN').length,
-    regularUsers: users.filter(u => !['SUPER_ADMIN', 'TENANT_ADMIN'].includes(u.role)).length,
+    regularUsers: users.filter(u => u.role && !['SUPER_ADMIN', 'TENANT_ADMIN'].includes(u.role)).length,
   };
 
   return <AdminUsersManagement users={users} stats={stats} />;

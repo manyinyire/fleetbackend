@@ -181,14 +181,14 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         action: 'USER_CREATED',
         entityType: 'User',
-        entityId: newUser.id,
+        entityId: newUser.user.id,
         newValues: {
-          name: newUser.name,
-          email: newUser.email,
-          role: newUser.role,
+          name: newUser.user.name,
+          email: newUser.user.email,
+          role: role || 'USER',
           tenantId: tenantId || null
         },
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });

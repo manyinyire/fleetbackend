@@ -8,8 +8,9 @@ const prisma = new PrismaClient();
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const adminUser = await requireRole('SUPER_ADMIN');
     const data = await request.json();
@@ -18,7 +19,7 @@ export async function PUT(
     const headersList = await headers();
     const updatedUser = await auth.api.adminUpdateUser({
       body: {
-        userId: params.id,
+        userId: id,
         data,
       },
       headers: headersList,
@@ -30,9 +31,9 @@ export async function PUT(
         userId: adminUser.id,
         action: 'USER_UPDATED',
         entityType: 'User',
-        entityId: params.id,
+        entityId: id,
         newValues: data,
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });
@@ -54,8 +55,9 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const adminUser = await requireRole('SUPER_ADMIN');
 
@@ -63,7 +65,7 @@ export async function DELETE(
     const headersList = await headers();
     await auth.api.removeUser({
       body: {
-        userId: params.id,
+        userId: id,
       },
       headers: headersList,
     });
@@ -74,11 +76,11 @@ export async function DELETE(
         userId: adminUser.id,
         action: 'USER_DELETED',
         entityType: 'User',
-        entityId: params.id,
+        entityId: id,
         newValues: {
           deletedAt: new Date().toISOString()
         },
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });

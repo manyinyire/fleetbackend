@@ -8,8 +8,9 @@ const prisma = new PrismaClient();
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const adminUser = await requireRole('SUPER_ADMIN');
     const { role } = await request.json();
@@ -25,7 +26,7 @@ export async function PUT(
     const headersList = await headers();
     await auth.api.setRole({
       body: {
-        userId: params.id,
+        userId: id,
         role: Array.isArray(role) ? role : [role],
       },
       headers: headersList,
@@ -37,12 +38,12 @@ export async function PUT(
         userId: adminUser.id,
         action: 'USER_ROLE_CHANGED',
         entityType: 'User',
-        entityId: params.id,
+        entityId: id,
         newValues: {
           role: Array.isArray(role) ? role.join(',') : role,
           changedAt: new Date().toISOString()
         },
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });

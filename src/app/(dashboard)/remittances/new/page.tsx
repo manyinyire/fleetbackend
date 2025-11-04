@@ -39,7 +39,7 @@ export default async function NewRemittancePage() {
   });
 
   // Serialize all Decimal fields to numbers for client components
-  const drivers = serializePrismaArray(driversRaw);
+  const drivers = serializePrismaArray(driversRaw) as typeof driversRaw;
 
   return (
     <div className="space-y-6">

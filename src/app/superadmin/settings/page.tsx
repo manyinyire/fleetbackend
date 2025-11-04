@@ -6,7 +6,7 @@ import {
   ShieldCheckIcon,
   BellIcon,
   GlobeAltIcon,
-  DatabaseIcon,
+  CircleStackIcon,
   CloudIcon,
   CheckIcon,
   PaintBrushIcon,
@@ -29,7 +29,7 @@ export default function SettingsPage() {
     { id: "security", name: "Security", icon: ShieldCheckIcon },
     { id: "notifications", name: "Notifications", icon: BellIcon },
     { id: "integrations", name: "Integrations", icon: GlobeAltIcon },
-    { id: "database", name: "Database", icon: DatabaseIcon },
+    { id: "database", name: "Database", icon: CircleStackIcon },
     { id: "cloud", name: "Cloud", icon: CloudIcon }
   ];
 
@@ -213,8 +213,8 @@ export default function SettingsPage() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const response = await superAdminAPI.getSettings();
-      if (response.success) {
+      const response = await superAdminAPI.getSettings() as { success: boolean; data?: any };
+      if (response.success && response.data) {
         const data = response.data;
         setSettings({
           general: settings.general.map(s => ({ ...s, value: data[s.key] ?? s.value })),
@@ -243,7 +243,7 @@ export default function SettingsPage() {
         }
       });
 
-      const response = await superAdminAPI.updateSettings(settingsData);
+      const response = await superAdminAPI.updateSettings(settingsData) as { success: boolean; error?: string };
       if (response.success) {
         toast.success("Settings saved successfully");
       } else {

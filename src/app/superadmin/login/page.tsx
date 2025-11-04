@@ -25,7 +25,7 @@ export default function SuperAdminLogin() {
     setError("");
 
     try {
-      const response = await superAdminAPI.login(email, password, rememberDevice);
+      const response = await superAdminAPI.login(email, password, rememberDevice) as { success: boolean; data?: { requires2FA?: boolean }; error?: string };
       
       if (response.success) {
         // Check if 2FA is required
@@ -49,7 +49,7 @@ export default function SuperAdminLogin() {
     try {
       setIsLoading(true);
       // Verify OTP and complete login
-      const response = await superAdminAPI.login(email, password, rememberDevice, code);
+      const response = await superAdminAPI.login(email, password, rememberDevice, code) as { success: boolean; error?: string };
       
       if (response.success) {
         router.push("/superadmin/dashboard");

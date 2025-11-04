@@ -194,7 +194,7 @@ export async function PUT(request: NextRequest) {
         action: 'SETTINGS_UPDATED',
         entityType: 'Settings',
         newValues: data,
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });

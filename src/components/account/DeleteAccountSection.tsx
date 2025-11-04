@@ -113,7 +113,7 @@ export function DeleteAccountSection() {
             </p>
             <ol className="ml-4 list-decimal text-sm text-red-700 dark:text-red-300 space-y-1">
               <li>Type <strong>DELETE</strong> in the field below</li>
-              <li>Click "Confirm Deletion"</li>
+              <li>Click &quot;Confirm Deletion&quot;</li>
               <li>Check your email for the verification link</li>
               <li>Click the link in the email to complete deletion</li>
             </ol>

@@ -296,6 +296,185 @@ class EmailService {
       }],
     });
   }
+
+  async sendPaymentConfirmationEmail(
+    email: string,
+    tenantName: string,
+    invoiceNumber: string,
+    amount: string,
+    paynowReference: string,
+    invoicePdf?: Buffer
+  ): Promise<boolean> {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Payment Confirmation - Fleet Manager</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">Payment Confirmed!</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">Hi ${tenantName}!</h2>
+            
+            <p>We have successfully received your payment. Thank you for your business!</p>
+            
+            <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #155724; margin-top: 0;">✅ Payment Details</h3>
+              <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
+              <p><strong>Amount Paid:</strong> $${amount}</p>
+              <p><strong>Payment Reference:</strong> ${paynowReference}</p>
+            </div>
+            
+            ${invoicePdf ? '<p style="color: #6c757d; font-size: 14px;">Your invoice PDF is attached to this email for your records.</p>' : ''}
+            
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+            
+            <p style="color: #6c757d; font-size: 14px; margin-bottom: 0;">
+              If you have any questions about this payment, please contact our support team.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: `Payment Confirmed - Invoice ${invoiceNumber}`,
+      html,
+      attachments: invoicePdf ? [{
+        filename: `invoice-${invoiceNumber}.pdf`,
+        content: invoicePdf,
+        contentType: 'application/pdf',
+      }] : undefined,
+    });
+  }
+
+  async sendAdminPaymentAlert(
+    tenantName: string,
+    invoiceNumber: string,
+    amount: string,
+    paynowReference: string
+  ): Promise<boolean> {
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_USER || '';
+    
+    if (!adminEmail) {
+      console.warn('Admin email not configured. Skipping admin alert.');
+      return false;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>New Payment Received - Fleet Manager</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">New Payment Received</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">Payment Alert</h2>
+            
+            <p>A new payment has been received:</p>
+            
+            <div style="background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #495057; margin-top: 0;">Payment Details</h3>
+              <p><strong>Tenant:</strong> ${tenantName}</p>
+              <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
+              <p><strong>Amount:</strong> $${amount}</p>
+              <p><strong>Payment Reference:</strong> ${paynowReference}</p>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+            
+            <p style="color: #6c757d; font-size: 14px; margin-bottom: 0;">
+              This is an automated notification from Fleet Manager.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: adminEmail,
+      subject: `New Payment: ${invoiceNumber} - ${tenantName}`,
+      html,
+    });
+  }
+}
+
+// Export standalone functions for backward compatibility
+export async function generateInvoicePdf(invoiceId: string): Promise<Buffer | null> {
+  try {
+    const { invoiceGenerator } = await import('./invoice-generator');
+    const { prisma } = await import('./prisma');
+    
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: {
+        tenant: {
+          include: { settings: true }
+        }
+      }
+    });
+
+    if (!invoice) {
+      console.error('Invoice not found:', invoiceId);
+      return null;
+    }
+
+    const { pdf } = await invoiceGenerator.generateInvoice({
+      tenantId: invoice.tenantId,
+      type: invoice.type,
+      plan: invoice.plan,
+      amount: Number(invoice.amount),
+      description: invoice.description || '',
+      billingPeriod: invoice.billingPeriod || undefined,
+    });
+
+    return pdf;
+  } catch (error) {
+    console.error('Error generating invoice PDF:', error);
+    return null;
+  }
+}
+
+export async function sendPaymentConfirmationEmail(
+  email: string,
+  tenantName: string,
+  invoiceNumber: string,
+  amount: string,
+  paynowReference: string,
+  invoicePdf?: Buffer
+): Promise<boolean> {
+  return emailService.sendPaymentConfirmationEmail(
+    email,
+    tenantName,
+    invoiceNumber,
+    amount,
+    paynowReference,
+    invoicePdf
+  );
+}
+
+export async function sendAdminPaymentAlert(
+  tenantName: string,
+  invoiceNumber: string,
+  amount: string,
+  paynowReference: string
+): Promise<boolean> {
+  return emailService.sendAdminPaymentAlert(
+    tenantName,
+    invoiceNumber,
+    amount,
+    paynowReference
+  );
 }
 
 export const emailService = new EmailService();

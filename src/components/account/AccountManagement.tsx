@@ -40,7 +40,7 @@ export function AccountManagement() {
       }
       // Ensure result.data is an array
       const accountsList = Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
-      setAccounts(accountsList);
+      setAccounts(accountsList as Account[]);
     } catch (error: any) {
       console.error("Failed to load accounts:", error);
       toast.error("Failed to load linked accounts");

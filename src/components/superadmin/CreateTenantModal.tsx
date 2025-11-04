@@ -75,7 +75,7 @@ export function CreateTenantModal({ isOpen, onClose, onSuccess }: CreateTenantMo
         status: trialEnabled ? "ACTIVE" : "ACTIVE"
       };
 
-      const response = await superAdminAPI.createTenant(tenantData);
+      const response = await superAdminAPI.createTenant(tenantData) as { success: boolean; error?: string };
 
       if (response.success) {
         // TODO: Create admin user (need API endpoint for this)

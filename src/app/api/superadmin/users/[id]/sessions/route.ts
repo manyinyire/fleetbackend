@@ -5,8 +5,9 @@ import { headers } from 'next/headers';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     await requireRole('SUPER_ADMIN');
 
@@ -14,7 +15,7 @@ export async function GET(
     const headersList = await headers();
     const sessions = await auth.api.listUserSessions({
       body: {
-        userId: params.id,
+        userId: id,
       },
       headers: headersList,
     });
@@ -34,8 +35,9 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     await requireRole('SUPER_ADMIN');
 
@@ -43,7 +45,7 @@ export async function DELETE(
     const headersList = await headers();
     await auth.api.revokeUserSessions({
       body: {
-        userId: params.id,
+        userId: id,
       },
       headers: headersList,
     });

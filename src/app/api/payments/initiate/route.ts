@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       invoice.invoiceNumber,
       Number(invoice.amount),
       invoice.tenant.email,
-      invoice.description
+      invoice.description || `Invoice ${invoice.invoiceNumber}`
     );
 
     if (!paynowResponse.success) {
@@ -69,23 +69,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // TODO: Create Payment model in schema
     // Create payment record in database
-    const payment = await prisma.payment.create({
-      data: {
-        tenantId: invoice.tenantId,
-        invoiceId: invoice.id,
-        amount: invoice.amount,
-        currency: invoice.currency,
-        gateway: "PAYNOW",
-        pollUrl: paynowResponse.pollUrl,
-        status: "PENDING",
-        verified: false,
-        paymentMetadata: {
-          hash: paynowResponse.hash,
-          redirectUrl: paynowResponse.redirectUrl,
-        },
-      },
-    });
+    // const payment = await prisma.payment.create({
+    //   data: {
+    //     tenantId: invoice.tenantId,
+    //     invoiceId: invoice.id,
+    //     amount: invoice.amount,
+    //     currency: invoice.currency,
+    //     gateway: "PAYNOW",
+    //     pollUrl: paynowResponse.pollUrl,
+    //     status: "PENDING",
+    //     verified: false,
+    //     paymentMetadata: {
+    //       hash: paynowResponse.hash,
+    //       redirectUrl: paynowResponse.redirectUrl,
+    //     },
+    //   },
+    // });
 
     // Log the payment initiation
     await prisma.auditLog.create({
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
         tenantId: invoice.tenantId,
         action: "PAYMENT_INITIATED",
         entityType: "Payment",
-        entityId: payment.id,
+        entityId: invoice.id, // Using invoice ID temporarily
         details: {
           invoiceId: invoice.id,
           invoiceNumber: invoice.invoiceNumber,
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      paymentId: payment.id,
+      paymentId: invoice.id, // Using invoice ID temporarily
       redirectUrl: paynowResponse.redirectUrl,
       pollUrl: paynowResponse.pollUrl,
       // Return tracking info for client-side analytics

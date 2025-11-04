@@ -8,8 +8,9 @@ const prisma = new PrismaClient();
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const adminUser = await requireRole('SUPER_ADMIN');
     const { banReason, banExpiresIn } = await request.json();
@@ -18,7 +19,7 @@ export async function POST(
     const headersList = await headers();
     await auth.api.banUser({
       body: {
-        userId: params.id,
+        userId: id,
         banReason: banReason || 'No reason provided',
         banExpiresIn: banExpiresIn ? parseInt(banExpiresIn) : undefined,
       },
@@ -31,13 +32,13 @@ export async function POST(
         userId: adminUser.id,
         action: 'USER_BANNED',
         entityType: 'User',
-        entityId: params.id,
+        entityId: id,
         newValues: {
           banReason: banReason || 'No reason provided',
           banExpiresIn: banExpiresIn || null,
           bannedAt: new Date().toISOString()
         },
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });

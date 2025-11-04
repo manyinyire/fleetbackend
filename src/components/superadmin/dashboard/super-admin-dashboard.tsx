@@ -94,21 +94,26 @@ export default function SuperAdminDashboard() {
         superAdminAPI.getDashboardAlerts(),
         superAdminAPI.getDashboardActivity(10),
         superAdminAPI.getDashboardCharts('12')
-      ]);
+      ]) as [
+        { success: boolean; data?: any },
+        { success: boolean; data?: any },
+        { success: boolean; data?: any },
+        { success: boolean; data?: any }
+      ];
 
-      if (statsResponse.success) {
+      if (statsResponse.success && statsResponse.data) {
         setKpiData(statsResponse.data);
       }
 
-      if (chartsResponse.success) {
+      if (chartsResponse.success && chartsResponse.data) {
         setChartData(chartsResponse.data);
       }
 
-      if (alertsResponse.success) {
+      if (alertsResponse.success && alertsResponse.data) {
         setAlerts(alertsResponse.data.alerts);
       }
 
-      if (activityResponse.success) {
+      if (activityResponse.success && activityResponse.data) {
         setRecentActivity([
           ...activityResponse.data.recentSignups.map((signup: any) => ({
             id: `signup-${signup.id}`,

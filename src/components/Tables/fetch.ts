@@ -1,121 +1,130 @@
-import * as logos from "@/assets/logos";
+import { prisma } from "@/lib/prisma";
+import { getTenantPrisma } from "@/lib/get-tenant-prisma";
+import { getTenantId } from "@/lib/tenant";
 
 export async function getTopProducts() {
-  // Fake delay
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  // Get top vehicles by remittance revenue (last 30 days)
+  try {
+    const tenantId = await getTenantId();
+    if (!tenantId) {
+      // Return empty array if no tenant context
+      return [];
+    }
 
-  return [
-    {
-      image: "/images/product/product-01.png",
-      name: "Apple Watch Series 7",
-      category: "Electronics",
-      price: 296,
-      sold: 22,
-      profit: 45,
-    },
-    {
-      image: "/images/product/product-02.png",
-      name: "Macbook Pro M1",
-      category: "Electronics",
-      price: 546,
-      sold: 12,
-      profit: 125,
-    },
-    {
-      image: "/images/product/product-03.png",
-      name: "Dell Inspiron 15",
-      category: "Electronics",
-      price: 443,
-      sold: 64,
-      profit: 247,
-    },
-    {
-      image: "/images/product/product-04.png",
-      name: "HP Probook 450",
-      category: "Electronics",
-      price: 499,
-      sold: 72,
-      profit: 103,
-    },
-  ];
+    const tenantPrisma = getTenantPrisma(tenantId);
+    
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const topVehicles = await tenantPrisma.vehicle.findMany({
+      include: {
+        remittances: {
+          where: {
+            date: { gte: thirtyDaysAgo },
+            status: 'APPROVED'
+          },
+          select: {
+            amount: true
+          }
+        }
+      },
+      take: 10
+    });
+
+    // Calculate total revenue per vehicle
+    const vehiclesWithRevenue = topVehicles.map((vehicle: any) => {
+      const totalRevenue = vehicle.remittances.reduce((sum: number, remittance: any) => 
+        sum + Number(remittance.amount), 0
+      );
+      return {
+        image: "/images/vehicle-placeholder.png", // Placeholder image
+        name: `${vehicle.make} ${vehicle.model}`,
+        category: vehicle.type,
+        price: Number(vehicle.initialCost),
+        sold: vehicle.remittances.length, // Number of remittances
+        profit: totalRevenue,
+      };
+    }).sort((a, b) => b.profit - a.profit).slice(0, 4);
+
+    return vehiclesWithRevenue;
+  } catch (error) {
+    console.error('Error fetching top vehicles:', error);
+    // Return empty array on error
+    return [];
+  }
 }
 
 export async function getInvoiceTableData() {
-  // Fake delay
-  await new Promise((resolve) => setTimeout(resolve, 1400));
+  // Get real invoices from database
+  try {
+    const tenantId = await getTenantId();
+    if (!tenantId) {
+      // Return empty array if no tenant context
+      return [];
+    }
 
-  return [
-    {
-      name: "Free package",
-      price: 0.0,
-      date: "2023-01-13T18:00:00.000Z",
-      status: "Paid",
-    },
-    {
-      name: "Standard Package",
-      price: 59.0,
-      date: "2023-01-13T18:00:00.000Z",
-      status: "Paid",
-    },
-    {
-      name: "Business Package",
-      price: 99.0,
-      date: "2023-01-13T18:00:00.000Z",
-      status: "Unpaid",
-    },
-    {
-      name: "Standard Package",
-      price: 59.0,
-      date: "2023-01-13T18:00:00.000Z",
-      status: "Pending",
-    },
-  ];
+    const tenantPrisma = getTenantPrisma(tenantId);
+    
+    const invoices = await tenantPrisma.invoice.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: {
+        tenant: {
+          select: {
+            name: true
+          }
+        }
+      }
+    });
+
+    return invoices.map(invoice => ({
+      id: invoice.id,
+      name: `${invoice.plan} - ${invoice.tenant.name}`,
+      price: Number(invoice.amount),
+      date: invoice.createdAt.toISOString(),
+      status: invoice.status === 'PAID' ? 'Paid' : 
+              invoice.status === 'OVERDUE' ? 'Unpaid' : 
+              invoice.status === 'PENDING' ? 'Pending' : 'Pending',
+    }));
+  } catch (error) {
+    console.error('Error fetching invoices:', error);
+    // Return empty array on error
+    return [];
+  }
 }
 
 export async function getTopChannels() {
-  // Fake delay
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+  // Get top tenants by revenue (replacing "channels" concept)
+  try {
+    const topTenants = await prisma.tenant.findMany({
+      where: {
+        status: 'ACTIVE',
+        monthlyRevenue: { gt: 0 }
+      },
+      orderBy: {
+        monthlyRevenue: 'desc'
+      },
+      take: 5,
+      include: {
+        _count: {
+          select: {
+            users: true
+          }
+        }
+      }
+    });
 
-  return [
-    {
-      name: "Google",
-      visitors: 3456,
-      revenues: 4220,
-      sales: 3456,
-      conversion: 2.59,
-      logo: logos.google,
-    },
-    {
-      name: "X.com",
-      visitors: 3456,
-      revenues: 4220,
-      sales: 3456,
-      conversion: 2.59,
-      logo: logos.x,
-    },
-    {
-      name: "Github",
-      visitors: 3456,
-      revenues: 4220,
-      sales: 3456,
-      conversion: 2.59,
-      logo: logos.github,
-    },
-    {
-      name: "Vimeo",
-      visitors: 3456,
-      revenues: 4220,
-      sales: 3456,
-      conversion: 2.59,
-      logo: logos.vimeo,
-    },
-    {
-      name: "Facebook",
-      visitors: 3456,
-      revenues: 4220,
-      sales: 3456,
-      conversion: 2.59,
-      logo: logos.facebook,
-    },
-  ];
+    return topTenants.map((tenant, index) => ({
+      name: tenant.name,
+      visitors: tenant._count.users, // Using user count as "visitors"
+      revenues: Number(tenant.monthlyRevenue),
+      sales: tenant._count.users, // User count
+      conversion: tenant.plan === 'PREMIUM' ? 85 : tenant.plan === 'BASIC' ? 60 : 30, // Estimated conversion based on plan
+      logo: `/images/tenant-${index + 1}.png`, // Placeholder
+    }));
+  } catch (error) {
+    console.error('Error fetching top tenants:', error);
+    // Return empty array on error
+    return [];
+  }
 }

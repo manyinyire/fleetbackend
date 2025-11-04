@@ -124,7 +124,7 @@ export function TwoFactorSetup({ onComplete }: TwoFactorSetupProps) {
             How it works:
           </h4>
           <ul className="text-sm text-blue-800 space-y-1">
-            <li>• You'll receive a 6-digit code via email when logging in</li>
+            <li>• You&apos;ll receive a 6-digit code via email when logging in</li>
             <li>• Enter the code to complete the login process</li>
             <li>• Codes expire after 10 minutes for security</li>
           </ul>

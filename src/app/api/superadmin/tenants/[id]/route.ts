@@ -6,13 +6,14 @@ const prisma = new PrismaClient();
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     // Require super admin role
     await requireRole('SUPER_ADMIN');
 
-    const tenantId = params.id;
+    const tenantId = id;
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -109,13 +110,14 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     // Require super admin role
     const user = await requireRole('SUPER_ADMIN');
 
-    const tenantId = params.id;
+    const tenantId = id;
     const data = await request.json();
 
     // Get current tenant data for audit log
@@ -170,7 +172,7 @@ export async function PUT(
           status: updatedTenant.status,
           plan: updatedTenant.plan
         },
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });
@@ -196,13 +198,14 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     // Require super admin role
     const user = await requireRole('SUPER_ADMIN');
 
-    const tenantId = params.id;
+    const tenantId = id;
 
     // Get tenant data for audit log
     const tenant = await prisma.tenant.findUnique({
@@ -234,7 +237,7 @@ export async function DELETE(
           status: tenant.status,
           plan: tenant.plan
         },
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });

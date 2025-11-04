@@ -107,9 +107,9 @@ export default function UsersPage() {
         role: selectedRole !== 'all' ? selectedRole : undefined,
         page,
         limit: 25
-      });
+      }) as { success: boolean; data?: { users?: any[]; stats?: any; pagination?: { total?: number; pages?: number } } };
 
-      if (response.success) {
+      if (response.success && response.data) {
         setUsers(response.data.users || []);
         setStats(response.data.stats || {
           total: response.data.pagination?.total || 0,
@@ -148,7 +148,7 @@ export default function UsersPage() {
       return;
     }
     try {
-      const response = await superAdminAPI.deleteUser(userId);
+      const response = await superAdminAPI.deleteUser(userId) as { success: boolean; error?: string };
       if (response.success) {
         loadUsers();
         alert('User deleted successfully');
@@ -166,7 +166,7 @@ export default function UsersPage() {
     if (reason === null) return; // User cancelled
     
     try {
-      const response = await superAdminAPI.banUser(userId, reason || undefined);
+      const response = await superAdminAPI.banUser(userId, reason || undefined) as { success: boolean; error?: string };
       if (response.success) {
         loadUsers();
         alert('User banned successfully');
@@ -184,7 +184,7 @@ export default function UsersPage() {
       return;
     }
     try {
-      const response = await superAdminAPI.unbanUser(userId);
+      const response = await superAdminAPI.unbanUser(userId) as { success: boolean; error?: string };
       if (response.success) {
         loadUsers();
         alert('User unbanned successfully');
@@ -202,7 +202,7 @@ export default function UsersPage() {
     if (!newRole) return;
     
     try {
-      const response = await superAdminAPI.setUserRole(userId, newRole);
+      const response = await superAdminAPI.setUserRole(userId, newRole) as { success: boolean; error?: string };
       if (response.success) {
         loadUsers();
         alert('User role updated successfully');

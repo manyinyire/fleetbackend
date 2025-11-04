@@ -8,8 +8,9 @@ const prisma = new PrismaClient();
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const adminUser = await requireRole('SUPER_ADMIN');
     const { newPassword } = await request.json();
@@ -25,7 +26,7 @@ export async function PUT(
     const headersList = await headers();
     await auth.api.setUserPassword({
       body: {
-        userId: params.id,
+        userId: id,
         newPassword,
       },
       headers: headersList,
@@ -37,11 +38,11 @@ export async function PUT(
         userId: adminUser.id,
         action: 'USER_PASSWORD_CHANGED',
         entityType: 'User',
-        entityId: params.id,
+        entityId: id,
         newValues: {
           changedAt: new Date().toISOString()
         },
-        ipAddress: request.ip || request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
       }
     });
