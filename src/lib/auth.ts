@@ -75,6 +75,16 @@ export const auth = betterAuth({
   },
 
   user: {
+    // Ensure name, email, image are included in session (default, but explicit)
+    publicFields: {
+      id: true,
+      email: true,
+      name: true,
+      image: true,
+      emailVerified: true,
+      role: true,
+      tenantId: true,
+    },
     additionalFields: {
       tenantId: {
         type: 'string',

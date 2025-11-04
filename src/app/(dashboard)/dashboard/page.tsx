@@ -15,10 +15,11 @@ export default async function DashboardPage() {
   // Get scoped Prisma client
   const prisma = getTenantPrisma(tenantId);
 
-  // Fetch tenant information
+  // Fetch tenant information - use regular Prisma client since Tenant is not tenant-scoped
+  const { prisma: regularPrisma } = await import('@/lib/prisma');
   let tenant: { name: string } | null = null;
   try {
-    tenant = await prisma.tenant.findUnique({
+    tenant = await regularPrisma.tenant.findUnique({
       where: { id: tenantId },
       select: { name: true }
     });
@@ -107,16 +108,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-heading-5 font-bold text-dark dark:text-white mb-1">
-          Dashboard
-        </h1>
-        {tenant && (
-          <p className="text-body-sm text-dark-5 dark:text-dark-6">
-            {tenant.name}
-          </p>
-        )}
-      </div>
       <FleetStats stats={stats} />
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

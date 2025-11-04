@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
 import { useSession } from "@/lib/auth-client";
 import { toast } from "react-hot-toast";
@@ -11,9 +11,19 @@ export function ProfileUpdateForm() {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: session?.user?.name || "",
-    image: session?.user?.image || "",
+    name: "",
+    image: "",
   });
+
+  // Update form data when session loads
+  useEffect(() => {
+    if (session?.user) {
+      setFormData({
+        name: session.user.name || "",
+        image: session.user.image || "",
+      });
+    }
+  }, [session]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

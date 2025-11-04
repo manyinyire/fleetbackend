@@ -32,10 +32,19 @@ export function AccountManagement() {
     try {
       setLoading(true);
       const result = await authClient.listAccounts();
-      setAccounts(result || []);
+      // BetterAuth returns { data, error } format
+      if (result.error) {
+        toast.error(result.error.message || "Failed to load linked accounts");
+        setAccounts([]);
+        return;
+      }
+      // Ensure result.data is an array
+      const accountsList = Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
+      setAccounts(accountsList);
     } catch (error: any) {
       console.error("Failed to load accounts:", error);
       toast.error("Failed to load linked accounts");
+      setAccounts([]);
     } finally {
       setLoading(false);
     }
@@ -96,8 +105,9 @@ export function AccountManagement() {
     return <LinkIcon className="h-5 w-5" />;
   };
 
-  const hasGoogle = accounts.some((acc) => acc.providerId === "google");
-  const hasEmail = accounts.some((acc) => acc.providerId === "email");
+  // Ensure accounts is always an array before using .some()
+  const hasGoogle = Array.isArray(accounts) && accounts.some((acc) => acc.providerId === "google");
+  const hasEmail = Array.isArray(accounts) && accounts.some((acc) => acc.providerId === "email");
 
   return (
     <div className="rounded-[10px] bg-white p-6 shadow-1 dark:bg-gray-dark">

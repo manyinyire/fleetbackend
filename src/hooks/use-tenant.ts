@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 
 interface TenantSettings {
   companyName: string;
+  tenantName?: string;
   logoUrl?: string;
   primaryColor: string;
 }
@@ -40,6 +41,6 @@ export function useTenant() {
   return {
     tenantSettings,
     isLoading,
-    companyName: tenantSettings?.companyName || 'Azaire Fleet Manager',
+    companyName: tenantSettings?.tenantName || tenantSettings?.companyName || 'Azaire Fleet Manager',
   };
 }

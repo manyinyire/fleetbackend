@@ -13,6 +13,16 @@ export async function GET() {
       );
     }
 
+    // Fetch tenant name directly from Tenant model
+    const tenant = await prisma.tenant.findUnique({
+      where: {
+        id: (user as any).tenantId as string,
+      },
+      select: {
+        name: true,
+      },
+    });
+
     const tenantSettings = await prisma.tenantSettings.findUnique({
       where: {
         tenantId: (user as any).tenantId as string,
@@ -24,14 +34,13 @@ export async function GET() {
       },
     });
 
-    if (!tenantSettings) {
-      return NextResponse.json(
-        { error: 'Tenant settings not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(tenantSettings);
+    // Return tenant name (prefer settings companyName, fallback to tenant name)
+    return NextResponse.json({
+      companyName: tenantSettings?.companyName || tenant?.name || 'Azaire Fleet Manager',
+      tenantName: tenant?.name || tenantSettings?.companyName || 'Azaire Fleet Manager',
+      logoUrl: tenantSettings?.logoUrl,
+      primaryColor: tenantSettings?.primaryColor,
+    });
   } catch (error) {
     console.error('Error fetching tenant settings:', error);
     return NextResponse.json(

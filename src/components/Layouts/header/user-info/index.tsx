@@ -25,11 +25,14 @@ export function UserInfo() {
     router.push('/login');
   };
 
+  // BetterAuth should include name in session, but fallback to email prefix if missing
+  const userName = user?.name || (user?.email ? user.email.split('@')[0] : "User");
+  
   const USER = {
-    name: user?.name || "User",
+    name: userName,
     email: user?.email || "",
     img: user?.image || null,
-    initials: getInitials(user?.name || "User"),
+    initials: getInitials(userName),
   };
 
   if (isLoading) {
@@ -120,7 +123,7 @@ export function UserInfo() {
           </Link>
 
           <Link
-            href={"/pages/settings"}
+            href={"/account-settings"}
             onClick={() => setIsOpen(false)}
             className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[9px] hover:bg-gray-2 hover:text-dark dark:hover:bg-dark-3 dark:hover:text-white"
           >
