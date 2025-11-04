@@ -15,6 +15,8 @@ const createVehicleSchema = z.object({
   initialCost: z.number().positive('Initial cost must be positive'),
   currentMileage: z.number().int().min(0).default(0),
   status: z.enum(['ACTIVE', 'UNDER_MAINTENANCE', 'DECOMMISSIONED']).default('ACTIVE'),
+  paymentModel: z.enum(['OWNER_PAYS', 'DRIVER_REMITS', 'HYBRID']),
+  paymentConfig: z.any(), // JSON field - will validate based on paymentModel
 });
 
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
@@ -42,23 +44,35 @@ export async function createVehicle(data: CreateVehicleInput) {
   });
 
   if (existing) {
-    throw new Error('A vehicle with this registration number already exists');
+    throw new Error(`A vehicle with registration number "${validated.registrationNumber}" already exists`);
   }
 
   // Create vehicle
-  const vehicle = await prisma.vehicle.create({
-    data: {
-      tenantId,
-      registrationNumber: validated.registrationNumber,
-      make: validated.make,
-      model: validated.model,
-      year: validated.year,
-      type: validated.type,
-      initialCost: validated.initialCost,
-      currentMileage: validated.currentMileage,
-      status: validated.status,
-    },
-  });
+  // Note: Database has unique constraint on [tenantId, registrationNumber] which will also catch duplicates
+  let vehicle;
+  try {
+    vehicle = await prisma.vehicle.create({
+      data: {
+        tenantId,
+        registrationNumber: validated.registrationNumber,
+        make: validated.make,
+        model: validated.model,
+        year: validated.year,
+        type: validated.type,
+        initialCost: validated.initialCost,
+        currentMileage: validated.currentMileage,
+        status: validated.status,
+        paymentModel: validated.paymentModel,
+        paymentConfig: validated.paymentConfig,
+      },
+    });
+  } catch (error: any) {
+    // Handle unique constraint violation (race condition or direct DB insert)
+    if (error?.code === 'P2002' && error?.meta?.target?.includes('registrationNumber')) {
+      throw new Error(`A vehicle with registration number "${validated.registrationNumber}" already exists`);
+    }
+    throw error;
+  }
 
   // Revalidate vehicles page
   revalidatePath('/vehicles');

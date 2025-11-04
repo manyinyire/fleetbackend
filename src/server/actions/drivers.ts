@@ -19,8 +19,7 @@ const createDriverSchema = z.object({
   hasDefensiveLicense: z.boolean().default(false),
   defensiveLicenseNumber: z.string().optional(),
   defensiveLicenseExpiry: z.date().optional(),
-  paymentModel: z.enum(['OWNER_PAYS', 'DRIVER_REMITS', 'HYBRID']),
-  paymentConfig: z.any(), // JSON field - will validate based on paymentModel
+  // Payment configuration is now on Vehicle - drivers inherit it when assigned
   debtBalance: z.number().default(0),
   status: z.enum(['ACTIVE', 'INACTIVE', 'TERMINATED']).default('ACTIVE'),
 });
@@ -68,8 +67,7 @@ export async function createDriver(data: CreateDriverInput) {
       hasDefensiveLicense: validated.hasDefensiveLicense,
       defensiveLicenseNumber: validated.defensiveLicenseNumber || null,
       defensiveLicenseExpiry: validated.defensiveLicenseExpiry || null,
-      paymentModel: validated.paymentModel,
-      paymentConfig: validated.paymentConfig,
+      // Payment configuration is now on Vehicle - drivers inherit it when assigned
       debtBalance: validated.debtBalance,
       status: validated.status,
     },

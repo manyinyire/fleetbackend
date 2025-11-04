@@ -58,14 +58,16 @@ export async function POST(request: NextRequest) {
 
     const driver = await prisma.driver.create({
       data: {
+        tenantId,
         fullName: data.fullName,
         nationalId: data.nationalId,
         licenseNumber: data.licenseNumber,
-        licenseExpiry: new Date(data.licenseExpiry),
         phone: data.phone,
-        email: data.email,
-        paymentModel: data.paymentModel,
-        paymentConfig: data.paymentConfig || {},
+        email: data.email || null,
+        homeAddress: data.homeAddress || '',
+        nextOfKin: data.nextOfKin || '',
+        nextOfKinPhone: data.nextOfKinPhone || '',
+        // Payment configuration is now on Vehicle - drivers inherit it when assigned
         debtBalance: 0,
         status: 'ACTIVE',
       }

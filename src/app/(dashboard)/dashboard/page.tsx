@@ -1,6 +1,7 @@
 import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
+import { serializePrismaArray } from '@/lib/serialize-prisma';
 import { DashboardOverview } from '@/components/dashboard/dashboard-overview';
 import { FleetStats } from '@/components/dashboard/fleet-stats';
 import { RecentActivity } from '@/components/dashboard/recent-activity';
@@ -113,8 +114,8 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <DashboardOverview 
-            vehicles={vehicles}
-            drivers={drivers}
+            vehicles={serializePrismaArray(vehicles)}
+            drivers={serializePrismaArray(drivers)}
           />
         </div>
         

@@ -1,6 +1,7 @@
 import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
+import { serializePrismaData, serializePrismaArray } from '@/lib/serialize-prisma';
 import { notFound } from 'next/navigation';
 import { RemittanceForm } from '@/components/finances/remittance-form';
 import Link from 'next/link';
@@ -21,7 +22,7 @@ export default async function EditRemittancePage({
   const prisma = getTenantPrisma(tenantId);
 
   // Fetch remittance with related data
-  const remittance = await prisma.remittance.findUnique({
+  const remittanceRaw = await prisma.remittance.findUnique({
     where: { id },
     include: {
       driver: true,
@@ -29,12 +30,12 @@ export default async function EditRemittancePage({
     },
   });
 
-  if (!remittance) {
+  if (!remittanceRaw) {
     notFound();
   }
 
   // Fetch drivers with their vehicle assignments
-  const drivers = await prisma.driver.findMany({
+  const driversRaw = await prisma.driver.findMany({
     where: { status: 'ACTIVE' },
     include: {
       vehicles: {
@@ -46,6 +47,10 @@ export default async function EditRemittancePage({
     },
     orderBy: { fullName: 'asc' },
   });
+
+  // Serialize all Decimal fields to numbers for client components
+  const remittance = serializePrismaData(remittanceRaw);
+  const drivers = serializePrismaArray(driversRaw);
 
   return (
     <div className="space-y-6">

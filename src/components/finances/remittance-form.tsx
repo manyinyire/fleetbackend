@@ -24,7 +24,7 @@ type RemittanceFormData = z.infer<typeof remittanceFormSchema>;
 interface Driver {
   id: string;
   fullName: string;
-  vehicles: {
+  vehicles?: {
     id: string;
     vehicle: {
       id: string;
@@ -79,7 +79,7 @@ export function RemittanceForm({ drivers, remittance, onSuccess }: RemittanceFor
   }, [selectedDriverId, drivers]);
 
   // Get active vehicle for selected driver
-  const activeVehicle = selectedDriver?.vehicles.find(v => !v.endDate)?.vehicle;
+  const activeVehicle = selectedDriver?.vehicles?.find(v => !v.endDate)?.vehicle;
 
   const onSubmit = async (data: RemittanceFormData) => {
     setLoading(true);
@@ -125,7 +125,7 @@ export function RemittanceForm({ drivers, remittance, onSuccess }: RemittanceFor
 
   // Get drivers without vehicle assignments
   const driversWithoutVehicles = drivers.filter(
-    driver => !driver.vehicles.some(v => !v.endDate)
+    driver => !driver.vehicles?.some(v => !v.endDate)
   );
 
   return (
@@ -164,7 +164,7 @@ export function RemittanceForm({ drivers, remittance, onSuccess }: RemittanceFor
             >
               <option value="">Select a driver</option>
               {drivers
-                .filter(driver => driver.vehicles.some(v => !v.endDate))
+                .filter(driver => driver.vehicles?.some(v => !v.endDate))
                 .map(driver => (
                   <option key={driver.id} value={driver.id}>
                     {driver.fullName}

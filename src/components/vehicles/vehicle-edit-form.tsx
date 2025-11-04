@@ -17,6 +17,17 @@ const vehicleFormSchema = z.object({
   initialCost: z.coerce.number().positive('Initial cost must be positive'),
   currentMileage: z.coerce.number().int().min(0).default(0),
   status: z.enum(['ACTIVE', 'UNDER_MAINTENANCE', 'DECOMMISSIONED']).default('ACTIVE'),
+  // Payment Configuration
+  paymentModel: z.enum(['OWNER_PAYS', 'DRIVER_REMITS', 'HYBRID']),
+  // Owner Pays fields
+  ownerPaysPercentage: z.coerce.number().min(0).max(100).optional(),
+  ownerPaysClosingDay: z.string().optional(),
+  // Driver Remits fields
+  driverRemitsAmount: z.coerce.number().min(0).optional(),
+  driverRemitsFrequency: z.string().optional(),
+  // Hybrid fields
+  hybridBaseAmount: z.coerce.number().min(0).optional(),
+  hybridCommissionPercentage: z.coerce.number().min(0).max(100).optional(),
 });
 
 type VehicleFormData = z.infer<typeof vehicleFormSchema>;
@@ -32,12 +43,17 @@ interface VehicleEditFormProps {
     initialCost: any;
     currentMileage: number;
     status: string;
+    paymentModel?: string;
+    paymentConfig?: any;
   };
 }
 
 export function VehicleEditForm({ vehicle }: VehicleEditFormProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  // Parse payment config
+  const paymentConfig = vehicle.paymentConfig as any || {};
 
   const form = useForm<VehicleFormData>({
     resolver: zodResolver(vehicleFormSchema),
@@ -50,13 +66,59 @@ export function VehicleEditForm({ vehicle }: VehicleEditFormProps) {
       initialCost: Number(vehicle.initialCost),
       currentMileage: vehicle.currentMileage,
       status: vehicle.status as 'ACTIVE' | 'UNDER_MAINTENANCE' | 'DECOMMISSIONED',
+      paymentModel: (vehicle.paymentModel || 'DRIVER_REMITS') as 'OWNER_PAYS' | 'DRIVER_REMITS' | 'HYBRID',
+      ownerPaysPercentage: paymentConfig.percentage || 70,
+      ownerPaysClosingDay: paymentConfig.closingDay || 'FRIDAY',
+      driverRemitsAmount: paymentConfig.amount || 100,
+      driverRemitsFrequency: paymentConfig.frequency || 'DAILY',
+      hybridBaseAmount: paymentConfig.baseAmount || 500,
+      hybridCommissionPercentage: paymentConfig.commissionPercentage || 10,
     },
   });
+
+  const paymentModel = form.watch('paymentModel');
 
   async function onSubmit(data: VehicleFormData) {
     setLoading(true);
     try {
-      await updateVehicle(vehicle.id, data as any);
+      // Build payment config based on payment model
+      let paymentConfig: any = {};
+
+      switch (data.paymentModel) {
+        case 'OWNER_PAYS':
+          paymentConfig = {
+            percentage: data.ownerPaysPercentage,
+            closingDay: data.ownerPaysClosingDay,
+          };
+          break;
+        case 'DRIVER_REMITS':
+          paymentConfig = {
+            amount: data.driverRemitsAmount,
+            frequency: data.driverRemitsFrequency,
+          };
+          break;
+        case 'HYBRID':
+          paymentConfig = {
+            baseAmount: data.hybridBaseAmount,
+            commissionPercentage: data.hybridCommissionPercentage,
+          };
+          break;
+      }
+
+      const vehicleData: any = {
+        registrationNumber: data.registrationNumber,
+        make: data.make,
+        model: data.model,
+        year: data.year,
+        type: data.type,
+        initialCost: data.initialCost,
+        currentMileage: data.currentMileage,
+        status: data.status,
+        paymentModel: data.paymentModel,
+        paymentConfig,
+      };
+
+      await updateVehicle(vehicle.id, vehicleData);
       toast.success('Vehicle updated successfully!');
       router.push(`/vehicles/${vehicle.id}`);
       router.refresh();
@@ -257,6 +319,196 @@ export function VehicleEditForm({ vehicle }: VehicleEditFormProps) {
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Payment Configuration */}
+      <div className="rounded-[10px] border border-stroke bg-white shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
+        <div className="border-b border-stroke px-7 py-4 dark:border-dark-3">
+          <h3 className="font-medium text-dark dark:text-white">
+            Payment Configuration
+          </h3>
+          <p className="mt-1 text-sm text-dark-5 dark:text-dark-6">
+            Drivers assigned to this vehicle will inherit these payment settings
+          </p>
+        </div>
+        <div className="p-7">
+          <div className="mb-5.5">
+            <label
+              className="mb-3 block text-body-sm font-medium text-dark dark:text-white"
+              htmlFor="paymentModel"
+            >
+              Payment Model <span className="text-red">*</span>
+            </label>
+            <select
+              className="w-full rounded-[7px] border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary active:border-primary disabled:cursor-default dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+              id="paymentModel"
+              {...form.register('paymentModel')}
+            >
+              <option value="OWNER_PAYS">Owner Pays (Percentage-based)</option>
+              <option value="DRIVER_REMITS">Driver Remits (Fixed Target)</option>
+              <option value="HYBRID">Hybrid (Base + Performance)</option>
+            </select>
+            {form.formState.errors.paymentModel && (
+              <p className="mt-1 text-body-sm text-red">
+                {form.formState.errors.paymentModel.message}
+              </p>
+            )}
+          </div>
+
+          {/* Owner Pays Configuration */}
+          {paymentModel === 'OWNER_PAYS' && (
+            <div className="flex flex-col gap-5.5 sm:flex-row">
+              <div className="w-full sm:w-1/2">
+                <label
+                  className="mb-3 block text-body-sm font-medium text-dark dark:text-white"
+                  htmlFor="ownerPaysPercentage"
+                >
+                  Percentage (%) <span className="text-red">*</span>
+                </label>
+                <input
+                  className="w-full rounded-[7px] border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition placeholder:text-dark-6 focus:border-primary active:border-primary disabled:cursor-default dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                  type="number"
+                  id="ownerPaysPercentage"
+                  step="0.01"
+                  max="100"
+                  placeholder="70"
+                  {...form.register('ownerPaysPercentage')}
+                />
+                {form.formState.errors.ownerPaysPercentage && (
+                  <p className="mt-1 text-body-sm text-red">
+                    {form.formState.errors.ownerPaysPercentage.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="w-full sm:w-1/2">
+                <label
+                  className="mb-3 block text-body-sm font-medium text-dark dark:text-white"
+                  htmlFor="ownerPaysClosingDay"
+                >
+                  Week Closing Day <span className="text-red">*</span>
+                </label>
+                <select
+                  className="w-full rounded-[7px] border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary active:border-primary disabled:cursor-default dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                  id="ownerPaysClosingDay"
+                  {...form.register('ownerPaysClosingDay')}
+                >
+                  <option value="MONDAY">Monday</option>
+                  <option value="TUESDAY">Tuesday</option>
+                  <option value="WEDNESDAY">Wednesday</option>
+                  <option value="THURSDAY">Thursday</option>
+                  <option value="FRIDAY">Friday</option>
+                  <option value="SATURDAY">Saturday</option>
+                  <option value="SUNDAY">Sunday</option>
+                </select>
+                {form.formState.errors.ownerPaysClosingDay && (
+                  <p className="mt-1 text-body-sm text-red">
+                    {form.formState.errors.ownerPaysClosingDay.message}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Driver Remits Configuration */}
+          {paymentModel === 'DRIVER_REMITS' && (
+            <div className="flex flex-col gap-5.5 sm:flex-row">
+              <div className="w-full sm:w-1/2">
+                <label
+                  className="mb-3 block text-body-sm font-medium text-dark dark:text-white"
+                  htmlFor="driverRemitsAmount"
+                >
+                  Target Amount ($) <span className="text-red">*</span>
+                </label>
+                <input
+                  className="w-full rounded-[7px] border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition placeholder:text-dark-6 focus:border-primary active:border-primary disabled:cursor-default dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                  type="number"
+                  id="driverRemitsAmount"
+                  step="0.01"
+                  placeholder="100"
+                  {...form.register('driverRemitsAmount')}
+                />
+                {form.formState.errors.driverRemitsAmount && (
+                  <p className="mt-1 text-body-sm text-red">
+                    {form.formState.errors.driverRemitsAmount.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="w-full sm:w-1/2">
+                <label
+                  className="mb-3 block text-body-sm font-medium text-dark dark:text-white"
+                  htmlFor="driverRemitsFrequency"
+                >
+                  Frequency <span className="text-red">*</span>
+                </label>
+                <select
+                  className="w-full rounded-[7px] border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary active:border-primary disabled:cursor-default dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                  id="driverRemitsFrequency"
+                  {...form.register('driverRemitsFrequency')}
+                >
+                  <option value="DAILY">Daily</option>
+                  <option value="WEEKLY">Weekly</option>
+                </select>
+                {form.formState.errors.driverRemitsFrequency && (
+                  <p className="mt-1 text-body-sm text-red">
+                    {form.formState.errors.driverRemitsFrequency.message}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Hybrid Configuration */}
+          {paymentModel === 'HYBRID' && (
+            <div className="flex flex-col gap-5.5 sm:flex-row">
+              <div className="w-full sm:w-1/2">
+                <label
+                  className="mb-3 block text-body-sm font-medium text-dark dark:text-white"
+                  htmlFor="hybridBaseAmount"
+                >
+                  Base Amount ($) <span className="text-red">*</span>
+                </label>
+                <input
+                  className="w-full rounded-[7px] border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition placeholder:text-dark-6 focus:border-primary active:border-primary disabled:cursor-default dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                  type="number"
+                  id="hybridBaseAmount"
+                  step="0.01"
+                  placeholder="500"
+                  {...form.register('hybridBaseAmount')}
+                />
+                {form.formState.errors.hybridBaseAmount && (
+                  <p className="mt-1 text-body-sm text-red">
+                    {form.formState.errors.hybridBaseAmount.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="w-full sm:w-1/2">
+                <label
+                  className="mb-3 block text-body-sm font-medium text-dark dark:text-white"
+                  htmlFor="hybridCommissionPercentage"
+                >
+                  Commission (%) <span className="text-red">*</span>
+                </label>
+                <input
+                  className="w-full rounded-[7px] border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition placeholder:text-dark-6 focus:border-primary active:border-primary disabled:cursor-default dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                  type="number"
+                  id="hybridCommissionPercentage"
+                  step="0.01"
+                  max="100"
+                  placeholder="10"
+                  {...form.register('hybridCommissionPercentage')}
+                />
+                {form.formState.errors.hybridCommissionPercentage && (
+                  <p className="mt-1 text-body-sm text-red">
+                    {form.formState.errors.hybridCommissionPercentage.message}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

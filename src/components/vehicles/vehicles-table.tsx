@@ -17,21 +17,24 @@ interface Vehicle {
   model: string;
   year: number;
   type: string;
-  status: string;
-  currentMileage: number;
-  drivers: Array<{
+  status?: string;
+  currentMileage?: number;
+  initialCost: number; // Converted from Decimal
+  paymentModel?: string;
+  paymentConfig?: any;
+  drivers?: Array<{
     driver: {
       id: string;
       fullName: string;
     };
   }>;
-  maintenanceRecords: Array<{
+  maintenanceRecords?: Array<{
     id: string;
     type: string;
     date: string;
-    cost: number;
+    cost: number; // Converted from Decimal
   }>;
-  _count: {
+  _count?: {
     remittances: number;
     expenses: number;
   };
@@ -42,7 +45,19 @@ interface VehiclesTableProps {
 }
 
 export function VehiclesTable({ vehicles }: VehiclesTableProps) {
-  const getStatusColor = (status: string) => {
+  // Ensure vehicles is always an array
+  const vehiclesList = Array.isArray(vehicles) ? vehicles : [];
+  
+  // Debug: Log what we received
+  console.log('VehiclesTable - vehicles prop:', vehicles);
+  console.log('VehiclesTable - vehiclesList:', vehiclesList);
+  console.log('VehiclesTable - vehiclesList.length:', vehiclesList.length);
+  
+  if (!Array.isArray(vehicles)) {
+    console.error('VehiclesTable received non-array:', vehicles);
+  }
+
+  const getStatusColor = (status?: string) => {
     switch (status) {
       case 'ACTIVE':
         return 'bg-green-100 text-green-800';
@@ -70,7 +85,7 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
 
   return (
     <div className="bg-white shadow overflow-hidden sm:rounded-md">
-      {vehicles.length === 0 ? (
+      {vehiclesList.length === 0 ? (
         <div className="text-center py-12">
           <TruckIcon className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No vehicles</h3>
@@ -89,8 +104,8 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
         </div>
       ) : (
         <ul className="divide-y divide-gray-200">
-          {vehicles.map((vehicle) => (
-            <li key={vehicle.id}>
+          {vehiclesList.map((vehicle, index) => (
+            <li key={vehicle.id || `vehicle-${index}`}>
               <div className="px-4 py-4 flex items-center justify-between hover:bg-gray-50">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
@@ -103,8 +118,8 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
                       <p className="text-sm font-medium text-gray-900">
                         {vehicle.registrationNumber}
                       </p>
-                      <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(vehicle.status)}`}>
-                        {vehicle.status.replace('_', ' ')}
+                      <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(vehicle.status || 'ACTIVE')}`}>
+                        {(vehicle.status || 'ACTIVE').replace('_', ' ')}
                       </span>
                     </div>
                     <p className="text-sm text-gray-500">
@@ -113,15 +128,15 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
                     <div className="mt-1 flex items-center space-x-4 text-xs text-gray-500">
                       <span className="flex items-center">
                         <TruckIcon className="h-3 w-3 mr-1" />
-                        {vehicle.currentMileage.toLocaleString()} miles
+                        {(vehicle.currentMileage || 0).toLocaleString()} miles
                       </span>
                       <span className="flex items-center">
                         <UserGroupIcon className="h-3 w-3 mr-1" />
-                        {vehicle.drivers.length} driver{vehicle.drivers.length !== 1 ? 's' : ''}
+                        {vehicle.drivers?.length || 0} driver{(vehicle.drivers?.length || 0) !== 1 ? 's' : ''}
                       </span>
                       <span className="flex items-center">
                         <CurrencyDollarIcon className="h-3 w-3 mr-1" />
-                        {vehicle._count.remittances} remittances
+                        {vehicle._count?.remittances || 0} remittances
                       </span>
                     </div>
                   </div>
@@ -130,10 +145,10 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
                 <div className="flex items-center space-x-2">
                   <div className="text-right">
                     <p className="text-sm text-gray-900">
-                      {vehicle.drivers.length > 0 ? vehicle.drivers[0].driver.fullName : 'No driver'}
+                      {vehicle.drivers && vehicle.drivers.length > 0 ? vehicle.drivers[0].driver.fullName : 'No driver'}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {vehicle.maintenanceRecords.length > 0 && (
+                      {vehicle.maintenanceRecords && vehicle.maintenanceRecords.length > 0 && (
                         <>
                           Last service: {new Date(vehicle.maintenanceRecords[0].date).toLocaleDateString()}
                         </>

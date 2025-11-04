@@ -1,6 +1,7 @@
 import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
+import { serializePrismaData } from '@/lib/serialize-prisma';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeftIcon, PencilIcon, WrenchScrewdriverIcon } from '@heroicons/react/24/outline';
@@ -26,12 +27,20 @@ export default async function VehicleDetailPage({
   const prisma = getTenantPrisma(tenantId);
 
   // Fetch vehicle with all related data
-  const vehicle = await prisma.vehicle.findUnique({
+  const vehicleRaw = await prisma.vehicle.findUnique({
     where: { id },
     include: {
       drivers: {
         include: {
-          driver: true,
+          driver: {
+            select: {
+              id: true,
+              fullName: true,
+              phone: true,
+              email: true,
+              debtBalance: true,
+            },
+          },
         },
       },
       maintenanceRecords: {
@@ -42,7 +51,12 @@ export default async function VehicleDetailPage({
         orderBy: { date: 'desc' },
         take: 10,
         include: {
-          driver: true,
+          driver: {
+            select: {
+              id: true,
+              fullName: true,
+            },
+          },
         },
       },
       expenses: {
@@ -56,9 +70,12 @@ export default async function VehicleDetailPage({
     },
   });
 
-  if (!vehicle) {
+  if (!vehicleRaw) {
     notFound();
   }
+
+  // Serialize all Decimal fields to numbers
+  const vehicle = serializePrismaData(vehicleRaw);
 
   // Calculate profitability metrics
   // Get ALL remittances, expenses, incomes, and maintenance records for the vehicle (not just the last 10)
@@ -95,8 +112,9 @@ export default async function VehicleDetailPage({
 
   // Calculate driver salary (for now, we'll use debtBalance as a proxy)
   // TODO: Enhance this to calculate based on payment model and assignment period
+  // Payment model is now on vehicle - drivers inherit it when assigned
   const activeDriver = vehicle.drivers.find((d: any) => !d.endDate)?.driver;
-  const driverSalary = activeDriver && activeDriver.paymentModel !== 'DRIVER_REMITS' 
+  const driverSalary = activeDriver && vehicle.paymentModel !== 'DRIVER_REMITS' 
     ? Number(activeDriver.debtBalance) 
     : 0;
 

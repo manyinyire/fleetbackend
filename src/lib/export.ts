@@ -182,25 +182,30 @@ export function transformDriversForExport(drivers: any[]): ExportableData {
       'Phone',
       'Email',
       'License Number',
-      'License Expiry',
       'Payment Model',
       'Status',
       'Debt Balance',
       'Assigned Vehicle',
       'Created Date'
     ],
-    rows: drivers.map(driver => [
-      driver.fullName,
-      driver.phone || 'N/A',
-      driver.email || 'N/A',
-      driver.licenseNumber,
-      new Date(driver.licenseExpiry).toLocaleDateString(),
-      driver.paymentModel.replace('_', ' '),
-      driver.status,
-      `$${Number(driver.debtBalance).toFixed(2)}`,
-      driver.vehicles?.[0]?.vehicle?.registrationNumber || 'Unassigned',
-      new Date(driver.createdAt).toLocaleDateString()
-    ])
+    rows: drivers.map(driver => {
+      // Payment model is now on vehicle - get from primary assigned vehicle
+      const primaryVehicle = driver.vehicles?.find((v: any) => v.isPrimary && !v.endDate)?.vehicle 
+        || driver.vehicles?.[0]?.vehicle;
+      const paymentModel = primaryVehicle?.paymentModel?.replace('_', ' ') || 'Unassigned';
+      
+      return [
+        driver.fullName,
+        driver.phone || 'N/A',
+        driver.email || 'N/A',
+        driver.licenseNumber,
+        paymentModel,
+        driver.status,
+        `$${Number(driver.debtBalance).toFixed(2)}`,
+        primaryVehicle?.registrationNumber || 'Unassigned',
+        new Date(driver.createdAt).toLocaleDateString()
+      ];
+    })
   };
 }
 

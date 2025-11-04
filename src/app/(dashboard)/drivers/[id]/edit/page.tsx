@@ -1,6 +1,7 @@
 import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
+import { serializePrismaData } from '@/lib/serialize-prisma';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
@@ -29,6 +30,9 @@ export default async function EditDriverPage({
     notFound();
   }
 
+  // Serialize all Decimal fields to numbers for client component
+  const driverForClient = serializePrismaData(driver);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -48,7 +52,7 @@ export default async function EditDriverPage({
         </div>
       </div>
 
-      <DriverEditForm driver={driver} />
+      <DriverEditForm driver={driverForClient} />
     </div>
   );
 }

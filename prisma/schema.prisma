@@ -170,6 +170,9 @@ model Vehicle {
   initialCost        Decimal       @db.Decimal(10, 2)
   currentMileage     Int           @default(0)
   status             VehicleStatus @default(ACTIVE)
+  // Payment Configuration - drivers assigned to this vehicle inherit these settings
+  paymentModel       PaymentModel
+  paymentConfig      Json // Stores model-specific config
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -214,8 +217,7 @@ model Driver {
   hasDefensiveLicense    Boolean      @default(false)
   defensiveLicenseNumber String?
   defensiveLicenseExpiry DateTime?
-  paymentModel           PaymentModel
-  paymentConfig          Json // Stores model-specific config
+  // Payment configuration is now on Vehicle - drivers inherit it when assigned
   debtBalance            Decimal      @default(0) @db.Decimal(10, 2)
   status                 DriverStatus @default(ACTIVE)
   createdAt              DateTime     @default(now())

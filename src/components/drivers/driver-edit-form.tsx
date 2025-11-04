@@ -20,13 +20,7 @@ const driverFormSchema = z.object({
   hasDefensiveLicense: z.boolean().default(false),
   defensiveLicenseNumber: z.string().optional(),
   defensiveLicenseExpiry: z.string().optional(),
-  paymentModel: z.enum(['OWNER_PAYS', 'DRIVER_REMITS', 'HYBRID']),
-  ownerPaysPercentage: z.coerce.number().min(0).max(100).optional(),
-  ownerPaysClosingDay: z.string().optional(),
-  driverRemitsAmount: z.coerce.number().min(0).optional(),
-  driverRemitsFrequency: z.string().optional(),
-  hybridBaseAmount: z.coerce.number().min(0).optional(),
-  hybridCommissionPercentage: z.coerce.number().min(0).max(100).optional(),
+  // Payment configuration is now on Vehicle - drivers inherit it when assigned
   debtBalance: z.coerce.number().default(0),
   status: z.enum(['ACTIVE', 'INACTIVE', 'TERMINATED']).default('ACTIVE'),
 });
@@ -40,9 +34,6 @@ interface DriverEditFormProps {
 export function DriverEditForm({ driver }: DriverEditFormProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-
-  // Parse payment config
-  const paymentConfig = driver.paymentConfig as any || {};
 
   const form = useForm<DriverFormData>({
     resolver: zodResolver(driverFormSchema),
@@ -60,48 +51,17 @@ export function DriverEditForm({ driver }: DriverEditFormProps) {
       defensiveLicenseExpiry: driver.defensiveLicenseExpiry
         ? new Date(driver.defensiveLicenseExpiry).toISOString().split('T')[0]
         : '',
-      paymentModel: driver.paymentModel,
-      ownerPaysPercentage: paymentConfig.percentage || 70,
-      ownerPaysClosingDay: paymentConfig.closingDay || 'FRIDAY',
-      driverRemitsAmount: paymentConfig.amount || 100,
-      driverRemitsFrequency: paymentConfig.frequency || 'DAILY',
-      hybridBaseAmount: paymentConfig.baseAmount || 500,
-      hybridCommissionPercentage: paymentConfig.commissionPercentage || 10,
+      // Payment configuration is now on Vehicle - drivers inherit it when assigned
       debtBalance: Number(driver.debtBalance),
       status: driver.status,
     },
   });
 
-  const paymentModel = form.watch('paymentModel');
   const hasDefensiveLicense = form.watch('hasDefensiveLicense');
 
   async function onSubmit(data: DriverFormData) {
     setLoading(true);
     try {
-      // Build payment config
-      let paymentConfig: any = {};
-
-      switch (data.paymentModel) {
-        case 'OWNER_PAYS':
-          paymentConfig = {
-            percentage: data.ownerPaysPercentage,
-            closingDay: data.ownerPaysClosingDay,
-          };
-          break;
-        case 'DRIVER_REMITS':
-          paymentConfig = {
-            amount: data.driverRemitsAmount,
-            frequency: data.driverRemitsFrequency,
-          };
-          break;
-        case 'HYBRID':
-          paymentConfig = {
-            baseAmount: data.hybridBaseAmount,
-            commissionPercentage: data.hybridCommissionPercentage,
-          };
-          break;
-      }
-
       const driverData: any = {
         fullName: data.fullName,
         nationalId: data.nationalId,
@@ -116,8 +76,7 @@ export function DriverEditForm({ driver }: DriverEditFormProps) {
         defensiveLicenseExpiry: data.hasDefensiveLicense && data.defensiveLicenseExpiry
           ? new Date(data.defensiveLicenseExpiry)
           : undefined,
-        paymentModel: data.paymentModel,
-        paymentConfig,
+        // Payment configuration is now on Vehicle - drivers inherit it when assigned
         debtBalance: data.debtBalance,
         status: data.status,
       };
@@ -235,14 +194,11 @@ export function DriverEditForm({ driver }: DriverEditFormProps) {
                 className="w-full rounded-[7px] border-[1.5px] border-stroke bg-transparent px-5.5 py-3 text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white"
                 type="number"
                 step="0.01"
-                disabled={paymentModel === 'DRIVER_REMITS'}
                 {...form.register('debtBalance')}
               />
-              {paymentModel === 'DRIVER_REMITS' && (
-                <p className="mt-1 text-body-sm text-dark-6 italic">
-                  Drivers under &quot;Driver Remits&quot; model don&apos;t have salary debt
-                </p>
-              )}
+              <p className="mt-1 text-body-sm text-dark-6 italic">
+                Payment configuration is set on the vehicle. Drivers inherit it when assigned.
+              </p>
             </div>
           </div>
         </div>

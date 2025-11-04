@@ -1,6 +1,7 @@
 import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
+import { serializePrismaArray } from '@/lib/serialize-prisma';
 import { RemittanceForm } from '@/components/finances/remittance-form';
 import Link from 'next/link';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
@@ -15,7 +16,7 @@ export default async function NewRemittancePage() {
   const prisma = getTenantPrisma(tenantId);
 
   // Fetch drivers with their vehicle assignments
-  const drivers = await prisma.driver.findMany({
+  const driversRaw = await prisma.driver.findMany({
     where: { status: 'ACTIVE' },
     include: {
       vehicles: {
@@ -27,6 +28,9 @@ export default async function NewRemittancePage() {
     },
     orderBy: { fullName: 'asc' },
   });
+
+  // Serialize all Decimal fields to numbers for client components
+  const drivers = serializePrismaArray(driversRaw);
 
   return (
     <div className="space-y-6">

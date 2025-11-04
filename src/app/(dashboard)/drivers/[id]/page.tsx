@@ -1,6 +1,7 @@
 import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
+import { serializePrismaData } from '@/lib/serialize-prisma';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeftIcon, PencilIcon } from '@heroicons/react/24/outline';
@@ -21,12 +22,20 @@ export default async function DriverDetailPage({
   const prisma = getTenantPrisma(tenantId);
 
   // Fetch driver with all related data
-  const driver = await prisma.driver.findUnique({
+  const driverRaw = await prisma.driver.findUnique({
     where: { id },
     include: {
       vehicles: {
         include: {
-          vehicle: true,
+          vehicle: {
+            select: {
+              id: true,
+              registrationNumber: true,
+              make: true,
+              model: true,
+              paymentModel: true,
+            },
+          },
         },
         orderBy: { startDate: 'desc' },
       },
@@ -34,7 +43,12 @@ export default async function DriverDetailPage({
         orderBy: { date: 'desc' },
         take: 10,
         include: {
-          vehicle: true,
+          vehicle: {
+            select: {
+              id: true,
+              registrationNumber: true,
+            },
+          },
         },
       },
       contracts: {
@@ -43,9 +57,12 @@ export default async function DriverDetailPage({
     },
   });
 
-  if (!driver) {
+  if (!driverRaw) {
     notFound();
   }
+
+  // Serialize all Decimal fields to numbers
+  const driver = serializePrismaData(driverRaw);
 
   // Fetch available vehicles for assignment (not currently assigned to any driver)
   const availableVehicles = await prisma.vehicle.findMany({
@@ -58,6 +75,12 @@ export default async function DriverDetailPage({
       },
     },
     orderBy: { registrationNumber: 'asc' },
+    select: {
+      id: true,
+      registrationNumber: true,
+      make: true,
+      model: true,
+    },
   });
 
   const stats = {
@@ -200,7 +223,14 @@ export default async function DriverDetailPage({
                 Payment Model
               </p>
               <p className="mt-1 font-medium text-dark dark:text-white">
-                {getPaymentModelLabel(driver.paymentModel)}
+                {(() => {
+                  // Payment model is now on vehicle - get from primary assigned vehicle
+                  const primaryVehicle = driver.vehicles?.find((v: any) => v.isPrimary && !v.endDate)?.vehicle 
+                    || driver.vehicles?.[0]?.vehicle;
+                  return primaryVehicle?.paymentModel 
+                    ? getPaymentModelLabel(primaryVehicle.paymentModel)
+                    : 'Not assigned to vehicle';
+                })()}
               </p>
             </div>
             <div>

@@ -1,6 +1,7 @@
 import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
+import { serializePrismaArray } from '@/lib/serialize-prisma';
 import { DriversTable } from '@/components/drivers/drivers-table';
 import Link from 'next/link';
 import { PlusIcon } from '@heroicons/react/24/outline';
@@ -14,30 +15,51 @@ export default async function DriversPage() {
   // Get scoped Prisma client
   const prisma = getTenantPrisma(tenantId);
 
-  // Fetch drivers with related data
-  const drivers = await prisma.driver.findMany({
-    include: {
-      vehicles: {
-        include: {
-          vehicle: true
+  let drivers;
+  try {
+    // Fetch drivers with related data
+    drivers = await prisma.driver.findMany({
+      include: {
+        vehicles: {
+          include: {
+            vehicle: {
+              select: {
+                id: true,
+                registrationNumber: true,
+                paymentModel: true,
+              }
+            }
+          }
+        },
+        remittances: {
+          orderBy: { date: 'desc' },
+          take: 3
+        },
+        _count: {
+          select: {
+            remittances: true,
+            contracts: true
+          }
         }
       },
-      remittances: {
-        orderBy: { date: 'desc' },
-        take: 3
-      },
-      _count: {
-        select: {
-          remittances: true,
-          contracts: true
-        }
+      orderBy: { createdAt: 'desc' },
+      where: {
+        tenantId: tenantId
       }
-    },
-    orderBy: { createdAt: 'desc' },
-    where: {
-      tenantId: tenantId
-    }
-  });
+    });
+  } catch (error) {
+    console.error('Error fetching drivers:', error);
+    drivers = [];
+  }
+
+  // Serialize all Decimal fields to numbers for client components
+  const driversForClient = serializePrismaArray(drivers);
+
+  // Debug: Log the data
+  console.log('Drivers page - drivers count:', drivers.length);
+  console.log('Drivers page - driversForClient count:', driversForClient.length);
+  console.log('Drivers page - first driver:', drivers[0]);
+  console.log('Drivers page - first driverForClient:', driversForClient[0]);
 
   return (
     <div className="space-y-8">
@@ -57,7 +79,7 @@ export default async function DriversPage() {
         </Link>
       </div>
 
-      <DriversTable drivers={drivers} />
+      <DriversTable drivers={driversForClient} />
     </div>
   );
 }

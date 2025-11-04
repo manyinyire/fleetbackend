@@ -12,7 +12,7 @@ const driverSchema = z.object({
   licenseExpiry: z.string().min(1, 'License expiry is required'),
   phone: z.string().min(10, 'Phone number is required'),
   email: z.string().email('Invalid email address').optional().or(z.literal('')),
-  paymentModel: z.enum(['OWNER_PAYS', 'DRIVER_REMITS', 'HYBRID']),
+  // Payment configuration is now set on vehicles - drivers inherit it when assigned
 });
 
 type DriverFormData = z.infer<typeof driverSchema>;
@@ -33,7 +33,6 @@ export function AddDriverStep({ onComplete }: AddDriverStepProps) {
       licenseExpiry: '',
       phone: '',
       email: '',
-      paymentModel: 'DRIVER_REMITS',
     },
   });
 
@@ -48,7 +47,7 @@ export function AddDriverStep({ onComplete }: AddDriverStepProps) {
           ...data,
           licenseExpiry: new Date(data.licenseExpiry),
           email: data.email || null,
-          paymentConfig: {}, // Default empty config
+          // Payment configuration is now set on vehicles - will be inherited when assigned
         }),
       });
 
@@ -176,20 +175,12 @@ export function AddDriverStep({ onComplete }: AddDriverStepProps) {
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Payment Model *
-            </label>
-            <select
-              {...form.register('paymentModel')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="OWNER_PAYS">Owner Pays (Percentage-based)</option>
-              <option value="DRIVER_REMITS">Driver Remits (Fixed target)</option>
-              <option value="HYBRID">Hybrid (Base + performance)</option>
-            </select>
-            <p className="mt-1 text-sm text-gray-500">
-              Choose how the driver will be compensated for their work.
-            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> Payment configuration is now set on vehicles. 
+                When you assign this driver to a vehicle, they will inherit the vehicle's payment settings.
+              </p>
+            </div>
           </div>
         </div>
 

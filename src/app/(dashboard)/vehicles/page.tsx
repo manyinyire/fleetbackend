@@ -2,6 +2,7 @@ import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import { VehiclesTable } from '@/components/vehicles/vehicles-table';
+import { serializePrismaArray } from '@/lib/serialize-prisma';
 import Link from 'next/link';
 import { PlusIcon } from '@heroicons/react/24/outline';
 
@@ -14,30 +15,45 @@ export default async function VehiclesPage() {
   // Get scoped Prisma client
   const prisma = getTenantPrisma(tenantId);
 
-  // Fetch vehicles with related data
-  const vehicles = await prisma.vehicle.findMany({
-    include: {
-      drivers: {
-        include: {
-          driver: true
+  let vehicles;
+  try {
+    // Fetch vehicles with related data
+    vehicles = await prisma.vehicle.findMany({
+      include: {
+        drivers: {
+          include: {
+            driver: true
+          }
+        },
+        maintenanceRecords: {
+          orderBy: { date: 'desc' },
+          take: 3
+        },
+        _count: {
+          select: {
+            remittances: true,
+            expenses: true
+          }
         }
       },
-      maintenanceRecords: {
-        orderBy: { date: 'desc' },
-        take: 3
-      },
-      _count: {
-        select: {
-          remittances: true,
-          expenses: true
-        }
+      orderBy: { createdAt: 'desc' },
+      where: {
+        tenantId: tenantId
       }
-    },
-    orderBy: { createdAt: 'desc' },
-    where: {
-      tenantId: tenantId
-    }
-  });
+    });
+  } catch (error) {
+    console.error('Error fetching vehicles:', error);
+    vehicles = [];
+  }
+
+  // Serialize all Decimal fields to numbers for client components
+  const vehiclesForClient = serializePrismaArray(vehicles);
+
+  // Debug: Log the data
+  console.log('Vehicles page - vehicles count:', vehicles.length);
+  console.log('Vehicles page - vehiclesForClient count:', vehiclesForClient.length);
+  console.log('Vehicles page - first vehicle:', vehicles[0]);
+  console.log('Vehicles page - first vehicleForClient:', vehiclesForClient[0]);
 
   return (
     <div className="space-y-8">
@@ -57,7 +73,7 @@ export default async function VehiclesPage() {
         </Link>
       </div>
 
-      <VehiclesTable vehicles={vehicles} />
+      <VehiclesTable vehicles={vehiclesForClient} />
     </div>
   );
 }
