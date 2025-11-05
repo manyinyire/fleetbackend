@@ -77,7 +77,10 @@ export async function exportToPDF(data: ExportableData, filename: string = 'expo
   try {
     // Dynamic import to avoid bundling issues
     const { jsPDF } = await import('jspdf');
-    await import('jspdf-autotable');
+    const { applyPlugin } = await import('jspdf-autotable');
+    
+    // Manually apply the plugin (required in v5.0.0+ for server-side, works in browser too)
+    applyPlugin(jsPDF);
     
     const doc = new jsPDF();
     
@@ -95,6 +98,11 @@ export async function exportToPDF(data: ExportableData, filename: string = 'expo
 
     // Add table
     const startY = data.title || data.subtitle ? 40 : 20;
+    
+    // Check if autoTable is available
+    if (typeof (doc as any).autoTable !== 'function') {
+      throw new Error('jspdf-autotable plugin is not loaded. Please ensure jspdf-autotable is properly installed.');
+    }
     
     (doc as any).autoTable({
       head: [data.headers],

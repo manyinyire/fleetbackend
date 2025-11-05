@@ -59,12 +59,51 @@ export function UpgradePageClient() {
         body: JSON.stringify({ newPlan: newPlan.id }),
       });
 
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Server returned non-JSON response:', text.substring(0, 200));
+        toast.error('Server error: Invalid response format');
+        return;
+      }
+
       const data = await response.json();
 
       if (response.ok && data.success) {
         toast.success(`Upgrade invoice created and sent! Check your email for invoice ${data.invoice.invoiceNumber}`);
-        // Redirect to invoices or payment page
-        router.push(`/api/payments/initiate?invoiceId=${data.invoice.id}`);
+        
+        // Initiate payment
+        try {
+          const paymentResponse = await fetch('/api/payments/initiate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ invoiceId: data.invoice.id }),
+          });
+
+          // Check if payment response is JSON
+          const paymentContentType = paymentResponse.headers.get('content-type');
+          if (!paymentContentType || !paymentContentType.includes('application/json')) {
+            const text = await paymentResponse.text();
+            console.error('Payment server returned non-JSON response:', text.substring(0, 200));
+            toast.error('Payment error: Invalid response format');
+            return;
+          }
+
+          const paymentData = await paymentResponse.json();
+
+          if (paymentResponse.ok && paymentData.success) {
+            // Redirect to Paynow payment page
+            window.location.href = paymentData.redirectUrl;
+          } else {
+            toast.error(paymentData.error || 'Failed to initiate payment');
+          }
+        } catch (error) {
+          console.error('Error initiating payment:', error);
+          toast.error('Failed to initiate payment');
+        }
       } else {
         toast.error(data.error || 'Failed to create upgrade invoice');
       }

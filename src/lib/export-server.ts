@@ -3,8 +3,6 @@
  * For generating exports in scheduled reports and API endpoints
  */
 
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
@@ -111,6 +109,13 @@ export async function exportToPDFServer(
   filename?: string,
   options?: ExportOptions
 ): Promise<string> {
+  // Dynamic imports to ensure jspdf-autotable is properly loaded
+  const { jsPDF } = await import('jspdf');
+  const { applyPlugin } = await import('jspdf-autotable');
+  
+  // Manually apply the plugin for server-side environments (required in v5.0.0+)
+  applyPlugin(jsPDF);
+  
   const doc = new jsPDF();
 
   // Add title
@@ -148,6 +153,11 @@ export async function exportToPDFServer(
 
   const primaryColor = options?.styling?.primaryColor || '#3B82F6';
   const rgbColor = hexToRgb(primaryColor);
+
+  // Check if autoTable is available
+  if (typeof (doc as any).autoTable !== 'function') {
+    throw new Error('jspdf-autotable plugin is not loaded. Please ensure jspdf-autotable is properly installed.');
+  }
 
   (doc as any).autoTable({
     head: [data.headers],

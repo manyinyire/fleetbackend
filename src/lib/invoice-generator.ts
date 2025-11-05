@@ -1,5 +1,3 @@
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
 import { prisma } from './prisma';
 import { subscriptionService } from '@/services/subscription.service';
 
@@ -136,6 +134,13 @@ class InvoiceGenerator {
     tax: number,
     total: number
   ): Promise<Buffer> {
+    // Dynamic imports to ensure jspdf-autotable is properly loaded
+    const { jsPDF } = await import('jspdf');
+    const { applyPlugin } = await import('jspdf-autotable');
+    
+    // Manually apply the plugin for server-side environments (required in v5.0.0+)
+    applyPlugin(jsPDF);
+    
     const { getPlatformSettingsWithDefaults } = await import('@/lib/platform-settings');
     const platformSettings = await getPlatformSettingsWithDefaults();
     
@@ -187,6 +192,11 @@ class InvoiceGenerator {
       `$${item.unitPrice.toFixed(2)}`,
       `$${item.total.toFixed(2)}`
     ]);
+
+    // Check if autoTable is available
+    if (typeof (doc as any).autoTable !== 'function') {
+      throw new Error('jspdf-autotable plugin is not loaded. Please ensure jspdf-autotable is properly installed.');
+    }
 
     (doc as any).autoTable({
       startY: 95,

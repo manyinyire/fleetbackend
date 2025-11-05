@@ -56,6 +56,11 @@ export const rateLimitConfigs = {
     interval: 60 * 1000, // 1 minute
     maxRequests: 30, // 30 requests per minute
   },
+  // Lenient limits for session endpoints (polled frequently)
+  session: {
+    interval: 60 * 1000, // 1 minute
+    maxRequests: 120, // 120 requests per minute (allows frequent polling)
+  },
 };
 
 /**

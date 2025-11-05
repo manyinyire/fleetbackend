@@ -37,6 +37,22 @@ export function UserInfo() {
     }
   }, [(user as any)?.tenantId]);
 
+  // Debug logging
+  useEffect(() => {
+    const isDevelopment = typeof window !== 'undefined' && 
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    
+    if (isDevelopment) {
+      console.log('UserInfo render:', {
+        isLoading,
+        hasUser: !!user,
+        userId: user?.id,
+        userName: user?.name,
+        userEmail: user?.email,
+      });
+    }
+  }, [isLoading, user]);
+
   const fetchPlan = async () => {
     try {
       const response = await fetch('/api/tenant/plan');
@@ -69,7 +85,11 @@ export function UserInfo() {
 
   // If no user after loading, show placeholder or return null
   if (!user) {
-    console.warn('UserInfo: No user data available after loading');
+    const isDevelopment = typeof window !== 'undefined' && 
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    if (isDevelopment) {
+      console.warn('UserInfo: No user data available after loading', { isLoading, error });
+    }
     return (
       <div className="flex items-center gap-3">
         <div className="size-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">

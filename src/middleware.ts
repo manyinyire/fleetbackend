@@ -112,8 +112,23 @@ export async function middleware(request: NextRequest) {
   }
 
   // 3b. Apply rate limiting to auth routes (stricter limits)
-  if (authRoutes.some(route => pathname.startsWith(route))) {
+  // Exempt session endpoints from strict rate limiting as they're polled frequently
+  // BetterAuth uses /api/auth/get-session as the session endpoint
+  const isSessionEndpoint = 
+    pathname === '/api/auth/get-session' || 
+    pathname === '/api/auth/session' ||
+    pathname.startsWith('/api/auth/get-session');
+  if (authRoutes.some(route => pathname.startsWith(route)) && !isSessionEndpoint) {
     const rateLimitResult = rateLimitMiddleware(request, rateLimitConfigs.auth);
+    if (rateLimitResult.limited) {
+      return rateLimitResult.response;
+    }
+    return NextResponse.next();
+  }
+  
+  // Apply more lenient rate limiting to session endpoints
+  if (isSessionEndpoint) {
+    const rateLimitResult = rateLimitMiddleware(request, rateLimitConfigs.session); // Use session rate limit
     if (rateLimitResult.limited) {
       return rateLimitResult.response;
     }

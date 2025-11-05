@@ -12,11 +12,64 @@ export function getPaynowInstance() {
 
   const paynow = new Paynow(integrationId, integrationKey);
   
-  // Set result and return URLs
-  paynow.resultUrl = process.env.PAYNOW_RESULT_URL || "";
-  paynow.returnUrl = process.env.PAYNOW_RETURN_URL || "";
+  // Set result and return URLs - REQUIRED by Paynow API
+  // resultUrl: Where Paynow posts transaction results (webhook)
+  // returnUrl: Where customer is redirected after payment
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
+  
+  paynow.resultUrl = process.env.PAYNOW_RESULT_URL || `${baseUrl}/api/payments/paynow/callback`;
+  paynow.returnUrl = process.env.PAYNOW_RETURN_URL || `${baseUrl}/payments/return`;
+
+  // Validate URLs are set (Paynow requires these fields)
+  if (!paynow.resultUrl || !paynow.returnUrl) {
+    throw new Error("PayNow resultUrl and returnUrl must be configured");
+  }
 
   return paynow;
+}
+
+/**
+ * Verify Paynow initiation response hash
+ * CRITICAL: Must verify hash before redirecting customer to Paynow
+ * According to Paynow API docs, hash verification is mandatory
+ */
+export function verifyInitiationHash(
+  pollUrl: string,
+  browserUrl: string,
+  status: string,
+  receivedHash: string
+): boolean {
+  try {
+    const integrationKey = process.env.PAYNOW_INTEGRATION_KEY;
+    if (!integrationKey) {
+      console.error("PayNow integration key not configured");
+      return false;
+    }
+
+    // Build hash string according to Paynow spec
+    // Hash is generated from: pollurl + browserurl + status
+    const hashString = `${pollUrl}${browserUrl}${status}`;
+
+    // Calculate hash using SHA512 HMAC
+    const calculatedHash = crypto
+      .createHmac("sha512", integrationKey)
+      .update(hashString)
+      .digest("hex")
+      .toUpperCase();
+
+    const isValid = calculatedHash === receivedHash.toUpperCase();
+
+    if (!isValid) {
+      console.error("PayNow initiation hash verification failed");
+      console.error("Expected hash:", calculatedHash);
+      console.error("Received hash:", receivedHash);
+    }
+
+    return isValid;
+  } catch (error) {
+    console.error("Hash verification error:", error);
+    return false;
+  }
 }
 
 /**
@@ -30,8 +83,33 @@ export async function createPayment(
 ) {
   const paynow = getPaynowInstance();
 
-  // Create a new payment
-  const payment = paynow.createPayment(invoiceId, email);
+  // In test mode, Paynow requires authemail to match merchant's registered email
+  // In production, authemail can be customer's email for auto-login
+  // CRITICAL: If PAYNOW_MERCHANT_EMAIL is set, we MUST use it in test mode
+  const merchantEmail = process.env.PAYNOW_MERCHANT_EMAIL?.trim();
+  
+  // If merchant email is configured, use it (required for test mode)
+  // Otherwise, use customer email (for production auto-login)
+  const authEmail = merchantEmail || email;
+
+  // Log which email is being used for debugging
+  console.log('[Paynow] Payment initiation:', {
+    invoiceId,
+    merchantEmail: merchantEmail || 'NOT SET - using customer email',
+    customerEmail: email,
+    authEmailUsed: authEmail,
+    integrationId: process.env.PAYNOW_INTEGRATION_ID,
+    envVarLoaded: !!merchantEmail,
+  });
+
+  // Warn if merchant email is not set in test mode
+  if (!merchantEmail) {
+    console.warn('[Paynow] WARNING: PAYNOW_MERCHANT_EMAIL is not set. In test mode, authemail must match merchant email.');
+    console.warn('[Paynow] Set PAYNOW_MERCHANT_EMAIL environment variable to your Paynow merchant email (e.g., hello@azaire.co.zw)');
+  }
+
+  // Create a new payment with authEmail
+  const payment = paynow.createPayment(invoiceId, authEmail);
 
   // Add item to the payment (USD only)
   payment.add(description, amount);
@@ -40,11 +118,29 @@ export async function createPayment(
     // Send payment to PayNow
     const response = await paynow.send(payment);
 
-    if (response.success) {
+    if (response.success && response.pollUrl && response.redirectUrl && response.hash) {
+      // CRITICAL: Verify hash before proceeding
+      // According to Paynow API docs: "It is vital that the merchant site verify 
+      // the hash value contained in the message before redirecting the Customer"
+      const isValidHash = verifyInitiationHash(
+        response.pollUrl,
+        response.redirectUrl,
+        "Ok", // Status should be "Ok" for successful initiation
+        response.hash
+      );
+
+      if (!isValidHash) {
+        console.error("PayNow initiation hash verification failed - security risk");
+        return {
+          success: false,
+          error: "Payment initiation hash verification failed",
+        };
+      }
+
       return {
         success: true,
         pollUrl: response.pollUrl,
-        redirectUrl: response.redirectUrl,
+        redirectUrl: response.redirectUrl, // This is BrowserUrl from Paynow
         hash: response.hash,
       };
     } else {

@@ -8,7 +8,11 @@ export function useAuth() {
 
   // Debug logging in development
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
+    // Check if we're in development (client-side check)
+    const isDevelopment = typeof window !== 'undefined' && 
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    
+    if (isDevelopment) {
       console.log('useAuth debug:', {
         hasSession: !!session,
         hasUser: !!session?.user,
@@ -17,7 +21,13 @@ export function useAuth() {
         userName: session?.user?.name,
         isPending,
         error: error?.message,
+        sessionData: session,
       });
+      
+      // Also log if user is null but not loading
+      if (!isPending && !session?.user) {
+        console.warn('useAuth: Session loaded but no user data found');
+      }
     }
   }, [session, isPending, error]);
 

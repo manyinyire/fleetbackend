@@ -50,6 +50,7 @@ const envSchema = z.object({
   // ============================================
   PAYNOW_INTEGRATION_ID: z.string().optional().or(z.literal('')),
   PAYNOW_INTEGRATION_KEY: z.string().optional().or(z.literal('')),
+  PAYNOW_MERCHANT_EMAIL: z.string().email().optional().or(z.literal('')), // Merchant's registered email (required in test mode)
   PAYNOW_RESULT_URL: z.string().url().optional().or(z.literal('')),
   PAYNOW_RETURN_URL: z.string().url().optional().or(z.literal('')),
 

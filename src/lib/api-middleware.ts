@@ -75,6 +75,41 @@ export function withTenantAuth(handler: ApiHandler) {
 
       return response;
     } catch (error) {
+      // Next.js redirect() throws a special error that should be handled differently in API routes
+      // Check if this is a redirect error (NEXT_REDIRECT)
+      if (error && typeof error === 'object' && 'digest' in error) {
+        const errorDigest = (error as any).digest;
+        if (typeof errorDigest === 'string' && errorDigest.startsWith('NEXT_REDIRECT')) {
+          // In API routes, convert redirect errors to JSON error responses
+          // Extract the redirect path from the error digest
+          const redirectMatch = errorDigest.match(/NEXT_REDIRECT;replace;(.+)/);
+          const redirectPath = redirectMatch ? redirectMatch[1] : '/auth/sign-in';
+          
+          // Log error
+          const duration = Date.now() - startTime;
+          apiLogger.error(
+            {
+              err: error,
+              method,
+              url,
+              duration,
+              redirectPath,
+            },
+            'API request failed - authentication required'
+          );
+
+          // Return JSON error response instead of redirecting
+          return NextResponse.json(
+            {
+              error: 'Authentication required',
+              code: 'AUTHENTICATION_ERROR',
+              redirectTo: redirectPath,
+            },
+            { status: 401 }
+          );
+        }
+      }
+
       // Log error
       const duration = Date.now() - startTime;
       apiLogger.error(
@@ -195,6 +230,16 @@ export function withErrorHandler(
 
       return response;
     } catch (error) {
+      // Next.js redirect() throws a special error that should be re-thrown
+      // Check if this is a redirect error (NEXT_REDIRECT)
+      if (error && typeof error === 'object' && 'digest' in error) {
+        const errorDigest = (error as any).digest;
+        if (typeof errorDigest === 'string' && errorDigest.startsWith('NEXT_REDIRECT')) {
+          // Re-throw redirect errors so Next.js can handle them properly
+          throw error;
+        }
+      }
+
       const duration = Date.now() - startTime;
       apiLogger.error(
         {
