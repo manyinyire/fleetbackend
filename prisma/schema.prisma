@@ -39,6 +39,8 @@ model Tenant {
   settings         TenantSettings?
   invoices         Invoice[]
   invoiceReminders InvoiceReminder[]
+  scheduledReports ScheduledReport[]
+  whiteLabel       WhiteLabel?
 
   @@map("tenants")
 }
@@ -783,4 +785,118 @@ enum ReminderType {
   THREE_DAYS
   ONE_DAY
   OVERDUE
+}
+
+// ============================================
+// SCHEDULED REPORTS (PREMIUM FEATURE)
+// ============================================
+
+model ScheduledReport {
+  id          String              @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  reportType  ReportType
+  frequency   ReportFrequency
+  format      ReportFormat[]
+  recipients  String[] // Email addresses
+  filters     Json? // Report-specific filters
+  isActive    Boolean             @default(true)
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  createdBy   String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  // Relationships
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runs   ReportRun[]
+
+  @@index([tenantId])
+  @@index([frequency])
+  @@index([nextRunAt])
+  @@map("scheduled_reports")
+}
+
+enum ReportType {
+  FINANCIAL_SUMMARY
+  VEHICLE_PERFORMANCE
+  DRIVER_PERFORMANCE
+  MAINTENANCE_SUMMARY
+  REMITTANCE_SUMMARY
+  CUSTOM
+}
+
+enum ReportFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+}
+
+enum ReportFormat {
+  PDF
+  CSV
+  EXCEL
+}
+
+model ReportRun {
+  id               String         @id @default(cuid())
+  scheduledReportId String
+  status           ReportRunStatus @default(PENDING)
+  startedAt        DateTime?
+  completedAt      DateTime?
+  error            String?
+  fileUrls         Json? // URLs to generated report files
+  createdAt        DateTime       @default(now())
+
+  // Relationships
+  scheduledReport ScheduledReport @relation(fields: [scheduledReportId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledReportId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("report_runs")
+}
+
+enum ReportRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+// ============================================
+// WHITE-LABELING (PREMIUM FEATURE)
+// ============================================
+
+model WhiteLabel {
+  id               String   @id @default(cuid())
+  tenantId         String   @unique
+  companyName      String
+  logo             String? // URL to logo
+  favicon          String? // URL to favicon
+  primaryColor     String   @default("#3b82f6") // Hex color
+  secondaryColor   String   @default("#1e40af") // Hex color
+  accentColor      String   @default("#10b981") // Hex color
+  customDomain     String?  @unique
+  customDomainVerified Boolean @default(false)
+  emailFromName    String?
+  emailFromAddress String?
+  supportEmail     String?
+  supportPhone     String?
+  termsUrl         String?
+  privacyUrl       String?
+  customCss        String?  @db.Text
+  customFooter     String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relationships
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([customDomain])
+  @@map("white_labels")
 }
