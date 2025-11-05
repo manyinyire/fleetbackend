@@ -2,10 +2,12 @@
  * Rate Limiting Utility
  *
  * Implements a sliding window rate limiter to prevent API abuse.
+ * Supports plan-based rate limiting for FREE, BASIC, and PREMIUM tiers.
  * Uses in-memory storage for development, can be extended to use Redis for production.
  */
 
 import { NextRequest } from 'next/server';
+import { SubscriptionPlan } from '@prisma/client';
 
 interface RateLimitConfig {
   interval: number; // Time window in milliseconds
@@ -53,6 +55,59 @@ export const rateLimitConfigs = {
   superAdmin: {
     interval: 60 * 1000, // 1 minute
     maxRequests: 30, // 30 requests per minute
+  },
+};
+
+/**
+ * Plan-based rate limit configurations
+ * Different limits for each subscription tier
+ */
+export const planRateLimitConfigs: Record<SubscriptionPlan, {
+  api: RateLimitConfig;
+  export: RateLimitConfig;
+  report: RateLimitConfig;
+}> = {
+  [SubscriptionPlan.FREE]: {
+    api: {
+      interval: 60 * 1000, // 1 minute
+      maxRequests: 30, // 30 requests per minute
+    },
+    export: {
+      interval: 60 * 60 * 1000, // 1 hour
+      maxRequests: 5, // 5 exports per hour
+    },
+    report: {
+      interval: 24 * 60 * 60 * 1000, // 24 hours
+      maxRequests: 10, // 10 reports per day
+    },
+  },
+  [SubscriptionPlan.BASIC]: {
+    api: {
+      interval: 60 * 1000, // 1 minute
+      maxRequests: 100, // 100 requests per minute
+    },
+    export: {
+      interval: 60 * 60 * 1000, // 1 hour
+      maxRequests: 20, // 20 exports per hour
+    },
+    report: {
+      interval: 24 * 60 * 60 * 1000, // 24 hours
+      maxRequests: 50, // 50 reports per day
+    },
+  },
+  [SubscriptionPlan.PREMIUM]: {
+    api: {
+      interval: 60 * 1000, // 1 minute
+      maxRequests: 300, // 300 requests per minute
+    },
+    export: {
+      interval: 60 * 60 * 1000, // 1 hour
+      maxRequests: 100, // 100 exports per hour (effectively unlimited)
+    },
+    report: {
+      interval: 24 * 60 * 60 * 1000, // 24 hours
+      maxRequests: 500, // 500 reports per day (effectively unlimited)
+    },
   },
 };
 
@@ -188,4 +243,45 @@ export async function rateLimit(
   config: RateLimitConfig = rateLimitConfigs.api
 ) {
   return rateLimitMiddleware(request, config);
+}
+
+/**
+ * Plan-based rate limiting for API routes
+ * Applies different limits based on subscription plan
+ *
+ * @param request - Next.js request object
+ * @param plan - User's subscription plan
+ * @param type - Type of operation (api, export, report)
+ * @returns Rate limit result
+ *
+ * @example
+ * ```ts
+ * export async function POST(request: NextRequest) {
+ *   const user = await getCurrentUser();
+ *   const tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId } });
+ *
+ *   const rateLimitResult = await rateLimitByPlan(request, tenant.plan, 'api');
+ *   if (rateLimitResult.limited) {
+ *     return rateLimitResult.response;
+ *   }
+ *
+ *   // Process request...
+ * }
+ * ```
+ */
+export async function rateLimitByPlan(
+  request: NextRequest,
+  plan: SubscriptionPlan = SubscriptionPlan.FREE,
+  type: 'api' | 'export' | 'report' = 'api'
+) {
+  const config = planRateLimitConfigs[plan][type];
+  return rateLimitMiddleware(request, config);
+}
+
+/**
+ * Get plan-based rate limit configuration
+ * Useful for displaying limits to users
+ */
+export function getPlanRateLimits(plan: SubscriptionPlan) {
+  return planRateLimitConfigs[plan];
 }

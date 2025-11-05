@@ -37,19 +37,25 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
   }
 
-  const { reference, paynowreference: paynowReference, amount, status } = body;
+    const { reference, paynowreference: paynowReference, amount, status } = body;
 
-  // Find the payment by reference (invoice number)
-  const invoice = await prisma.invoice.findUnique({
-    where: { invoiceNumber: reference },
-    include: {
-      tenant: {
-        include: {
-          users: {
-            take: 1,
-            orderBy: { createdAt: 'asc' },
-          },
+    // Find the invoice and associated payment
+    const invoice = await prisma.invoice.findUnique({
+      where: { invoiceNumber: reference },
+      include: {
+        tenant: {
+          include: {
+            users: {
+              take: 1,
+              orderBy: { createdAt: 'asc' }
+            }
+          }
         },
+        payments: {
+          where: { status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          take: 1
+        }
       },
     },
   });
@@ -113,21 +119,69 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       'Payment not confirmed as paid'
     );
 
-    // TODO: Update payment status when Payment model is created
-    // await prisma.payment.update({
-    //   where: { id: payment.id },
-    //   data: {
-    //     status: "FAILED",
-    //     errorMessage: `Payment status: ${statusCheck.status}`,
-    //     paymentMetadata: statusCheck,
-    //   },
-    // });
+    // Find the payment record
+    const payment = invoice.payments[0];
 
-    return NextResponse.json({
-      success: false,
-      message: 'Payment not confirmed',
-    });
-  }
+    if (!payment) {
+      console.error("Payment record not found for invoice:", reference);
+      return NextResponse.json(
+        { error: "Payment record not found" },
+        { status: 404 }
+      );
+    }
+
+    // SECURITY CHECK 2: Double-check payment status with PayNow servers
+    // NEVER trust webhook data alone - always verify with the payment gateway
+    if (!payment.pollUrl) {
+      console.error("No poll URL for payment:", payment.id);
+      return NextResponse.json(
+        { error: "Cannot verify payment - no poll URL" },
+        { status: 400 }
+      );
+    }
+
+    // Verify payment status with PayNow
+    const statusCheck = await checkPaymentStatus(payment.pollUrl);
+
+    if (!statusCheck.success) {
+      console.error("Payment status check failed:", statusCheck.error);
+
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: "FAILED",
+          errorMessage: statusCheck.error || "Payment verification failed",
+          paymentMetadata: statusCheck
+        }
+      });
+
+      return NextResponse.json(
+        { error: "Payment verification failed" },
+        { status: 500 }
+      );
+    }
+
+    // SECURITY CHECK 3: Verify payment is actually paid
+    if (!statusCheck.paid || statusCheck.status !== "Paid") {
+      console.warn("Payment not confirmed as paid:", {
+        paid: statusCheck.paid,
+        status: statusCheck.status,
+      });
+
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: "FAILED",
+          errorMessage: `Payment status: ${statusCheck.status}`,
+          paymentMetadata: statusCheck
+        }
+      });
+
+      return NextResponse.json({
+        success: false,
+        message: "Payment not confirmed",
+      });
+    }
 
   // SECURITY CHECK 4: Verify amount matches
   const expectedAmount = Number(invoice.amount);
@@ -138,75 +192,72 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       {
         expected: expectedAmount,
         paid: paidAmount,
-      },
-      'Amount mismatch'
+      });
+
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: "FAILED",
+          errorMessage: `Amount mismatch: expected ${expectedAmount}, got ${paidAmount}`,
+          paymentMetadata: statusCheck
+        }
+      });
+
+      return NextResponse.json(
+        { error: "Payment amount mismatch" },
+        { status: 400 }
+      );
+    }
+
+    // Generate verification hash for internal records
+    const verificationHash = generatePaymentVerificationHash(
+      payment.id,
+      amount,
+      paynowReference
     );
 
-    // TODO: Update payment status when Payment model is created
-    // await prisma.payment.update({
-    //   where: { id: payment.id },
-    //   data: {
-    //     status: "FAILED",
-    //     errorMessage: `Amount mismatch: expected ${expectedAmount}, got ${paidAmount}`,
-    //     paymentMetadata: statusCheck,
-    //   },
-    // });
-
-    return NextResponse.json(
-      { error: 'Payment amount mismatch' },
-      { status: 400 }
-    );
-  }
-
-  // Generate verification hash for internal records
-  const verificationHash = generatePaymentVerificationHash(
-    invoice.id, // Using invoice ID temporarily
-    amount,
-    paynowReference
-  );
-
-  // TODO: Create Payment model and update payment record
-  // ALL CHECKS PASSED - Now we can safely process the payment
-  // const updatedPayment = await prisma.payment.update({
-  //   where: { id: payment.id },
-  //   data: {
-  //     status: "PAID",
-  //     verified: true,
-  //     verifiedAt: new Date(),
-  //     paynowReference: paynowReference,
-  //     verificationHash,
-  //     paymentMetadata: statusCheck,
-  //   },
-  // });
-  const updatedPayment = { id: invoice.id, paynowReference, verificationHash }; // Temporary mock
-
-  // Update invoice status
-  await prisma.invoice.update({
-    where: { id: invoice.id },
-    data: {
-      status: 'PAID',
-      paidAt: new Date(),
-    },
-  });
-
-  // Create audit log with analytics flag
-  await prisma.auditLog.create({
-    data: {
-      userId: invoice.tenant.users[0]?.id || 'system',
-      tenantId: invoice.tenantId,
-      action: 'PAYMENT_CONFIRMED',
-      entityType: 'Payment',
-      entityId: invoice.id, // Using invoice ID temporarily
-      details: {
-        invoiceId: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        amount: amount,
-        paynowReference: paynowReference,
+    // ALL CHECKS PASSED - Now we can safely process the payment
+    const updatedPayment = await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: "PAID",
         verified: true,
-        analytics: {
-          event: 'purchase',
-          value: Number(amount),
-          currency: invoice.currency,
+        verifiedAt: new Date(),
+        paynowReference: paynowReference,
+        verificationHash,
+        paymentMetadata: statusCheck
+      }
+    });
+
+    // Update invoice status
+    await prisma.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        status: "PAID",
+        paidAt: new Date(),
+      },
+    });
+
+    // Create audit log with analytics flag
+    await prisma.auditLog.create({
+      data: {
+        userId: invoice.tenant.users[0]?.id || "system",
+        tenantId: invoice.tenantId,
+        action: "PAYMENT_CONFIRMED",
+        entityType: "Payment",
+        entityId: payment.id,
+        details: {
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          paymentId: payment.id,
+          amount: amount,
+          paynowReference: paynowReference,
+          verified: true,
+          analytics: {
+            event: "purchase",
+            value: Number(amount),
+            currency: invoice.currency,
+          },
         },
       },
       ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
@@ -237,10 +288,9 @@ async function performAutoActions(invoice: any, payment: any) {
 
     // Auto-upgrade if this is an upgrade invoice
     if (
-      invoice.type === 'UPGRADE' &&
-      invoice.plan
-      // TODO: Add upgradeActioned check when Payment model is created
-      // && !payment.upgradeActioned
+      invoice.type === "UPGRADE" &&
+      invoice.plan &&
+      !payment.upgradeActioned
     ) {
       const tenant = await prisma.tenant.findUnique({
         where: { id: invoice.tenantId },
@@ -295,9 +345,8 @@ async function performAutoActions(invoice: any, payment: any) {
 
     // Auto-unsuspend if account was suspended
     if (
-      invoice.tenant.status === 'SUSPENDED'
-      // TODO: Add unsuspendActioned check when Payment model is created
-      // && !payment.unsuspendActioned
+      invoice.tenant.status === "SUSPENDED" &&
+      !payment.unsuspendActioned
     ) {
       await prisma.tenant.update({
         where: { id: invoice.tenantId },
@@ -331,9 +380,7 @@ async function performAutoActions(invoice: any, payment: any) {
     }
 
     // Send payment confirmation email with invoice
-    // TODO: Add emailSent check when Payment model is created
-    // if (!payment.emailSent) {
-    {
+    if (!payment.emailSent) {
       const invoicePdf = await generateInvoicePdf(invoice.id);
       const emailResult = await sendPaymentConfirmationEmail(
         invoice.tenant.email,
@@ -356,9 +403,7 @@ async function performAutoActions(invoice: any, payment: any) {
     }
 
     // Send admin notification
-    // TODO: Add adminNotified check when Payment model is created
-    // if (!payment.adminNotified) {
-    {
+    if (!payment.adminNotified) {
       const adminAlertResult = await sendAdminPaymentAlert(
         invoice.tenant.name,
         invoice.invoiceNumber,
@@ -374,16 +419,16 @@ async function performAutoActions(invoice: any, payment: any) {
       }
     }
 
-    // TODO: Update payment record with action statuses when Payment model is created
-    // await prisma.payment.update({
-    //   where: { id: payment.id },
-    //   data: {
-    //     upgradeActioned: actionsPerformed.upgraded || payment.upgradeActioned,
-    //     unsuspendActioned: actionsPerformed.unsuspended || payment.unsuspendActioned,
-    //     emailSent: actionsPerformed.emailSent || payment.emailSent,
-    //     adminNotified: actionsPerformed.adminNotified || payment.adminNotified,
-    //   },
-    // });
+    // Update payment record with action statuses
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        upgradeActioned: actionsPerformed.upgraded || payment.upgradeActioned,
+        unsuspendActioned: actionsPerformed.unsuspended || payment.unsuspendActioned,
+        emailSent: actionsPerformed.emailSent || payment.emailSent,
+        adminNotified: actionsPerformed.adminNotified || payment.adminNotified
+      }
+    });
 
     return actionsPerformed;
   } catch (error) {
@@ -405,28 +450,34 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     );
   }
 
-  const invoice = await prisma.invoice.findUnique({
-    where: { invoiceNumber: reference },
-    // TODO: Include payments when Payment model is created
-    // include: {
-    //   payments: {
-    //     orderBy: { createdAt: "desc" },
-    //     take: 1,
-    //   },
-    // },
-  });
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { invoiceNumber: reference },
+      include: {
+        payments: {
+          orderBy: { createdAt: "desc" },
+          take: 1
+        }
+      }
+    });
 
   if (!invoice) {
     return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
   }
 
-  // TODO: Get payment when Payment model is created
-  // const payment = invoice.payments[0];
+    const payment = invoice.payments[0];
 
-  return NextResponse.json({
-    invoiceStatus: invoice.status,
-    // paymentStatus: payment?.status,
-    // verified: payment?.verified,
-    amount: invoice.amount,
-  });
-});
+    return NextResponse.json({
+      invoiceStatus: invoice.status,
+      paymentStatus: payment?.status,
+      verified: payment?.verified,
+      amount: invoice.amount
+    });
+  } catch (error) {
+    console.error("Payment status check error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}

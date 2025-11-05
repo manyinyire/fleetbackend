@@ -1,7 +1,9 @@
-import { NextRequest } from 'next/server';
-import { withTenantAuth, successResponse, validateBody } from '@/lib/api-middleware';
-import { createPayment } from '@/lib/paynow';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { createPayment, generatePaymentVerificationHash } from "@/lib/paynow";
+import { auth } from "@/lib/auth-server";
+import { paymentInitiateSchema } from "@/lib/validations";
+import { createErrorResponse } from "@/lib/errors";
 
 // Validation schema for payment initiation
 const initiatePaymentSchema = z.object({
@@ -11,15 +13,16 @@ const initiatePaymentSchema = z.object({
 export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) => {
   const data = await validateBody(request, initiatePaymentSchema);
 
-  // Get invoice details
-  const invoice = await prisma.invoice.findUnique({
-    where: { id: data.invoiceId },
-    include: { tenant: true },
-  });
+    const body = await request.json();
 
-  if (!invoice) {
-    return successResponse({ error: 'Invoice not found' }, 404);
-  }
+    // Validate input
+    const { invoiceId } = paymentInitiateSchema.parse(body);
+
+    // Get invoice details
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: { tenant: true },
+    });
 
   // Verify user has access to this invoice
   if (user.role !== 'SUPER_ADMIN' && tenantId !== invoice.tenantId) {
@@ -46,54 +49,66 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
     );
   }
 
-  // TODO: Create Payment model in schema
-  // Once Payment model exists, create payment record:
-  // const payment = await prisma.payment.create({
-  //   data: {
-  //     tenantId: invoice.tenantId,
-  //     invoiceId: invoice.id,
-  //     amount: invoice.amount,
-  //     currency: invoice.currency,
-  //     gateway: "PAYNOW",
-  //     pollUrl: paynowResponse.pollUrl,
-  //     status: "PENDING",
-  //     verified: false,
-  //     paymentMetadata: {
-  //       hash: paynowResponse.hash,
-  //       redirectUrl: paynowResponse.redirectUrl,
-  //     },
-  //   },
-  // });
+    if (!paynowResponse.success) {
+      return NextResponse.json(
+        { error: paynowResponse.error || "Payment initiation failed" },
+        { status: 500 }
+      );
+    }
 
-  // Log the payment initiation
-  await prisma.auditLog.create({
-    data: {
-      userId: user.id,
-      tenantId: invoice.tenantId,
-      action: 'PAYMENT_INITIATED',
-      entityType: 'Payment',
-      entityId: invoice.id, // Using invoice ID temporarily until Payment model exists
-      details: {
+    // Create payment record in database
+    const payment = await prisma.payment.create({
+      data: {
+        tenantId: invoice.tenantId,
         invoiceId: invoice.id,
+        amount: invoice.amount,
+        currency: invoice.currency,
+        paymentMethod: "paynow",
+        pollUrl: paynowResponse.pollUrl,
+        redirectUrl: paynowResponse.redirectUrl,
+        status: "PENDING",
+        verified: false,
+        paymentMetadata: {
+          hash: paynowResponse.hash,
+          initiatedBy: session.user.id
+        }
+      }
+    });
+
+    // Log the payment initiation
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        tenantId: invoice.tenantId,
+        action: "PAYMENT_INITIATED",
+        entityType: "Payment",
+        entityId: payment.id,
+        details: {
+          paymentId: payment.id,
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          amount: invoice.amount.toString(),
+          paymentId: payment.id,
+          gateway: "PAYNOW",
+          gaTracked: true,
+        },
+        ipAddress: request.headers.get("x-forwarded-for") || "unknown",
+        userAgent: request.headers.get("user-agent") || "unknown",
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      paymentId: payment.id,
+      redirectUrl: paynowResponse.redirectUrl,
+      pollUrl: paynowResponse.pollUrl,
+      analytics: {
         invoiceNumber: invoice.invoiceNumber,
         amount: invoice.amount.toString(),
         gaTracked: true, // Client-side will track
       },
-      ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-      userAgent: request.headers.get('user-agent') || 'unknown',
-    },
-  });
-
-  return successResponse({
-    success: true,
-    paymentId: invoice.id, // Using invoice ID temporarily until Payment model exists
-    redirectUrl: paynowResponse.redirectUrl,
-    pollUrl: paynowResponse.pollUrl,
-    // Return tracking info for client-side analytics
-    analytics: {
-      invoiceNumber: invoice.invoiceNumber,
-      amount: Number(invoice.amount),
-      currency: invoice.currency,
-    },
-  });
-});
+    });
+  } catch (error) {
+    return createErrorResponse(error);
+  }
+}

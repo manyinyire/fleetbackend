@@ -23,6 +23,7 @@ import {
   UserIcon as UserIconBase,
   BookOpenIcon as BookOpenIconBase,
   QuestionMarkCircleIcon as QuestionMarkCircleIconBase,
+  RectangleStackIcon as RectangleStackIconBase,
 } from "@heroicons/react/24/outline";
 
 export const ArrowLeftIcon = ArrowLeftIconBase;
@@ -49,3 +50,4 @@ export const ClipboardDocumentListIcon = ClipboardDocumentListIconBase;
 export const UserIcon = UserIconBase;
 export const BookOpenIcon = BookOpenIconBase;
 export const QuestionMarkCircleIcon = QuestionMarkCircleIconBase;
+export const RectangleStackIcon = RectangleStackIconBase;

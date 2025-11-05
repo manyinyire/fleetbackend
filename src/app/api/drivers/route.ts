@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withTenantAuth, successResponse, validateBody, getPaginationFromRequest, paginationResponse } from '@/lib/api-middleware';
-import { config } from '@/lib/config';
-import { z } from 'zod';
+import { requireTenant } from '@/lib/auth-helpers';
+import { getTenantPrisma } from '@/lib/get-tenant-prisma';
+import { setTenantContext } from '@/lib/tenant';
+import { PremiumFeatureService } from '@/lib/premium-features';
 
 // Validation schema for creating a driver
 const createDriverSchema = z.object({
@@ -75,8 +76,31 @@ export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
     prisma.driver.count({ where }),
   ]);
 
-  return successResponse(paginationResponse(drivers, total, page, limit));
-});
+export async function POST(request: NextRequest) {
+  try {
+    const { user, tenantId } = await requireTenant();
+    const data = await request.json();
+
+    // Check if tenant can add more drivers (premium feature check)
+    const featureCheck = await PremiumFeatureService.canAddDriver(tenantId);
+
+    if (!featureCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: featureCheck.reason,
+          currentUsage: featureCheck.currentUsage,
+          limit: featureCheck.limit,
+          suggestedPlan: featureCheck.suggestedPlan,
+          upgradeMessage: featureCheck.upgradeMessage,
+        },
+        { status: 403 }
+      );
+    }
+
+    // Set RLS context
+    if (tenantId) {
+      await setTenantContext(tenantId);
+    }
 
 export const POST = withTenantAuth(async ({ prisma, tenantId, request }) => {
   const data = await validateBody(request, createDriverSchema);

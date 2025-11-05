@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/auth-helpers';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { PrismaClient } from '@prisma/client';
+import { PremiumFeatureService } from '@/lib/premium-features';
 
 const prisma = new PrismaClient();
 
@@ -156,6 +157,23 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: 'Tenant not found' },
           { status: 400 }
+        );
+      }
+
+      // Check if tenant can add more users (premium feature check)
+      const isAdmin = role === 'TENANT_ADMIN' || role === 'admin';
+      const featureCheck = await PremiumFeatureService.canAddUser(tenantId, isAdmin);
+
+      if (!featureCheck.allowed) {
+        return NextResponse.json(
+          {
+            error: featureCheck.reason,
+            currentUsage: featureCheck.currentUsage,
+            limit: featureCheck.limit,
+            suggestedPlan: featureCheck.suggestedPlan,
+            upgradeMessage: featureCheck.upgradeMessage,
+          },
+          { status: 403 }
         );
       }
     }

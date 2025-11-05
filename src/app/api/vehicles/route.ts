@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withTenantAuth, successResponse, validateBody, getPaginationFromRequest, paginationResponse } from '@/lib/api-middleware';
-import { z } from 'zod';
+import { requireTenant } from '@/lib/auth-helpers';
+import { getTenantPrisma } from '@/lib/get-tenant-prisma';
+import { setTenantContext } from '@/lib/tenant';
+import { PremiumFeatureService } from '@/lib/premium-features';
 
 // Validation schema for creating a vehicle
 const createVehicleSchema = z.object({
@@ -77,25 +79,59 @@ export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
     prisma.vehicle.count({ where }),
   ]);
 
-  return successResponse(paginationResponse(vehicles, total, page, limit));
-});
+    return NextResponse.json(vehicles);
+  } catch (error) {
+    return createErrorResponse(error);
+  }
+}
 
-export const POST = withTenantAuth(async ({ prisma, tenantId, request }) => {
-  const data = await validateBody(request, createVehicleSchema);
+export async function POST(request: NextRequest) {
+  try {
+    const { user, tenantId } = await requireTenant();
+    const data = await request.json();
 
-  // Check for duplicate registration number
-  const existing = await prisma.vehicle.findFirst({
-    where: {
-      tenantId: tenantId,
-      registrationNumber: data.registrationNumber,
-    },
-  });
+    // Check if tenant can add more vehicles (premium feature check)
+    const featureCheck = await PremiumFeatureService.canAddVehicle(tenantId);
 
-  if (existing) {
-    return NextResponse.json(
-      { error: `A vehicle with registration number "${data.registrationNumber}" already exists` },
-      { status: 409 }
-    );
+    if (!featureCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: featureCheck.reason,
+          currentUsage: featureCheck.currentUsage,
+          limit: featureCheck.limit,
+          suggestedPlan: featureCheck.suggestedPlan,
+          upgradeMessage: featureCheck.upgradeMessage,
+        },
+        { status: 403 }
+      );
+    }
+
+    // Set RLS context
+    if (tenantId) {
+      await setTenantContext(tenantId);
+    }
+
+    // Get scoped Prisma client
+    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
+
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        registrationNumber: data.registrationNumber,
+        make: data.make,
+        model: data.model,
+        year: data.year,
+        type: data.type,
+        initialCost: data.initialCost,
+        currentMileage: data.currentMileage || 0,
+        status: data.status || 'ACTIVE',
+        paymentModel: data.paymentModel,
+        paymentConfig: data.paymentConfig,
+      }
+    });
+
+    return NextResponse.json(vehicle);
+  } catch (error) {
+    return createErrorResponse(error);
   }
 
   const vehicle = await prisma.vehicle.create({
