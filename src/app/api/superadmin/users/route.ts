@@ -1,92 +1,118 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
-import { PrismaClient } from '@prisma/client';
+import { withErrorHandler, parsePaginationParams, paginatedResponse, calculateSkip, buildOrderBy } from '@/lib/api';
+import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/prisma';
+import { z } from 'zod';
 
-const prisma = new PrismaClient();
+const createUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1),
+  role: z.string().optional(),
+  tenantId: z.string().cuid().optional(),
+});
 
-export async function GET(request: NextRequest) {
-  try {
-    // Require super admin role
-    await requireRole('SUPER_ADMIN');
+export const GET = withErrorHandler(async (request: NextRequest) => {
+  // Require super admin role
+  await requireRole('SUPER_ADMIN');
 
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '25');
-    const search = searchParams.get('search') || '';
-    const role = searchParams.get('role') || '';
-    const tenantId = searchParams.get('tenantId') || '';
-    const sortBy = searchParams.get('sortBy') || 'createdAt';
-    const sortOrder = searchParams.get('sortOrder') || 'desc';
+  const { searchParams } = new URL(request.url);
 
-    const offset = (page - 1) * limit;
+  // Parse pagination parameters
+  const { page = 1, limit = 25, sortBy = 'createdAt', sortOrder = 'desc' } = parsePaginationParams(searchParams);
+  const skip = calculateSkip(page, limit);
 
-    // Use BetterAuth admin plugin to list users
-    const headersList = await headers();
-    const usersResult = await auth.api.listUsers({
-      query: {
-        searchValue: search,
-        searchField: search ? 'name' : undefined,
-        searchOperator: 'contains',
-        limit: limit.toString(),
-        offset: offset.toString(),
-        sortBy: sortBy === 'createdAt' ? undefined : sortBy, // BetterAuth may not support createdAt sorting
-        sortDirection: sortOrder as 'asc' | 'desc',
-        filterField: role ? 'role' : tenantId ? 'tenantId' : undefined,
-        filterValue: role || tenantId || undefined,
-        filterOperator: 'eq',
-      },
-      headers: headersList,
-    });
+  // Parse filter parameters
+  const search = searchParams.get('search') || '';
+  const role = searchParams.get('role') || '';
+  const tenantId = searchParams.get('tenantId') || '';
 
-    // Enhance with tenant information and additional metrics
-    const usersWithTenant = await Promise.all(
-      usersResult.users.map(async (user: any) => {
-        const fullUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          include: {
-            tenant: {
-              select: {
-                id: true,
-                name: true,
-                slug: true
-              }
-            },
-            sessions: {
-              select: {
-                createdAt: true,
-                expiresAt: true
-              },
-              orderBy: { createdAt: 'desc' },
-              take: 1
-            }
+  // Build where clause
+  const where: any = {};
+
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  if (role) {
+    where.role = role;
+  }
+
+  if (tenantId) {
+    where.tenantId = tenantId;
+  }
+
+  // Execute single query with all includes - NO N+1!
+  const [users, total] = await prisma.$transaction([
+    prisma.user.findMany({
+      where,
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            status: true,
           }
-        });
+        },
+        sessions: {
+          select: {
+            createdAt: true,
+            expiresAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        _count: {
+          select: {
+            sessions: true,
+          }
+        }
+      },
+      orderBy: buildOrderBy(sortBy, sortOrder),
+      skip,
+      take: limit,
+    }),
+    prisma.user.count({ where }),
+  ]);
 
-        const lastLogin = fullUser?.sessions[0]?.createdAt || null;
-        const isActive = lastLogin && new Date(lastLogin) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  // Transform users with calculated fields
+  const usersWithMetrics = users.map(user => {
+    const lastLogin = user.sessions[0]?.createdAt || null;
+    const isActive = lastLogin && new Date(lastLogin) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-        return {
-          ...user,
-          lastLogin,
-          isActive,
-          tenantName: fullUser?.tenant?.name || 'No Tenant',
-          tenantSlug: fullUser?.tenant?.slug || null,
-          tenantId: fullUser?.tenantId || null
-        };
-      })
-    );
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      emailVerified: user.emailVerified,
+      createdAt: user.createdAt,
+      lastLogin,
+      isActive,
+      banned: user.banned,
+      banReason: user.banReason,
+      tenantId: user.tenantId,
+      tenantName: user.tenant?.name || 'No Tenant',
+      tenantSlug: user.tenant?.slug || null,
+      tenantStatus: user.tenant?.status || null,
+      totalSessions: user._count.sessions,
+    };
+  });
 
-    // Get summary statistics
-    const roleStats = await prisma.user.groupBy({
+  // Get summary statistics in parallel
+  const [roleStats, activeUsersCount, bannedUsersCount] = await Promise.all([
+    prisma.user.groupBy({
       by: ['role'],
-      _count: { role: true }
-    });
-
-    // Calculate active users (logged in within last 7 days)
-    const activeUsers = await prisma.user.count({
+      _count: { role: true },
+      where: where.OR ? undefined : where, // Apply same filters except search
+    }),
+    prisma.user.count({
       where: {
+        ...where,
         sessions: {
           some: {
             createdAt: {
@@ -95,127 +121,62 @@ export async function GET(request: NextRequest) {
           }
         }
       }
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        users: usersWithTenant,
-        pagination: {
-          page,
-          limit,
-          total: usersResult.total,
-          pages: Math.ceil(usersResult.total / limit)
-        },
-        stats: {
-          total: usersResult.total,
-          active: activeUsers,
-          superAdmins: roleStats.find(r => r.role === 'SUPER_ADMIN')?._count.role || 0,
-          tenantAdmins: roleStats.find(r => r.role === 'TENANT_ADMIN')?._count.role || 0,
-          fleetManagers: roleStats.find(r => r.role === 'FLEET_MANAGER')?._count.role || 0,
-          drivers: roleStats.find(r => r.role === 'DRIVER')?._count.role || 0,
-          regularUsers: roleStats.find(r => r.role === 'USER')?._count.role || 0
-        }
+    }),
+    prisma.user.count({
+      where: {
+        ...where,
+        banned: true
       }
-    });
+    })
+  ]);
 
-  } catch (error) {
-    console.error('Users fetch error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch users' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
-  }
-}
+  logger.info({
+    page,
+    limit,
+    total,
+    filters: { search, role, tenantId }
+  }, 'Fetched users list');
 
-export async function POST(request: NextRequest) {
-  try {
-    // Require super admin role
-    const user = await requireRole('SUPER_ADMIN');
-
-    const data = await request.json();
-    const { name, email, password, role, tenantId } = data;
-
-    // Validate required fields
-    if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: 'Name, email, and password are required' },
-        { status: 400 }
-      );
+  return NextResponse.json({
+    users: usersWithMetrics,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      hasMore: page < Math.ceil(total / limit),
+    },
+    summary: {
+      total,
+      active: activeUsersCount,
+      banned: bannedUsersCount,
+      byRole: roleStats.map(stat => ({
+        role: stat.role || 'NO_ROLE',
+        count: stat._count.role
+      }))
     }
+  });
+}, 'superadmin-users:GET');
 
-    // Validate tenant if provided
-    if (tenantId) {
-      const tenant = await prisma.tenant.findUnique({
-        where: { id: tenantId }
-      });
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  // Require super admin role
+  await requireRole('SUPER_ADMIN');
 
-      if (!tenant) {
-        return NextResponse.json(
-          { error: 'Tenant not found' },
-          { status: 400 }
-        );
-      }
-    }
+  const body = await request.json();
+  const validatedData = createUserSchema.parse(body);
 
-    // Use BetterAuth admin plugin to create user
-    const headersList = await headers();
-    const newUser = await auth.api.createUser({
-      body: {
-        email,
-        password,
-        name,
-        role: role || 'USER',
-        data: {
-          tenantId: tenantId || null
-        }
-      },
-      headers: headersList,
-    });
+  // Create user through better-auth would be ideal, but for now create directly
+  const user = await prisma.user.create({
+    data: {
+      email: validatedData.email,
+      name: validatedData.name,
+      role: validatedData.role || 'USER',
+      tenantId: validatedData.tenantId || null,
+      emailVerified: false,
+    },
+  });
 
-    // Log the creation
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'USER_CREATED',
-        entityType: 'User',
-        entityId: newUser.user.id,
-        newValues: {
-          name: newUser.user.name,
-          email: newUser.user.email,
-          role: role || 'USER',
-          tenantId: tenantId || null
-        },
-        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-        userAgent: request.headers.get('user-agent') || 'unknown'
-      }
-    });
+  logger.info({ userId: user.id, email: user.email }, 'User created by super admin');
 
-    // Get tenant info if exists
-    const tenant = tenantId ? await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { id: true, name: true, slug: true }
-    }) : null;
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...newUser,
-        tenantName: tenant?.name || 'No Tenant',
-        tenantSlug: tenant?.slug || null,
-        tenantId: tenantId || null
-      }
-    });
-
-  } catch (error: any) {
-    console.error('User creation error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to create user' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
-  }
-}
+  return NextResponse.json(user, { status: 201 });
+}, 'superadmin-users:POST');
