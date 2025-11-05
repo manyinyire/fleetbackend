@@ -20,6 +20,8 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("general");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
   const tabs = [
     { id: "general", name: "General", icon: Cog6ToothIcon },
@@ -33,7 +35,8 @@ export default function SettingsPage() {
     { id: "cloud", name: "Cloud", icon: CloudIcon }
   ];
 
-  const [settings, setSettings] = useState({
+  // Define initial settings structure
+  const getInitialSettings = () => ({
     general: [
       {
         title: "Platform Name",
@@ -76,11 +79,11 @@ export default function SettingsPage() {
     branding: [
       {
         title: "Platform Logo",
-        description: "Logo URL or base64 image for the platform (system-wide branding)",
+        description: "Upload a logo for the platform (system-wide branding). Recommended: PNG, SVG, or JPG (max 5MB)",
         value: "",
-        type: "text",
+        type: "file",
         key: "platformLogo",
-        placeholder: "https://example.com/logo.png or data:image/png;base64,..."
+        accept: "image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
       }
     ],
     business: [
@@ -206,6 +209,8 @@ export default function SettingsPage() {
     ]
   });
 
+  const [settings, setSettings] = useState(getInitialSettings());
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -216,19 +221,78 @@ export default function SettingsPage() {
       const response = await superAdminAPI.getSettings() as { success: boolean; data?: any };
       if (response.success && response.data) {
         const data = response.data;
+        const initialSettings = getInitialSettings();
         setSettings({
-          general: settings.general.map(s => ({ ...s, value: data[s.key] ?? s.value })),
-          branding: settings.branding.map(s => ({ ...s, value: data[s.key] ?? s.value })),
-          business: settings.business.map(s => ({ ...s, value: data[s.key] ?? s.value })),
-          invoice: settings.invoice.map(s => ({ ...s, value: data[s.key] ?? s.value })),
-          security: settings.security.map(s => ({ ...s, value: data[s.key] ?? s.value })),
-          notifications: settings.notifications.map(s => ({ ...s, value: data[s.key] ?? s.value }))
+          general: initialSettings.general.map(s => ({ ...s, value: data[s.key] ?? s.value })),
+          branding: initialSettings.branding.map(s => ({ ...s, value: data[s.key] ?? s.value })),
+          business: initialSettings.business.map(s => ({ ...s, value: data[s.key] ?? s.value })),
+          invoice: initialSettings.invoice.map(s => ({ ...s, value: data[s.key] ?? s.value })),
+          security: initialSettings.security.map(s => ({ ...s, value: data[s.key] ?? s.value })),
+          notifications: initialSettings.notifications.map(s => ({ ...s, value: data[s.key] ?? s.value }))
         });
+        
+        // Set logo preview if logo exists
+        if (data.platformLogo) {
+          setLogoPreview(data.platformLogo);
+        }
       }
     } catch (err) {
       console.error("Error loading settings:", err);
+      toast.error("Failed to load settings");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    try {
+      setUploadingLogo(true);
+      
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/platform/logo', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast.success("Logo uploaded successfully");
+        // Update logo preview
+        setLogoPreview(data.url);
+        // Reload settings to get updated logo
+        await loadSettings();
+      } else {
+        toast.error(data.error || "Failed to upload logo");
+      }
+    } catch (err: any) {
+      console.error("Error uploading logo:", err);
+      toast.error(err?.message || "Failed to upload logo");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleLogoDelete = async () => {
+    try {
+      const response = await fetch('/api/platform/logo/delete', {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast.success("Logo deleted successfully");
+        setLogoPreview(null);
+        await loadSettings();
+      } else {
+        toast.error(data.error || "Failed to delete logo");
+      }
+    } catch (err: any) {
+      console.error("Error deleting logo:", err);
+      toast.error(err?.message || "Failed to delete logo");
     }
   };
 
@@ -238,19 +302,26 @@ export default function SettingsPage() {
       const settingsData: any = {};
       
       [...settings.general, ...settings.branding, ...settings.business, ...settings.invoice, ...settings.security, ...settings.notifications].forEach(setting => {
-        if (setting.key) {
+        if (setting.key && setting.type !== 'file') {
+          // Include all values, even empty strings, to allow clearing fields
+          // Skip file type settings as they're handled separately
           settingsData[setting.key] = setting.value;
         }
       });
 
+      console.log("Saving settings:", settingsData); // Debug log
+
       const response = await superAdminAPI.updateSettings(settingsData) as { success: boolean; error?: string };
       if (response.success) {
         toast.success("Settings saved successfully");
+        // Reload settings to verify they were saved
+        await loadSettings();
       } else {
-        toast.error("Failed to save settings");
+        toast.error(response.error || "Failed to save settings");
       }
-    } catch (err) {
-      toast.error("Failed to save settings");
+    } catch (err: any) {
+      console.error("Error saving settings:", err);
+      toast.error(err?.message || "Failed to save settings");
     } finally {
       setSaving(false);
     }
@@ -333,6 +404,57 @@ export default function SettingsPage() {
             />
           </button>
         );
+      case "file":
+        if (setting.key === "platformLogo") {
+          return (
+            <div className="space-y-4">
+              {logoPreview && (
+                <div className="relative">
+                  <img
+                    src={logoPreview}
+                    alt="Platform Logo"
+                    className="h-20 w-auto object-contain border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700"
+                  />
+                  <button
+                    onClick={handleLogoDelete}
+                    disabled={uploadingLogo}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 disabled:opacity-50"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-4">
+                <label className="flex-1 cursor-pointer">
+                  <input
+                    type="file"
+                    accept={setting.accept || "image/*"}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleLogoUpload(file);
+                      }
+                    }}
+                    disabled={uploadingLogo}
+                    className="hidden"
+                  />
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors">
+                    {uploadingLogo ? (
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Uploading...</span>
+                    ) : (
+                      <>
+                        <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Click to upload</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400"> or drag and drop</span>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">PNG, JPG, SVG or WEBP (max 5MB)</p>
+                      </>
+                    )}
+                  </div>
+                </label>
+              </div>
+            </div>
+          );
+        }
+        return null;
       default:
         return null;
     }

@@ -24,7 +24,7 @@ interface PlanInfo {
 
 export function UserInfo() {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, error } = useAuth();
   const router = useRouter();
   const [currentPlan, setCurrentPlan] = useState<PlanInfo | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(true);
@@ -58,6 +58,27 @@ export function UserInfo() {
     router.push('/login');
   };
 
+  // Show loading state while session is being fetched
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-3">
+        <div className="size-12 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700" />
+      </div>
+    );
+  }
+
+  // If no user after loading, show placeholder or return null
+  if (!user) {
+    console.warn('UserInfo: No user data available after loading');
+    return (
+      <div className="flex items-center gap-3">
+        <div className="size-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+          <span className="text-gray-500 dark:text-gray-400 text-xs">?</span>
+        </div>
+      </div>
+    );
+  }
+
   // BetterAuth should include name in session, but fallback to email prefix if missing
   const userName = user?.name || (user?.email ? user.email.split('@')[0] : "User");
   
@@ -67,14 +88,6 @@ export function UserInfo() {
     img: user?.image || null,
     initials: getInitials(userName),
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center gap-3">
-        <div className="size-12 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700" />
-      </div>
-    );
-  }
 
   return (
     <Dropdown isOpen={isOpen} setIsOpen={setIsOpen}>

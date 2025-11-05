@@ -179,22 +179,25 @@ class EmailService {
     },
     invoicePdf: Buffer
   ): Promise<boolean> {
+    const { getPlatformSettingsWithDefaults } = await import('@/lib/platform-settings');
+    const platformSettings = await getPlatformSettingsWithDefaults();
+    
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
-          <title>Invoice - Fleet Manager</title>
+          <title>Invoice - ${platformSettings.platformName}</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Invoice from Fleet Manager</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">Invoice from ${platformSettings.platformName}</h1>
           </div>
           
           <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
             <h2 style="color: #495057; margin-top: 0;">Hi ${invoiceData.userName}!</h2>
             
-            <p>Thank you for using Fleet Manager! Please find your invoice attached below:</p>
+            <p>Thank you for using ${platformSettings.platformName}! Please find your invoice attached below:</p>
             
             <div style="background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0;">
               <h3 style="color: #495057; margin-top: 0;">Invoice Details</h3>
@@ -211,8 +214,11 @@ class EmailService {
             <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
             
             <p style="color: #6c757d; font-size: 14px; margin-bottom: 0;">
-              If you have any questions about this invoice, please contact our support team.
+              If you have any questions about this invoice, please contact our support team${platformSettings.platformEmail ? ` at ${platformSettings.platformEmail}` : ''}.
             </p>
+            ${platformSettings.platformUrl ? `<p style="color: #6c757d; font-size: 14px; margin-top: 10px;">
+              Visit us at: <a href="${platformSettings.platformUrl}" style="color: #6f42c1;">${platformSettings.platformUrl}</a>
+            </p>` : ''}
           </div>
         </body>
       </html>
@@ -220,7 +226,7 @@ class EmailService {
 
     return this.sendEmail({
       to: email,
-      subject: `Invoice ${invoiceData.invoiceNumber} - Fleet Manager`,
+      subject: `Invoice ${invoiceData.invoiceNumber} - ${platformSettings.platformName}`,
       html,
       attachments: [{
         filename: `invoice-${invoiceData.invoiceNumber}.pdf`,
@@ -241,12 +247,15 @@ class EmailService {
     },
     invoicePdf: Buffer
   ): Promise<boolean> {
+    const { getPlatformSettingsWithDefaults } = await import('@/lib/platform-settings');
+    const platformSettings = await getPlatformSettingsWithDefaults();
+    
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
-          <title>Invoice Reminder - Fleet Manager</title>
+          <title>Invoice Reminder - ${platformSettings.platformName}</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
@@ -256,7 +265,7 @@ class EmailService {
           <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
             <h2 style="color: #495057; margin-top: 0;">Hi ${invoiceData.userName}!</h2>
             
-            <p>This is a friendly reminder that your Fleet Manager subscription invoice is due soon:</p>
+            <p>This is a friendly reminder that your ${platformSettings.platformName} subscription invoice is due soon:</p>
             
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin: 20px 0;">
               <h3 style="color: #856404; margin-top: 0;">⚠️ Payment Due Soon</h3>
@@ -269,7 +278,7 @@ class EmailService {
             <p>Please ensure payment is made before the due date to avoid any service interruption. The invoice PDF is attached for your convenience.</p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/billing" 
+              <a href="${platformSettings.platformUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000'}/billing" 
                  style="background: #fd7e14; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
                 View Billing Dashboard
               </a>
@@ -278,8 +287,11 @@ class EmailService {
             <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
             
             <p style="color: #6c757d; font-size: 14px; margin-bottom: 0;">
-              If you have already made payment, please ignore this reminder. For any billing questions, contact our support team.
+              If you have already made payment, please ignore this reminder. For any billing questions, contact our support team${platformSettings.platformEmail ? ` at ${platformSettings.platformEmail}` : ''}.
             </p>
+            ${platformSettings.platformUrl ? `<p style="color: #6c757d; font-size: 14px; margin-top: 10px;">
+              Visit us at: <a href="${platformSettings.platformUrl}" style="color: #fd7e14;">${platformSettings.platformUrl}</a>
+            </p>` : ''}
           </div>
         </body>
       </html>

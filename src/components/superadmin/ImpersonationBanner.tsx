@@ -19,18 +19,54 @@ export function ImpersonationBanner() {
         if (session?.data?.session) {
           // BetterAuth admin plugin sets impersonatedBy in session
           // We can check this via an API call or session data
-          const response = await fetch('/api/auth/session');
-          const sessionData = await response.json();
-          
-          // Check if session indicates impersonation (BetterAuth handles this internally)
-          // For now, check if user is not SUPER_ADMIN but we're in superadmin portal
-          if (sessionData?.user && sessionData.user.role !== 'SUPER_ADMIN') {
-            setIsImpersonating(true);
-            setUserName(sessionData.user.name || sessionData.user.email);
+          try {
+            const response = await fetch('/api/auth/session');
+            
+            // Check if response is ok and has content
+            if (!response.ok) {
+              return; // Exit early if response is not ok
+            }
+            
+            // Check if response has content before parsing
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+              return; // Exit if not JSON
+            }
+            
+            // Get text first to check if it's empty
+            const text = await response.text();
+            if (!text || text.trim().length === 0) {
+              return; // Exit if empty response
+            }
+            
+            // Parse JSON only if we have content
+            let sessionData;
+            try {
+              sessionData = JSON.parse(text);
+            } catch (parseError) {
+              console.warn("Failed to parse session response:", parseError);
+              return; // Exit if JSON parsing fails
+            }
+            
+            // Check if session indicates impersonation (BetterAuth handles this internally)
+            // For now, check if user is not SUPER_ADMIN but we're in superadmin portal
+            if (sessionData?.user && sessionData.user.role !== 'SUPER_ADMIN') {
+              setIsImpersonating(true);
+              setUserName(sessionData.user.name || sessionData.user.email);
+            } else {
+              setIsImpersonating(false);
+            }
+          } catch (fetchError) {
+            // Silently handle fetch errors - session endpoint might not exist
+            // This is expected if BetterAuth doesn't expose /api/auth/session
+            setIsImpersonating(false);
           }
+        } else {
+          setIsImpersonating(false);
         }
       } catch (err) {
         console.error("Failed to check impersonation:", err);
+        setIsImpersonating(false);
       }
     };
 

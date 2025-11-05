@@ -23,12 +23,19 @@ const publicRoutes = [
   '/auth/verify-email',
   '/auth/email-verified',
   '/landing',
+  '/maintenance', // Maintenance mode page
 ];
 
 // Auth-related routes that should be accessible without full auth
 const authRoutes = [
   '/api/auth',
   '/api/superadmin/auth/login',
+];
+
+// Public API routes that don't require authentication
+const publicApiRoutes = [
+  '/api/platform/logo', // Platform logo should be publicly accessible
+  '/api/platform/maintenance', // Maintenance check endpoint
 ];
 
 // Static assets and Next.js internals
@@ -57,12 +64,54 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // 1b. Check maintenance mode (allow super admin and maintenance page)
+  try {
+    // Check maintenance mode via API route (can't use Prisma directly in Edge runtime)
+    // Use internal URL to avoid external fetch issues
+    const baseUrl = request.nextUrl.origin;
+    const maintenanceCheckUrl = `${baseUrl}/api/platform/maintenance`;
+    const maintenanceResponse = await fetch(maintenanceCheckUrl, {
+      headers: {
+        'x-forwarded-for': request.headers.get('x-forwarded-for') || '',
+        cookie: request.headers.get('cookie') || '',
+      },
+      cache: 'no-store', // Always check fresh
+    });
+    
+    if (maintenanceResponse.ok) {
+      const { maintenanceMode } = await maintenanceResponse.json();
+      
+      if (maintenanceMode) {
+        const session = await auth.api.getSession({ headers: request.headers });
+        const userRole = session?.user?.role;
+        const isSuperAdmin = (userRole as any) === 'SUPER_ADMIN';
+        const isMaintenancePage = pathname === '/maintenance';
+        
+        // Allow super admin and maintenance page access
+        if (!isSuperAdmin && !isMaintenancePage) {
+          return NextResponse.redirect(new URL('/maintenance', request.url));
+        }
+      }
+    }
+  } catch (error) {
+    // If there's an error checking maintenance mode, continue normally
+    // This ensures the site remains accessible even if maintenance check fails
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error checking maintenance mode:', error);
+    }
+  }
+
   // 2. Allow public routes
   if (publicRoutes.some(route => pathname === route)) {
     return NextResponse.next();
   }
 
-  // 3. Apply rate limiting to auth routes (stricter limits)
+  // 3. Allow public API routes (no auth required)
+  if (publicApiRoutes.some(route => pathname.startsWith(route))) {
+    return NextResponse.next();
+  }
+
+  // 3b. Apply rate limiting to auth routes (stricter limits)
   if (authRoutes.some(route => pathname.startsWith(route))) {
     const rateLimitResult = rateLimitMiddleware(request, rateLimitConfigs.auth);
     if (rateLimitResult.limited) {

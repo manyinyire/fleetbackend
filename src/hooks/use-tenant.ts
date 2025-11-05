@@ -26,7 +26,23 @@ export function useTenant() {
         const response = await fetch(`/api/tenant/settings`);
         if (response.ok) {
           const data = await response.json();
-          setTenantSettings(data);
+          
+          // Handle response - it should be the data directly from successResponse
+          if (data && typeof data === 'object') {
+            // Extract company name and tenant name from response
+            const companyName = data.companyName || '';
+            const tenantName = data.tenantName || '';
+            
+            // Set tenant settings with proper values
+            setTenantSettings({
+              companyName: companyName || tenantName || '',
+              tenantName: tenantName || companyName || '',
+              logoUrl: data.logoUrl || undefined,
+              primaryColor: data.primaryColor || '#1e3a8a',
+            });
+          }
+        } else {
+          console.error('Failed to fetch tenant settings:', response.status);
         }
       } catch (error) {
         console.error('Error fetching tenant settings:', error);
@@ -38,9 +54,24 @@ export function useTenant() {
     fetchTenantSettings();
   }, [user]);
 
+  // Get company name with proper fallback
+  const getCompanyName = () => {
+    if (!tenantSettings) return 'Fleet Manager';
+    
+    // Prioritize companyName, then tenantName
+    const name = tenantSettings.companyName || tenantSettings.tenantName;
+    
+    // Ensure we have a valid name
+    if (!name || name.trim().length === 0) {
+      return 'Fleet Manager';
+    }
+    
+    return name;
+  };
+
   return {
     tenantSettings,
     isLoading,
-    companyName: tenantSettings?.tenantName || tenantSettings?.companyName || 'Azaire Fleet Manager',
+    companyName: getCompanyName(),
   };
 }

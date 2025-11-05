@@ -1,13 +1,19 @@
 import Link from "next/link";
 import { Metadata } from "next";
 import { RevenueChart } from "@/components/landing/revenue-chart";
+import { getPlatformSettingsWithDefaults } from "@/lib/platform-settings";
 
-export const metadata: Metadata = {
-  title: "Azaire Fleet Manager - Transform Your Fleet Operations | Save 20+ Hours Weekly",
-  description: "The #1 fleet management platform trusted by 500+ businesses. Track vehicles, manage drivers, and boost profitability by 35%. Try free for 14 days.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPlatformSettingsWithDefaults();
+  
+  return {
+    title: `${settings.platformName} - Transform Your Fleet Operations | Save 20+ Hours Weekly`,
+    description: `The #1 fleet management platform trusted by 500+ businesses. Track vehicles, manage drivers, and boost profitability by 35%. Try free for 14 days.`,
+  };
+}
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const settings = await getPlatformSettingsWithDefaults();
   return (
     <div className="min-h-screen bg-white dark:bg-gray-dark overflow-hidden">
       {/* Navigation */}
@@ -16,11 +22,18 @@ export default function LandingPage() {
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center gap-12">
             <div className="flex items-center">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-green flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-xl">A</span>
-                </div>
-                <span className="text-2xl font-bold text-primary ml-3">Azaire</span>
-              <span className="text-2xl font-light text-dark dark:text-white ml-1">Fleet</span>
+                {settings.platformLogo ? (
+                  <img
+                    src={settings.platformLogo}
+                    alt={settings.platformName}
+                    className="h-10 w-auto object-contain"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-green flex items-center justify-center shadow-lg">
+                    <span className="text-white font-bold text-xl">{settings.platformName.charAt(0)}</span>
+                  </div>
+                )}
+                <span className="text-2xl font-bold text-primary ml-3">{settings.platformName}</span>
               </div>
               <div className="hidden md:flex items-center gap-8">
                 <a href="#features" className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary transition-colors">Features</a>
@@ -679,11 +692,18 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
             <div>
               <div className="flex items-center mb-6">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-green flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-xl">A</span>
-                </div>
-                <span className="text-xl font-bold text-primary ml-3">Azaire</span>
-                <span className="text-xl font-light text-dark dark:text-white ml-1">Fleet</span>
+                {settings.platformLogo ? (
+                  <img
+                    src={settings.platformLogo}
+                    alt={settings.platformName}
+                    className="h-10 w-auto object-contain"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-green flex items-center justify-center shadow-lg">
+                    <span className="text-white font-bold text-xl">{settings.platformName.charAt(0)}</span>
+                  </div>
+                )}
+                <span className="text-xl font-bold text-primary ml-3">{settings.platformName}</span>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
                 Transform your fleet operations with Africa&apos;s #1 fleet management platform.
@@ -730,7 +750,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="pt-8 border-t border-stroke dark:border-dark-3 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-            <p>© {new Date().getFullYear()} Azaire Fleet Manager. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} {settings.platformName}. All rights reserved.</p>
             <div className="flex gap-6">
               <span className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-green" fill="currentColor" viewBox="0 0 20 20">

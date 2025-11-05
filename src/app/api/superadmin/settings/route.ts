@@ -139,7 +139,13 @@ export async function PUT(request: NextRequest) {
     const platformData: any = {};
     platformSettingsFields.forEach(field => {
       if (data[field] !== undefined) {
-        platformData[field] = data[field];
+        // Convert empty strings to null for optional fields
+        const optionalFields = ['platformLogo', 'platformAddress', 'platformEmail', 'webhookUrl', 'invoiceFooter', 'taxNumber', 'bankDetails'];
+        if (optionalFields.includes(field) && data[field] === '') {
+          platformData[field] = null;
+        } else {
+          platformData[field] = data[field];
+        }
       }
     });
 

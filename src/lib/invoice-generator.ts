@@ -136,6 +136,9 @@ class InvoiceGenerator {
     tax: number,
     total: number
   ): Promise<Buffer> {
+    const { getPlatformSettingsWithDefaults } = await import('@/lib/platform-settings');
+    const platformSettings = await getPlatformSettingsWithDefaults();
+    
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;
@@ -145,14 +148,19 @@ class InvoiceGenerator {
     doc.setFont('helvetica', 'bold');
     doc.text('INVOICE', pageWidth - margin - 50, 30);
 
-    // Company info
+    // Company info from platform settings
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text('Fleet Manager', margin, 30);
-    doc.text('123 Business Street', margin, 35);
-    doc.text('Harare, Zimbabwe', margin, 40);
-    doc.text('Email: billing@fleetmanager.com', margin, 45);
-    doc.text('Phone: +263 4 123 4567', margin, 50);
+    doc.text(platformSettings.platformName, margin, 30);
+    if (platformSettings.platformAddress) {
+      doc.text(platformSettings.platformAddress, margin, 35);
+    }
+    if (platformSettings.platformEmail) {
+      doc.text(`Email: ${platformSettings.platformEmail}`, margin, platformSettings.platformAddress ? 40 : 35);
+    }
+    if (platformSettings.platformUrl) {
+      doc.text(`Website: ${platformSettings.platformUrl}`, margin, platformSettings.platformEmail ? (platformSettings.platformAddress ? 45 : 40) : (platformSettings.platformAddress ? 40 : 35));
+    }
 
     // Invoice details
     doc.setFontSize(10);
@@ -207,7 +215,15 @@ class InvoiceGenerator {
     doc.setFontSize(8);
     doc.text('Thank you for your business!', margin, finalY + 30);
     doc.text('Payment terms: Net 30 days', margin, finalY + 35);
-    doc.text('Questions? Contact us at support@fleetmanager.com', margin, finalY + 40);
+    if (platformSettings.platformEmail) {
+      doc.text(`Questions? Contact us at ${platformSettings.platformEmail}`, margin, finalY + 40);
+    }
+    if (platformSettings.platformUrl) {
+      doc.text(`Visit us at: ${platformSettings.platformUrl}`, margin, finalY + (platformSettings.platformEmail ? 45 : 40));
+    }
+    if (platformSettings.invoiceFooter) {
+      doc.text(platformSettings.invoiceFooter, margin, finalY + (platformSettings.platformUrl ? (platformSettings.platformEmail ? 50 : 45) : (platformSettings.platformEmail ? 45 : 40)));
+    }
 
     return Buffer.from(doc.output('arraybuffer'));
   }
