@@ -1,47 +1,64 @@
--- CreateEnum
-CREATE TYPE "PaymentGateway" AS ENUM ('PAYNOW', 'STRIPE', 'PAYPAL', 'MANUAL');
+-- CreateEnum (check if exists first)
+DO $$ BEGIN
+    CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'PAID', 'FAILED', 'REFUNDED', 'CANCELLED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- CreateEnum
-CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'REFUNDED', 'CANCELLED');
+-- CreateTable (check if exists first)
+DO $$ BEGIN
+    CREATE TABLE "payments" (
+        "id" TEXT NOT NULL,
+        "tenantId" TEXT NOT NULL,
+        "invoiceId" TEXT NOT NULL,
+        "amount" DECIMAL(10,2) NOT NULL,
+        "currency" TEXT NOT NULL DEFAULT 'USD',
+        "status" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
+        "paymentMethod" TEXT NOT NULL DEFAULT 'paynow',
+        "paynowReference" TEXT,
+        "pollUrl" TEXT,
+        "redirectUrl" TEXT,
+        "verified" BOOLEAN NOT NULL DEFAULT false,
+        "verifiedAt" TIMESTAMP(3),
+        "verificationHash" TEXT,
+        "paymentMetadata" JSONB,
+        "errorMessage" TEXT,
+        "upgradeActioned" BOOLEAN NOT NULL DEFAULT false,
+        "unsuspendActioned" BOOLEAN NOT NULL DEFAULT false,
+        "emailSent" BOOLEAN NOT NULL DEFAULT false,
+        "adminNotified" BOOLEAN NOT NULL DEFAULT false,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
 
--- CreateTable
-CREATE TABLE "payments" (
-    "id" TEXT NOT NULL,
-    "tenantId" TEXT NOT NULL,
-    "invoiceId" TEXT NOT NULL,
-    "amount" DECIMAL(10,2) NOT NULL,
-    "currency" TEXT NOT NULL DEFAULT 'USD',
-    "gateway" "PaymentGateway" NOT NULL,
-    "gatewayRef" TEXT,
-    "pollUrl" TEXT,
-    "status" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
-    "verified" BOOLEAN NOT NULL DEFAULT false,
-    "verifiedAt" TIMESTAMP(3),
-    "paymentMetadata" JSONB,
-    "failureReason" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+        CONSTRAINT "payments_pkey" PRIMARY KEY ("id"),
+        CONSTRAINT "payments_paynowReference_key" UNIQUE ("paynowReference")
+    );
+EXCEPTION
+    WHEN duplicate_table THEN null;
+END $$;
 
-    CONSTRAINT "payments_pkey" PRIMARY KEY ("id")
-);
+-- CreateIndex (with IF NOT EXISTS check)
+CREATE INDEX IF NOT EXISTS "payments_tenantId_idx" ON "payments"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "payments_tenantId_idx" ON "payments"("tenantId");
+CREATE INDEX IF NOT EXISTS "payments_invoiceId_idx" ON "payments"("invoiceId");
 
 -- CreateIndex
-CREATE INDEX "payments_invoiceId_idx" ON "payments"("invoiceId");
+CREATE INDEX IF NOT EXISTS "payments_status_idx" ON "payments"("status");
 
 -- CreateIndex
-CREATE INDEX "payments_status_idx" ON "payments"("status");
+CREATE INDEX IF NOT EXISTS "payments_paynowReference_idx" ON "payments"("paynowReference");
 
--- CreateIndex
-CREATE INDEX "payments_gateway_idx" ON "payments"("gateway");
-
--- CreateIndex
-CREATE INDEX "payments_createdAt_idx" ON "payments"("createdAt");
+-- AddForeignKey (with IF NOT EXISTS check)
+DO $$ BEGIN
+    ALTER TABLE "payments" ADD CONSTRAINT "payments_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "payments" ADD CONSTRAINT "payments_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "payments" ADD CONSTRAINT "payments_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "invoices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "payments" ADD CONSTRAINT "payments_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "invoices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;

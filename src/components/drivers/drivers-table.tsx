@@ -10,6 +10,7 @@ import {
   PencilIcon
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
+import { formatDate } from '@/lib/date-utils';
 
 interface Driver {
   id: string;
@@ -178,7 +179,7 @@ export function DriversTable({ drivers }: DriversTableProps) {
                     <p className="text-xs text-gray-500">
                       {driver.remittances && driver.remittances.length > 0 && (
                         <>
-                          Last remittance: ${driver.remittances[0].amount} ({new Date(driver.remittances[0].date).toLocaleDateString()})
+                          Last remittance: ${driver.remittances[0].amount} ({formatDate(driver.remittances[0].date)})
                         </>
                       )}
                     </p>

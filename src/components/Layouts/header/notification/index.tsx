@@ -43,15 +43,29 @@ export function Notification() {
   const fetchNotifications = async () => {
     try {
       const response = await fetch('/api/notifications');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setNotifications(data.notifications || []);
-          setIsDotVisible((data.notifications || []).length > 0);
-        }
+
+      // Check if response is ok and is JSON
+      if (!response.ok) {
+        // If not authenticated or other error, just skip silently
+        console.warn('Notifications API returned status:', response.status);
+        return;
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        // Not JSON response, likely an error page or redirect
+        console.warn('Notifications API did not return JSON');
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setNotifications(data.notifications || []);
+        setIsDotVisible((data.notifications || []).length > 0);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      // Silently fail for notifications - they're not critical
+      console.warn('Error fetching notifications:', error);
     } finally {
       setLoading(false);
     }

@@ -3,7 +3,6 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { emailOTP, admin } from 'better-auth/plugins';
 import { nextCookies } from 'better-auth/next-js';
 import { prisma } from './prisma';
-import { emailService } from './email';
 import { appConfig } from '@/config/app';
 import { SESSION, OTP } from '@/config/constants';
 
@@ -28,6 +27,9 @@ export const auth = betterAuth({
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp, type }) {
+        // Dynamically import email service to avoid Edge Runtime issues
+        const { emailService } = await import('./email');
+        
         // Get user name for email personalization
         const user = await prisma.user.findUnique({
           where: { email },
@@ -105,6 +107,9 @@ export const auth = betterAuth({
     changeEmail: {
       enabled: true,
       sendChangeEmailVerification: async ({ user, newEmail, url, token }, request) => {
+        // Dynamically import email service to avoid Edge Runtime issues
+        const { emailService } = await import('./email');
+        
         // Send verification email to current email to approve the change
         await emailService.sendEmail({
           to: user.email,
@@ -125,6 +130,9 @@ export const auth = betterAuth({
     deleteUser: {
       enabled: true,
       sendDeleteAccountVerification: async ({ user, url, token }, request) => {
+        // Dynamically import email service to avoid Edge Runtime issues
+        const { emailService } = await import('./email');
+        
         // Send verification email for account deletion
         await emailService.sendEmail({
           to: user.email,
@@ -143,9 +151,7 @@ export const auth = betterAuth({
       beforeDelete: async (user, request) => {
         // Prevent deletion of SUPER_ADMIN accounts
         if (user.role === 'SUPER_ADMIN') {
-          throw new APIError('BAD_REQUEST', {
-            message: 'Super admin accounts cannot be deleted',
-          });
+          throw new Error('Super admin accounts cannot be deleted');
         }
         
         // Log deletion attempt

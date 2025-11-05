@@ -3,11 +3,29 @@
 import { useState, useEffect } from 'react';
 import { FinancialReportsDashboard } from '@/components/finances/financial-reports-dashboard';
 
+interface VehicleProfitability {
+  id: string;
+  registrationNumber: string;
+  make: string;
+  model: string;
+  year: number;
+  initialCost: number;
+  totalRemittances: number;
+  totalExpenses: number;
+  cumulativeNetProfit: number;
+  operationalProfit: number;
+  overallStatus: 'OPERATING_IN_LOSS' | 'BREAK_EVEN' | 'PROFITABLE';
+  financialStatus: 'OPERATIONAL_LOSS' | 'OPERATIONAL_BREAK_EVEN' | 'OPERATIONALLY_PROFITABLE';
+  roiPercentage: number;
+  paybackProgress: number;
+}
+
 interface FinancialReportsClientProps {
   initialIncomes: any[];
   initialExpenses: any[];
   initialRemittances: any[];
   initialMaintenance?: any[];
+  vehicleProfitability?: VehicleProfitability[];
   initialSummary: {
     totalIncome: number;
     totalExpenses: number;
@@ -16,12 +34,13 @@ interface FinancialReportsClientProps {
   };
 }
 
-export function FinancialReportsClient({ 
-  initialIncomes, 
-  initialExpenses, 
-  initialRemittances, 
+export function FinancialReportsClient({
+  initialIncomes,
+  initialExpenses,
+  initialRemittances,
   initialMaintenance,
-  initialSummary 
+  vehicleProfitability,
+  initialSummary
 }: FinancialReportsClientProps) {
   const [incomes, setIncomes] = useState(initialIncomes);
   const [expenses, setExpenses] = useState(initialExpenses);
@@ -113,11 +132,12 @@ export function FinancialReportsClient({
         </div>
       </div>
 
-      <FinancialReportsDashboard 
+      <FinancialReportsDashboard
         incomes={incomes}
         expenses={expenses}
         remittances={remittances}
         summary={summary}
+        vehicleProfitability={vehicleProfitability}
         onDateRangeChange={handleDateRangeChange}
       />
     </div>

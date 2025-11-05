@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { formatDate } from '@/lib/date-utils';
 
 interface Remittance {
   id: string;
@@ -69,7 +70,7 @@ export function RemittancesTable({ remittances }: RemittancesTableProps) {
                 onClick={() => handleRowClick(remittance.id)}
               >
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {new Date(remittance.date).toLocaleDateString()}
+                  {formatDate(remittance.date)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {remittance.driver.fullName}

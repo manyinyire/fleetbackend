@@ -1,10 +1,11 @@
 'use client';
 
-import { 
-  CurrencyDollarIcon, 
+import {
+  CurrencyDollarIcon,
   WrenchScrewdriverIcon,
   ClockIcon
 } from '@heroicons/react/24/outline';
+import { formatDate } from '@/lib/date-utils';
 
 interface Remittance {
   id: string;
@@ -103,7 +104,7 @@ export function RecentActivity({ remittances, maintenance }: RecentActivityProps
                         </div>
                         <div className="text-right text-sm whitespace-nowrap text-gray-500">
                           <time dateTime={activity.date}>
-                            {new Date(activity.date).toLocaleDateString()}
+                            {formatDate(activity.date)}
                           </time>
                         </div>
                       </div>

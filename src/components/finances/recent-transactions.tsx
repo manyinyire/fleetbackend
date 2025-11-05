@@ -1,6 +1,7 @@
 'use client';
 
 import { CurrencyDollarIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
+import { formatDate } from '@/lib/date-utils';
 
 interface Transaction {
   id: string;
@@ -109,7 +110,7 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
                       {transaction.type === 'expense' ? '-' : '+'}${transaction.amount.toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {new Date(transaction.date).toLocaleDateString()}
+                      {formatDate(transaction.date)}
                     </p>
                   </div>
                 </div>

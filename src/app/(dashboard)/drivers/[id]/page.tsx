@@ -83,6 +83,9 @@ export default async function DriverDetailPage({
     },
   });
 
+  // Check if driver has active vehicle assignments
+  const hasActiveAssignment = driver.vehicles.some((v: any) => !v.endDate);
+
   const stats = {
     totalRemittances: driver.remittances.reduce(
       (sum: any, r: any) => sum + Number(r.amount),
@@ -144,6 +147,8 @@ export default async function DriverDetailPage({
           <AssignVehicleButton
             driverId={driver.id}
             availableVehicles={availableVehicles}
+            disabled={hasActiveAssignment}
+            activeVehicleName={hasActiveAssignment ? driver.vehicles.find((v: any) => !v.endDate)?.vehicle?.registrationNumber : undefined}
           />
           <Link
             href={`/drivers/${driver.id}/edit`}

@@ -16,16 +16,21 @@ interface Vehicle {
 interface AssignVehicleButtonProps {
   driverId: string;
   availableVehicles: Vehicle[];
+  disabled?: boolean;
+  activeVehicleName?: string;
 }
 
 export function AssignVehicleButton({
   driverId,
   availableVehicles,
+  disabled = false,
+  activeVehicleName,
 }: AssignVehicleButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState('');
   const [isPrimary, setIsPrimary] = useState(true);
+  const [showTooltip, setShowTooltip] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,13 +57,38 @@ export function AssignVehicleButton({
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="inline-flex items-center gap-2 rounded-[7px] border border-stroke px-4.5 py-[7px] font-medium text-dark hover:bg-gray-2 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
-      >
-        <TruckIcon className="h-5 w-5" />
-        Assign Vehicle
-      </button>
+      <div className="relative inline-block">
+        <button
+          onClick={() => !disabled && setIsOpen(true)}
+          onMouseEnter={() => disabled && setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
+          disabled={disabled}
+          className={`inline-flex items-center gap-2 rounded-[7px] border border-stroke px-4.5 py-[7px] font-medium ${
+            disabled
+              ? 'cursor-not-allowed opacity-50 text-dark dark:text-white'
+              : 'text-dark hover:bg-gray-2 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2'
+          }`}
+        >
+          <TruckIcon className="h-5 w-5" />
+          Assign Vehicle
+        </button>
+
+        {/* Tooltip */}
+        {disabled && showTooltip && (
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-10 w-64">
+            <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg">
+              <p className="font-semibold mb-1">Driver Already Assigned</p>
+              <p className="text-gray-300">
+                This driver is currently assigned to <span className="font-semibold">{activeVehicleName}</span>.
+                End the current assignment before assigning a new vehicle.
+              </p>
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                <div className="border-4 border-transparent border-t-gray-900"></div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">

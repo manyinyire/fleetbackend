@@ -1,7 +1,7 @@
 import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
-import { serializePrismaArray } from '@/lib/serialize-prisma';
+import { serializePrismaArray, serializePrismaData } from '@/lib/serialize-prisma';
 import { DashboardOverview } from '@/components/dashboard/dashboard-overview';
 import { FleetStats } from '@/components/dashboard/fleet-stats';
 import { RecentActivity } from '@/components/dashboard/recent-activity';
@@ -97,7 +97,7 @@ export default async function DashboardPage() {
     })
   ]);
 
-  const stats = {
+  const stats = serializePrismaData({
     totalVehicles: vehicles.length,
     activeVehicles: vehicles.filter((v: any) => v.status === 'ACTIVE').length,
     totalDrivers: drivers.length,
@@ -105,25 +105,25 @@ export default async function DashboardPage() {
     totalExpenses: totalExpenses._sum.amount || 0,
     totalIncome: totalIncome._sum.amount || 0,
     pendingRemittances: recentRemittances.filter((r: any) => r.status === 'PENDING').length
-  };
+  });
 
   return (
     <div className="space-y-8">
       <FleetStats stats={stats} />
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <DashboardOverview 
+          <DashboardOverview
             vehicles={serializePrismaArray(vehicles)}
             drivers={serializePrismaArray(drivers)}
           />
         </div>
-        
+
         <div className="space-y-8">
           <QuickActions />
-          <RecentActivity 
-            remittances={recentRemittances}
-            maintenance={recentMaintenance}
+          <RecentActivity
+            remittances={serializePrismaArray(recentRemittances)}
+            maintenance={serializePrismaArray(recentMaintenance)}
           />
         </div>
       </div>

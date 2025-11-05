@@ -12,21 +12,16 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 /**
  * Create Pino logger instance with appropriate configuration
+ * Note: pino-pretty transport is disabled in Next.js to avoid worker thread issues
  */
 const logger = pino({
   level: process.env.LOG_LEVEL || (isDevelopment ? 'debug' : 'info'),
 
-  // Pretty print in development for better readability
-  transport: isDevelopment
-    ? {
-        target: 'pino-pretty',
-        options: {
-          colorize: true,
-          translateTime: 'HH:MM:ss Z',
-          ignore: 'pid,hostname',
-        },
-      }
-    : undefined,
+  // Use browser-safe configuration for Next.js
+  // pino-pretty transport causes worker thread issues in Next.js server environment
+  browser: {
+    asObject: true,
+  },
 
   // Base properties included in all logs
   base: {

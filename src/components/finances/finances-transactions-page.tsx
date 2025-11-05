@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { FunnelIcon } from '@heroicons/react/24/outline';
 import { DateFilter } from '@/components/finances/date-filter';
 import { CSVExport } from '@/components/finances/csv-export';
+import { formatDate } from '@/lib/date-utils';
 
 interface Vehicle {
   id: string;
@@ -41,33 +42,39 @@ export default function FinancesTransactionsPage({
   initialRemittances,
   initialMaintenance
 }: FinancesTransactionsPageProps) {
-  const [expenses, setExpenses] = useState(initialExpenses || []);
-  const [incomes, setIncomes] = useState(initialIncomes || []);
-  const [remittances, setRemittances] = useState(initialRemittances || []);
-  const [maintenance, setMaintenance] = useState(initialMaintenance || []);
+  const [expenses, setExpenses] = useState(Array.isArray(initialExpenses) ? initialExpenses : []);
+  const [incomes, setIncomes] = useState(Array.isArray(initialIncomes) ? initialIncomes : []);
+  const [remittances, setRemittances] = useState(Array.isArray(initialRemittances) ? initialRemittances : []);
+  const [maintenance, setMaintenance] = useState(Array.isArray(initialMaintenance) ? initialMaintenance : []);
   const [showFilters, setShowFilters] = useState(false);
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
 
+  // Ensure all data sources are arrays before processing
+  const safeExpenses = Array.isArray(expenses) ? expenses : [];
+  const safeIncomes = Array.isArray(incomes) ? incomes : [];
+  const safeRemittances = Array.isArray(remittances) ? remittances : [];
+  const safeMaintenance = Array.isArray(maintenance) ? maintenance : [];
+
   // Combine and sort transactions using same logic as vehicle page
   const transactions = [
-    ...expenses.map((e) => ({
+    ...safeExpenses.map((e) => ({
       ...e,
       type: 'EXPENSE' as const,
     })),
-    ...incomes.map((i) => ({
+    ...safeIncomes.map((i) => ({
       ...i,
       type: 'INCOME' as const,
       category: i.source,
       status: 'APPROVED' as const,
     })),
-    ...remittances.map((r) => ({
+    ...safeRemittances.map((r) => ({
       ...r,
       type: 'REMITTANCE' as const,
       category: 'REMITTANCE',
       status: r.status,
     })),
-    ...maintenance.map((m) => ({
+    ...safeMaintenance.map((m) => ({
       ...m,
       type: 'EXPENSE' as const,
       category: 'MAINTENANCE',
@@ -109,27 +116,27 @@ export default function FinancesTransactionsPage({
       date: t.date,
       dateType: typeof t.date,
       isValidDate: t.date ? !isNaN(new Date(t.date).getTime()) : false,
-      formattedDate: t.date ? new Date(t.date).toLocaleDateString() : 'NO DATE'
+      formattedDate: t.date ? formatDate(t.date) : 'NO DATE'
     })));
   }
 
   // Debug raw data
   console.log('Raw data sample:', {
-    expenses: expenses.slice(0, 2),
-    incomes: incomes.slice(0, 2),
-    remittances: remittances.slice(0, 2),
-    maintenance: maintenance.slice(0, 2)
+    expenses: safeExpenses.slice(0, 2),
+    incomes: safeIncomes.slice(0, 2),
+    remittances: safeRemittances.slice(0, 2),
+    maintenance: safeMaintenance.slice(0, 2)
   });
 
   const stats = {
     // Use same logic as vehicle page
-    totalRemittances: remittances.reduce((sum, r) => sum + Number(r.amount), 0),
-    totalExpenses: expenses.reduce((sum, e) => sum + Number(e.amount), 0) + 
-                  maintenance.reduce((sum, m) => sum + Number(m.cost), 0),
-    netProfit: remittances.reduce((sum, r) => sum + Number(r.amount), 0) - 
-               (expenses.reduce((sum, e) => sum + Number(e.amount), 0) + 
-                maintenance.reduce((sum, m) => sum + Number(m.cost), 0)),
-    pendingExpenses: expenses.filter((e) => e.status === 'PENDING').length,
+    totalRemittances: safeRemittances.reduce((sum, r) => sum + Number(r.amount), 0),
+    totalExpenses: safeExpenses.reduce((sum, e) => sum + Number(e.amount), 0) +
+                  safeMaintenance.reduce((sum, m) => sum + Number(m.cost), 0),
+    netProfit: safeRemittances.reduce((sum, r) => sum + Number(r.amount), 0) -
+               (safeExpenses.reduce((sum, e) => sum + Number(e.amount), 0) +
+                safeMaintenance.reduce((sum, m) => sum + Number(m.cost), 0)),
+    pendingExpenses: safeExpenses.filter((e) => e.status === 'PENDING').length,
   };
 
 
@@ -360,17 +367,7 @@ export default function FinancesTransactionsPage({
                 transactions.map((transaction) => (
                 <tr key={transaction.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {(() => {
-                      const d = transaction.date;
-                      if (!d) return '-';
-                      if (typeof d === 'string') {
-                        const t = new Date(d);
-                        return isNaN(t.getTime()) ? '-' : t.toLocaleDateString();
-                      }
-                      // treat as Date
-                      const t = (d as Date);
-                      return isNaN(t.getTime()) ? '-' : t.toLocaleDateString();
-                    })()}
+                    {formatDate(transaction.date)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(transaction.type)}`}>

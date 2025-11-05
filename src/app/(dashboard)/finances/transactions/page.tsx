@@ -61,13 +61,29 @@ export default async function TransactionsPage() {
   const remittances = serializePrismaResults(remittancesRaw);
   const maintenance = serializePrismaResults(maintenanceRaw);
 
+  // Ensure all results are arrays (defensive programming)
+  const safeExpenses = Array.isArray(expenses) ? expenses : [];
+  const safeIncomes = Array.isArray(incomes) ? incomes : [];
+  const safeVehicles = Array.isArray(vehicles) ? vehicles : [];
+  const safeRemittances = Array.isArray(remittances) ? remittances : [];
+  const safeMaintenance = Array.isArray(maintenance) ? maintenance : [];
+
+  // Log if any arrays are empty or invalid
+  console.log('Transactions page data:', {
+    expenses: safeExpenses.length,
+    incomes: safeIncomes.length,
+    vehicles: safeVehicles.length,
+    remittances: safeRemittances.length,
+    maintenance: safeMaintenance.length
+  });
+
   return (
     <FinancesTransactionsPage
-      initialExpenses={expenses}
-      initialIncomes={incomes}
-      vehicles={vehicles as any}
-      initialRemittances={remittances}
-      initialMaintenance={maintenance}
+      initialExpenses={safeExpenses}
+      initialIncomes={safeIncomes}
+      vehicles={safeVehicles as any}
+      initialRemittances={safeRemittances}
+      initialMaintenance={safeMaintenance}
     />
   );
 }

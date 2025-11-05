@@ -9,6 +9,7 @@ import {
   PencilIcon
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
+import { formatDate } from '@/lib/date-utils';
 
 interface Vehicle {
   id: string;
@@ -150,7 +151,7 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
                     <p className="text-xs text-gray-500">
                       {vehicle.maintenanceRecords && vehicle.maintenanceRecords.length > 0 && (
                         <>
-                          Last service: {new Date(vehicle.maintenanceRecords[0].date).toLocaleDateString()}
+                          Last service: {formatDate(vehicle.maintenanceRecords[0].date)}
                         </>
                       )}
                     </p>
