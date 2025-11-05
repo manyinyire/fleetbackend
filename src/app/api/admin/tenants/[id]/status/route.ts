@@ -1,29 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
+import { withSuperAdmin } from '@/lib/admin-middleware';
+import { changeTenantStatusSchema, validateSchema } from '@/lib/admin-validators';
 import { AuditLogger } from '@/lib/audit-logger';
 
 // PATCH /api/admin/tenants/[id]/status - Change tenant status (suspend/activate)
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth.api.getSession({ headers: await headers() });
-
-    if (!session?.user || (session.user as any).role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
+export const PATCH = withSuperAdmin(
+  async (request: NextRequest, session: any, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
     const body = await request.json();
-    const { status } = body;
 
     // Validate status
-    if (!['ACTIVE', 'SUSPENDED', 'CANCELED'].includes(status)) {
-      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+    const validation = validateSchema(changeTenantStatusSchema, body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: validation.errors },
+        { status: 400 }
+      );
     }
+
+    const { status, reason } = validation.data!;
 
     // Get current tenant to log the change
     const currentTenant = await prisma.tenant.findUnique({
@@ -39,7 +35,7 @@ export async function PATCH(
     const updatedTenant = await prisma.tenant.update({
       where: { id },
       data: {
-        status: status as 'ACTIVE' | 'SUSPENDED' | 'CANCELED',
+        status,
         suspendedAt: status === 'SUSPENDED' ? new Date() : null
       }
     });
@@ -53,16 +49,10 @@ export async function PATCH(
       newValues: { status },
       metadata: {
         tenantName: currentTenant.name,
-        reason: status === 'SUSPENDED' ? 'Admin action' : 'Reactivated by admin'
+        reason: reason || (status === 'SUSPENDED' ? 'Admin action' : 'Reactivated by admin')
       }
     });
 
     return NextResponse.json(updatedTenant);
-  } catch (error) {
-    console.error('Error updating tenant status:', error);
-    return NextResponse.json(
-      { error: 'Failed to update status' },
-      { status: 500 }
-    );
   }
-}
+);
