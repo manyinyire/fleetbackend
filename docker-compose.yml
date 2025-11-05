@@ -1,0 +1,122 @@
+# Azaire Fleet Manager - Docker Compose Configuration
+# For local development and testing
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:17-alpine
+    container_name: azaire-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: azaire_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Mount initialization scripts (optional)
+      # - ./prisma/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - azaire-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis (Optional - for background jobs)
+  redis:
+    image: redis:7-alpine
+    container_name: azaire-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - azaire-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Next.js Application (Development)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: azaire-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/azaire_dev
+
+      # Auth
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-development-secret-min-32-characters-long}
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXTAUTH_URL: http://localhost:3000
+
+      # Platform
+      PLATFORM_NAME: Azaire Fleet Manager
+      DEFAULT_TIMEZONE: Africa/Harare
+      DEFAULT_CURRENCY: USD
+
+      # Redis
+      REDIS_URL: redis://redis:6379
+
+      # Optional: Email (uncomment and set values)
+      # SMTP_HOST: ${SMTP_HOST}
+      # SMTP_PORT: ${SMTP_PORT}
+      # SMTP_USER: ${SMTP_USER}
+      # SMTP_PASS: ${SMTP_PASS}
+
+      # Optional: Payments (uncomment and set values)
+      # PAYNOW_INTEGRATION_ID: ${PAYNOW_INTEGRATION_ID}
+      # PAYNOW_INTEGRATION_KEY: ${PAYNOW_INTEGRATION_KEY}
+
+      # Node
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Mount source code for hot reload (development only)
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - azaire-network
+    command: sh -c "npx prisma migrate deploy && npm run dev"
+
+  # Adminer (Database Management UI)
+  adminer:
+    image: adminer:latest
+    container_name: azaire-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    networks:
+      - azaire-network
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  azaire-network:
+    driver: bridge

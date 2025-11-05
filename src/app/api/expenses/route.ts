@@ -1,84 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withTenantContext, withErrorHandler, parsePaginationParams, paginatedResponse, calculateSkip, buildOrderBy } from '@/lib/api';
-import { createExpenseSchema, expenseCategoryEnum } from '@/lib/validations/financial';
+import { withTenantAuth, successResponse, validateBody, getPaginationFromRequest, getDateRangeFromRequest, paginationResponse } from '@/lib/api-middleware';
 import { serializePrismaResults } from '@/lib/serialize-prisma';
-import { logger } from '@/lib/logger';
+import { z } from 'zod';
 
-export const GET = withErrorHandler(
-  withTenantContext(async (context, request) => {
-    const { prisma, tenantId } = context;
-    const { searchParams } = new URL(request.url);
+// Validation schema for creating an expense
+const createExpenseSchema = z.object({
+  vehicleId: z.string().uuid().optional().nullable(),
+  category: z.enum(['FUEL', 'MAINTENANCE', 'INSURANCE', 'TAX', 'REPAIRS', 'OTHER']),
+  amount: z.number().positive('Amount must be positive'),
+  date: z.string().refine((date) => !isNaN(Date.parse(date)), 'Invalid date'),
+  description: z.string().min(1, 'Description is required'),
+  receipt: z.string().url().optional().nullable(),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional().default('PENDING'),
+});
 
-    // Parse pagination parameters
-    const { page = 1, limit = 50, sortBy = 'date', sortOrder = 'desc' } = parsePaginationParams(searchParams);
-    const skip = calculateSkip(page, limit);
+export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
+  const { page, limit } = getPaginationFromRequest(request);
+  const { startDate, endDate } = getDateRangeFromRequest(request);
+  const { searchParams } = new URL(request.url);
+  const category = searchParams.get('category');
+  const vehicleId = searchParams.get('vehicleId');
+  const status = searchParams.get('status');
 
-    // Parse filter parameters
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-    const category = searchParams.get('category');
-    const vehicleId = searchParams.get('vehicleId');
+  // Build where clause
+  const where: any = {
+    tenantId: tenantId,
+  };
 
-    // Build where clause
-    const where: any = { tenantId: tenantId! };
+  if (startDate || endDate) {
+    where.date = {};
+    if (startDate) where.date.gte = startDate;
+    if (endDate) where.date.lte = endDate;
+  }
 
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate);
-      if (endDate) where.date.lte = new Date(endDate);
-    }
+  if (category) where.category = category;
+  if (vehicleId) where.vehicleId = vehicleId;
+  if (status) where.status = status;
 
-    if (category) where.category = category;
-    if (vehicleId) where.vehicleId = vehicleId;
-
-    // Execute query with pagination
-    const [expenses, total] = await prisma.$transaction([
-      prisma.expense.findMany({
-        where,
-        include: {
-          vehicle: true,
-        },
-        orderBy: buildOrderBy(sortBy, sortOrder),
-        skip,
-        take: limit,
-      }),
-      prisma.expense.count({ where }),
-    ]);
-
-    logger.info({ tenantId, count: expenses.length, total, filters: { startDate, endDate, category, vehicleId } }, 'Fetched expenses');
-
-    return paginatedResponse(serializePrismaResults(expenses), total, page, limit);
-  }),
-  'expenses:GET'
-);
-
-export const POST = withErrorHandler(
-  withTenantContext(async (context, request) => {
-    const { prisma, tenantId } = context;
-
-    // Parse and validate request body
-    const body = await request.json();
-    const validatedData = createExpenseSchema.parse(body);
-
-    // Create expense
-    const expense = await prisma.expense.create({
-      data: {
-        tenantId: tenantId!,
-        vehicleId: validatedData.vehicleId,
-        category: validatedData.category,
-        amount: validatedData.amount,
-        date: new Date(validatedData.date),
-        description: validatedData.description,
-        receipt: validatedData.receipt,
-      },
+  const [expenses, total] = await Promise.all([
+    prisma.expense.findMany({
+      where,
       include: {
-        vehicle: true,
+        vehicle: {
+          select: {
+            id: true,
+            registrationNumber: true,
+            make: true,
+            model: true,
+          },
+        },
       },
-    });
+      orderBy: { date: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.expense.count({ where }),
+  ]);
 
-    logger.info({ tenantId, expenseId: expense.id, amount: expense.amount }, 'Expense created');
+  // Convert Decimal objects to numbers
+  const serializedExpenses = serializePrismaResults(expenses);
 
-    return NextResponse.json(serializePrismaResults(expense), { status: 201 });
-  }),
-  'expenses:POST'
-);
+  return successResponse(paginationResponse(serializedExpenses, total, page, limit));
+});
+
+export const POST = withTenantAuth(async ({ prisma, tenantId, request }) => {
+  const data = await validateBody(request, createExpenseSchema);
+
+  const expense = await prisma.expense.create({
+    data: {
+      tenantId,
+      vehicleId: data.vehicleId || null,
+      category: data.category,
+      amount: data.amount,
+      date: new Date(data.date),
+      description: data.description,
+      receipt: data.receipt || null,
+      status: data.status,
+    },
+    include: {
+      vehicle: {
+        select: {
+          id: true,
+          registrationNumber: true,
+          make: true,
+          model: true,
+        },
+      },
+    },
+  });
+
+  return successResponse(serializePrismaResults(expense), 201);
+});

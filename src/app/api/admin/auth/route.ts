@@ -5,9 +5,6 @@ import { z } from 'zod';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import bcrypt from 'bcryptjs';
-import { logger } from '@/lib/logger';
-import { withErrorHandler } from '@/lib/api';
-import { ERROR_MESSAGES } from '@/config/constants';
 
 export const runtime = 'nodejs';
 
@@ -138,12 +135,18 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       return NextResponse.json({ error: 'Two-factor configuration error' }, { status: 500 });
     }
 
-    const verified = speakeasy.totp.verify({
-      secret: twoFactorSecret,
-      encoding: 'base32',
-      token: totpCode,
-      window: 2 // Allow 2 time steps before/after for clock skew
-    });
+    // Verify password using bcrypt
+    if (!user.password) {
+      await logSecurityEvent('FAILED_LOGIN', {
+        userId: user.id,
+        email,
+        ip: clientIP,
+        reason: 'No password set for user'
+      });
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    const passwordValid = await bcrypt.compare(password, user.password);
 
     if (!verified) {
       await logSecurityEvent('FAILED_2FA', {
@@ -157,18 +160,55 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     }
   }
 
-  // Check IP whitelist if enabled
-  const ipWhitelistEnabled = user.adminSettings?.ipWhitelistEnabled || false;
+    // Check if 2FA is required
+    const twoFactorEnabled = user.twoFactorEnabled || false;
+    if (twoFactorEnabled) {
+      if (!totpCode) {
+        return NextResponse.json({
+          requires2FA: true,
+          message: 'Two-factor authentication required'
+        }, { status: 200 });
+      }
 
-  if (ipWhitelistEnabled) {
-    const whitelistedIPs = await prisma.adminIpWhitelist.findMany({
-      where: {
-        userId: user.id,
-        isActive: true
+      // Verify TOTP code
+      if (!user.twoFactorSecret) {
+        await logSecurityEvent('FAILED_2FA', {
+          userId: user.id,
+          email,
+          ip: clientIP,
+          reason: 'No 2FA secret configured'
+        });
+        return NextResponse.json({ error: 'Invalid 2FA configuration' }, { status: 500 });
+      }
+
+      const verified = speakeasy.totp.verify({
+        secret: user.twoFactorSecret,
+        encoding: 'base32',
+        token: totpCode,
+        window: 2 // Allow 2 time steps before/after for clock skew
+      });
+
+      if (!verified) {
+        await logSecurityEvent('FAILED_2FA', {
+          userId: user.id,
+          email,
+          ip: clientIP,
+          reason: 'Invalid TOTP code'
+        });
+        return NextResponse.json({ error: 'Invalid 2FA code' }, { status: 401 });
       }
     });
 
-    const isIPAllowed = whitelistedIPs.some(entry => entry.ipAddress === clientIP);
+    // Check for concurrent session limit using AdminSession model
+    const now = new Date();
+    const activeSessions = await prisma.adminSession.count({
+      where: {
+        userId: user.id,
+        expiresAt: {
+          gt: now
+        }
+      }
+    });
 
     if (!isIPAllowed) {
       await logSecurityEvent('BLOCKED_IP_ACCESS', {
@@ -184,16 +224,21 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     }
   }
 
-  // Check for concurrent session limit
-  const maxSessions = user.adminSettings?.maxConcurrentSessions || 3;
-  const activeSessions = await prisma.adminSession.count({
-    where: {
-      userId: user.id,
-      expiresAt: {
-        gt: new Date()
+    // Create session
+    const sessionExpiry = rememberDevice ?
+      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : // 7 days
+      new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    // Create admin session
+    const session = await prisma.adminSession.create({
+      data: {
+        userId: user.id,
+        ipAddress: clientIP,
+        userAgent: request.headers.get('user-agent') || 'unknown',
+        expiresAt: sessionExpiry,
+        rememberDevice: rememberDevice || false
       }
-    }
-  });
+    });
 
   if (activeSessions >= maxSessions) {
     await logSecurityEvent('SESSION_LIMIT_EXCEEDED', {
@@ -462,24 +507,15 @@ export const PATCH = withErrorHandler(async (request: NextRequest) => {
 // Logout
 export async function DELETE(request: NextRequest) {
   try {
-    const sessionToken = request.cookies.get('admin-session')?.value;
-
-    if (sessionToken) {
-      // Deactivate session
-      await prisma.adminSession.updateMany({
-        where: { token: sessionToken },
-        data: { isActive: false }
-      });
-
-      logger.info({ sessionToken }, 'Admin logged out');
-    }
-
-    const response = NextResponse.json({ success: true });
-    response.cookies.delete('admin-session');
-
-    return response;
+    await prisma.adminSecurityLog.create({
+      data: {
+        eventType,
+        data,
+        timestamp: new Date()
+      }
+    });
   } catch (error) {
-    logger.error({ err: error }, 'Logout error');
-    return NextResponse.json({ error: 'Logout failed' }, { status: 500 });
+    console.error('Failed to log security event:', error);
+    // Don't throw - logging failures shouldn't break authentication
   }
 }

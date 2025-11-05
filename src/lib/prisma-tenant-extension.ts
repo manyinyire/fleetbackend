@@ -10,6 +10,7 @@ import { Prisma } from '@prisma/client';
  * - Vehicle, Driver, DriverVehicleAssignment
  * - Remittance, MaintenanceRecord, Contract
  * - Expense, Income, TenantSettings, AuditLog
+ * - Invoice, InvoiceReminder, Payment
  *
  * Non-scoped models (excluded):
  * - Tenant, User, Session, Account, Verification
@@ -78,6 +79,7 @@ export function tenantExtension(tenantId: string) {
         auditLog: createScopedOperations(),
         invoice: createScopedOperations(),
         invoiceReminder: createScopedOperations(),
+        payment: createScopedOperations(),
       }
     });
   });

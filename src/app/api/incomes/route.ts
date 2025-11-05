@@ -1,83 +1,87 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withTenantContext, withErrorHandler, parsePaginationParams, paginatedResponse, calculateSkip, buildOrderBy } from '@/lib/api';
-import { createIncomeSchema, incomeSourceEnum } from '@/lib/validations/financial';
+import { withTenantAuth, successResponse, validateBody, getPaginationFromRequest, getDateRangeFromRequest, paginationResponse } from '@/lib/api-middleware';
 import { serializePrismaResults } from '@/lib/serialize-prisma';
-import { logger } from '@/lib/logger';
+import { z } from 'zod';
 
-export const GET = withErrorHandler(
-  withTenantContext(async (context, request) => {
-    const { prisma, tenantId } = context;
-    const { searchParams } = new URL(request.url);
+// Validation schema for creating an income
+const createIncomeSchema = z.object({
+  vehicleId: z.string().uuid().optional().nullable(),
+  source: z.enum(['REMITTANCE', 'RENTAL', 'SALE', 'OTHER']),
+  amount: z.number().positive('Amount must be positive'),
+  date: z.string().refine((date) => !isNaN(Date.parse(date)), 'Invalid date'),
+  description: z.string().optional().nullable(),
+});
 
-    // Parse pagination parameters
-    const { page = 1, limit = 50, sortBy = 'date', sortOrder = 'desc' } = parsePaginationParams(searchParams);
-    const skip = calculateSkip(page, limit);
+export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
+  const { page, limit } = getPaginationFromRequest(request);
+  const { startDate, endDate } = getDateRangeFromRequest(request);
+  const { searchParams } = new URL(request.url);
+  const source = searchParams.get('source');
+  const vehicleId = searchParams.get('vehicleId');
 
-    // Parse filter parameters
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-    const source = searchParams.get('source');
-    const vehicleId = searchParams.get('vehicleId');
+  // Build where clause
+  const where: any = {
+    tenantId: tenantId,
+  };
 
-    // Build where clause
-    const where: any = { tenantId: tenantId! };
+  if (startDate || endDate) {
+    where.date = {};
+    if (startDate) where.date.gte = startDate;
+    if (endDate) where.date.lte = endDate;
+  }
 
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate);
-      if (endDate) where.date.lte = new Date(endDate);
-    }
+  if (source) where.source = source;
+  if (vehicleId) where.vehicleId = vehicleId;
 
-    if (source) where.source = source;
-    if (vehicleId) where.vehicleId = vehicleId;
-
-    // Execute query with pagination
-    const [incomes, total] = await prisma.$transaction([
-      prisma.income.findMany({
-        where,
-        include: {
-          vehicle: true,
-        },
-        orderBy: buildOrderBy(sortBy, sortOrder),
-        skip,
-        take: limit,
-      }),
-      prisma.income.count({ where }),
-    ]);
-
-    logger.info({ tenantId, count: incomes.length, total, filters: { startDate, endDate, source, vehicleId } }, 'Fetched incomes');
-
-    return paginatedResponse(serializePrismaResults(incomes), total, page, limit);
-  }),
-  'incomes:GET'
-);
-
-export const POST = withErrorHandler(
-  withTenantContext(async (context, request) => {
-    const { prisma, tenantId } = context;
-
-    // Parse and validate request body
-    const body = await request.json();
-    const validatedData = createIncomeSchema.parse(body);
-
-    // Create income
-    const income = await prisma.income.create({
-      data: {
-        tenantId: tenantId!,
-        vehicleId: validatedData.vehicleId,
-        source: validatedData.source,
-        amount: validatedData.amount,
-        date: new Date(validatedData.date),
-        description: validatedData.description,
-      },
+  const [incomes, total] = await Promise.all([
+    prisma.income.findMany({
+      where,
       include: {
-        vehicle: true,
+        vehicle: {
+          select: {
+            id: true,
+            registrationNumber: true,
+            make: true,
+            model: true,
+          },
+        },
       },
-    });
+      orderBy: { date: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.income.count({ where }),
+  ]);
 
-    logger.info({ tenantId, incomeId: income.id, amount: income.amount }, 'Income created');
+  // Convert Decimal objects to numbers
+  const serializedIncomes = serializePrismaResults(incomes);
 
-    return NextResponse.json(serializePrismaResults(income), { status: 201 });
-  }),
-  'incomes:POST'
-);
+  return successResponse(paginationResponse(serializedIncomes, total, page, limit));
+});
+
+export const POST = withTenantAuth(async ({ prisma, tenantId, request }) => {
+  const data = await validateBody(request, createIncomeSchema);
+
+  const income = await prisma.income.create({
+    data: {
+      tenantId,
+      vehicleId: data.vehicleId || null,
+      source: data.source,
+      amount: data.amount,
+      date: new Date(data.date),
+      description: data.description || null,
+    },
+    include: {
+      vehicle: {
+        select: {
+          id: true,
+          registrationNumber: true,
+          make: true,
+          model: true,
+        },
+      },
+    },
+  });
+
+  return successResponse(serializePrismaResults(income), 201);
+});

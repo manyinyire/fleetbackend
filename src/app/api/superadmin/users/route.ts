@@ -1,61 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
-import { withErrorHandler, parsePaginationParams, paginatedResponse, calculateSkip, buildOrderBy } from '@/lib/api';
-import { logger } from '@/lib/logger';
-import { prisma } from '@/lib/prisma';
-import { z } from 'zod';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
+import { PrismaClient } from '@prisma/client';
+import { PremiumFeatureService } from '@/lib/premium-features';
 
-const createUserSchema = z.object({
-  email: z.string().email(),
-  name: z.string().min(1),
-  role: z.string().optional(),
-  tenantId: z.string().cuid().optional(),
-});
+const prisma = new PrismaClient();
 
-export const GET = withErrorHandler(async (request: NextRequest) => {
-  // Require super admin role
-  await requireRole('SUPER_ADMIN');
+export async function GET(request: NextRequest) {
+  try {
+    // Require super admin role
+    await requireRole('SUPER_ADMIN');
 
-  const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '25');
+    const search = searchParams.get('search') || '';
+    const role = searchParams.get('role') || '';
+    const tenantId = searchParams.get('tenantId') || '';
+    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortOrder = searchParams.get('sortOrder') || 'desc';
 
-  // Parse pagination parameters
-  const { page = 1, limit = 25, sortBy = 'createdAt', sortOrder = 'desc' } = parsePaginationParams(searchParams);
-  const skip = calculateSkip(page, limit);
+    const offset = (page - 1) * limit;
 
-  // Parse filter parameters
-  const search = searchParams.get('search') || '';
-  const role = searchParams.get('role') || '';
-  const tenantId = searchParams.get('tenantId') || '';
+    // Use BetterAuth admin plugin to list users
+    const headersList = await headers();
+    const usersResult = await auth.api.listUsers({
+      query: {
+        searchValue: search,
+        searchField: search ? 'name' : undefined,
+        searchOperator: 'contains',
+        limit: limit.toString(),
+        offset: offset.toString(),
+        sortBy: sortBy === 'createdAt' ? undefined : sortBy, // BetterAuth may not support createdAt sorting
+        sortDirection: sortOrder as 'asc' | 'desc',
+        filterField: role ? 'role' : tenantId ? 'tenantId' : undefined,
+        filterValue: role || tenantId || undefined,
+        filterOperator: 'eq',
+      },
+      headers: headersList,
+    });
 
-  // Build where clause
-  const where: any = {};
-
-  if (search) {
-    where.OR = [
-      { name: { contains: search, mode: 'insensitive' } },
-      { email: { contains: search, mode: 'insensitive' } },
-    ];
-  }
-
-  if (role) {
-    where.role = role;
-  }
-
-  if (tenantId) {
-    where.tenantId = tenantId;
-  }
-
-  // Execute single query with all includes - NO N+1!
-  const [users, total] = await prisma.$transaction([
-    prisma.user.findMany({
-      where,
-      include: {
-        tenant: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true,
+    // Enhance with tenant information and additional metrics
+    const usersWithTenant = await Promise.all(
+      usersResult.users.map(async (user: any) => {
+        const fullUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          include: {
+            tenant: {
+              select: {
+                id: true,
+                name: true,
+                slug: true
+              }
+            },
+            sessions: {
+              select: {
+                createdAt: true,
+                expiresAt: true
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 1
+            }
           }
         },
         sessions: {
@@ -127,33 +133,23 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         ...where,
         banned: true
       }
-    })
-  ]);
 
-  logger.info({
-    page,
-    limit,
-    total,
-    filters: { search, role, tenantId }
-  }, 'Fetched users list');
+      // Check if tenant can add more users (premium feature check)
+      const isAdmin = role === 'TENANT_ADMIN' || role === 'admin';
+      const featureCheck = await PremiumFeatureService.canAddUser(tenantId, isAdmin);
 
-  return NextResponse.json({
-    users: usersWithMetrics,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-      hasMore: page < Math.ceil(total / limit),
-    },
-    summary: {
-      total,
-      active: activeUsersCount,
-      banned: bannedUsersCount,
-      byRole: roleStats.map(stat => ({
-        role: stat.role || 'NO_ROLE',
-        count: stat._count.role
-      }))
+      if (!featureCheck.allowed) {
+        return NextResponse.json(
+          {
+            error: featureCheck.reason,
+            currentUsage: featureCheck.currentUsage,
+            limit: featureCheck.limit,
+            suggestedPlan: featureCheck.suggestedPlan,
+            upgradeMessage: featureCheck.upgradeMessage,
+          },
+          { status: 403 }
+        );
+      }
     }
   });
 }, 'superadmin-users:GET');

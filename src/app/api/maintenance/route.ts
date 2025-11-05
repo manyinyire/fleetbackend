@@ -1,163 +1,105 @@
-import { NextRequest, NextResponse } from 'next/server';
-import {
-  withErrorHandler,
-  withTenantContext,
-  parsePaginationParams,
-  calculateSkip,
-  buildOrderBy,
-  paginatedResponse,
-} from '@/lib/api';
-import { logger } from '@/lib/logger';
+import { NextRequest } from 'next/server';
+import { withTenantAuth, successResponse, validateBody, getPaginationFromRequest, getDateRangeFromRequest, paginationResponse } from '@/lib/api-middleware';
 import { serializePrismaResults } from '@/lib/serialize-prisma';
-import {
-  createMaintenanceSchema,
-  updateMaintenanceSchema,
-  maintenanceTypeEnum,
-} from '@/lib/validations/maintenance';
+import { z } from 'zod';
 
-/**
- * GET /api/maintenance
- * Fetch maintenance records with pagination and filters
- */
-export const GET = withErrorHandler(
-  withTenantContext(async (context, request) => {
-    const { prisma, tenantId } = context;
-    const { searchParams } = new URL(request.url);
+// Validation schema for creating a maintenance record
+const createMaintenanceSchema = z.object({
+  vehicleId: z.string().uuid('Invalid vehicle ID'),
+  date: z.string().refine((date) => !isNaN(Date.parse(date)), 'Invalid date'),
+  mileage: z.number().int().nonnegative('Mileage must be non-negative'),
+  type: z.enum(['ROUTINE_SERVICE', 'REPAIR', 'TIRE_REPLACEMENT', 'BRAKE_SERVICE', 'ENGINE_REPAIR', 'BODY_WORK', 'OTHER']),
+  description: z.string().min(1, 'Description is required'),
+  cost: z.number().nonnegative('Cost must be non-negative'),
+  provider: z.string().min(1, 'Provider is required'),
+  invoice: z.string().url().optional().nullable(),
+});
 
-    // Parse pagination parameters
-    const { page = 1, limit = 25, sortBy = 'date', sortOrder = 'desc' } = parsePaginationParams(searchParams);
-    const skip = calculateSkip(page, limit);
+export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
+  const { page, limit } = getPaginationFromRequest(request);
+  const { startDate, endDate } = getDateRangeFromRequest(request);
+  const { searchParams } = new URL(request.url);
+  const vehicleId = searchParams.get('vehicleId');
+  const type = searchParams.get('type');
 
-    // Parse filter parameters
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-    const vehicleId = searchParams.get('vehicleId');
-    const type = searchParams.get('type');
+  // Build where clause
+  const where: any = {
+    tenantId: tenantId,
+  };
 
-    // Build where clause
-    const where: any = {
-      tenantId: tenantId!,
-    };
+  if (startDate || endDate) {
+    where.date = {};
+    if (startDate) where.date.gte = startDate;
+    if (endDate) where.date.lte = endDate;
+  }
 
-    // Date range filter
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate);
-      if (endDate) where.date.lte = new Date(endDate);
-    }
+  if (vehicleId) where.vehicleId = vehicleId;
+  if (type) where.type = type;
 
-    // Other filters
-    if (vehicleId) where.vehicleId = vehicleId;
-    if (type) {
-      // Validate type is valid enum value
-      const validType = maintenanceTypeEnum.safeParse(type);
-      if (validType.success) {
-        where.type = validType.data;
-      }
-    }
-
-    // Execute query with pagination
-    const [maintenanceRecords, total] = await prisma.$transaction([
-      prisma.maintenanceRecord.findMany({
-        where,
-        include: {
-          vehicle: {
-            select: {
-              id: true,
-              registrationNumber: true,
-              model: true,
-              make: true,
-            },
-          },
-        },
-        orderBy: buildOrderBy(sortBy, sortOrder),
-        skip,
-        take: limit,
-      }),
-      prisma.maintenanceRecord.count({ where }),
-    ]);
-
-    logger.info(
-      {
-        tenantId,
-        count: maintenanceRecords.length,
-        total,
-        filters: { startDate, endDate, vehicleId, type },
-      },
-      'Fetched maintenance records'
-    );
-
-    return paginatedResponse(serializePrismaResults(maintenanceRecords), total, page, limit);
-  }),
-  'maintenance:GET'
-);
-
-/**
- * POST /api/maintenance
- * Create a new maintenance record
- */
-export const POST = withErrorHandler(
-  withTenantContext(async (context, request) => {
-    const { prisma, tenantId } = context;
-    const body = await request.json();
-
-    // Validate input
-    const validatedData = createMaintenanceSchema.parse(body);
-
-    // Verify vehicle exists and belongs to tenant
-    const vehicle = await prisma.vehicle.findFirst({
-      where: {
-        id: validatedData.vehicleId,
-        tenantId: tenantId!,
-      },
-    });
-
-    if (!vehicle) {
-      return NextResponse.json(
-        { error: 'Vehicle not found or does not belong to your organization' },
-        { status: 404 }
-      );
-    }
-
-    // Create maintenance record
-    const maintenanceRecord = await prisma.maintenanceRecord.create({
-      data: {
-        tenantId: tenantId!,
-        vehicleId: validatedData.vehicleId,
-        date: validatedData.date,
-        mileage: validatedData.mileage,
-        type: validatedData.type,
-        description: validatedData.description,
-        cost: validatedData.cost,
-        provider: validatedData.provider,
-        invoice: validatedData.invoice || null,
-        nextServiceMileage: validatedData.nextServiceMileage || null,
-        nextServiceDate: validatedData.nextServiceDate || null,
-      },
+  const [maintenanceRecords, total] = await Promise.all([
+    prisma.maintenanceRecord.findMany({
+      where,
       include: {
         vehicle: {
           select: {
             id: true,
             registrationNumber: true,
-            model: true,
             make: true,
+            model: true,
           },
         },
       },
-    });
+      orderBy: { date: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.maintenanceRecord.count({ where }),
+  ]);
 
-    logger.info(
-      {
-        tenantId,
-        maintenanceId: maintenanceRecord.id,
-        vehicleId: validatedData.vehicleId,
-        type: validatedData.type,
-        cost: validatedData.cost,
+  // Convert Decimal objects to numbers
+  const serialized = serializePrismaResults(maintenanceRecords);
+
+  return successResponse(paginationResponse(serialized, total, page, limit));
+});
+
+export const POST = withTenantAuth(async ({ prisma, tenantId, request }) => {
+  const data = await validateBody(request, createMaintenanceSchema);
+
+  // Verify vehicle exists and belongs to tenant
+  const vehicle = await prisma.vehicle.findFirst({
+    where: {
+      id: data.vehicleId,
+      tenantId: tenantId,
+    },
+  });
+
+  if (!vehicle) {
+    return successResponse({ error: 'Vehicle not found' }, 404);
+  }
+
+  const maintenanceRecord = await prisma.maintenanceRecord.create({
+    data: {
+      tenantId,
+      vehicleId: data.vehicleId,
+      date: new Date(data.date),
+      mileage: data.mileage,
+      type: data.type,
+      description: data.description,
+      cost: data.cost,
+      provider: data.provider,
+      invoice: data.invoice || null,
+    },
+    include: {
+      vehicle: {
+        select: {
+          id: true,
+          registrationNumber: true,
+          make: true,
+          model: true,
+        },
       },
-      'Maintenance record created'
-    );
+    },
+  });
 
-    return NextResponse.json(serializePrismaResults(maintenanceRecord), { status: 201 });
-  }),
-  'maintenance:POST'
-);
+  return successResponse(serializePrismaResults(maintenanceRecord), 201);
+});

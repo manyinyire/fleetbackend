@@ -1,58 +1,38 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth';
+import { NextRequest } from 'next/server';
+import { withTenantAuth, successResponse, getPaginationFromRequest, paginationResponse } from '@/lib/api-middleware';
 
-export async function GET(request: NextRequest) {
-  try {
-    const session = await auth.api.getSession({
-      headers: request.headers
-    });
+export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
+  const { page, limit } = getPaginationFromRequest(request);
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get('status');
 
-    if (!session?.user?.id || !session?.user?.tenantId) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+  // Build where clause
+  const where: any = {
+    tenantId: tenantId,
+  };
 
-    const { searchParams } = new URL(request.url);
-    const statusParam = searchParams.get('status');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const skip = (page - 1) * limit;
-
-    const where: any = {
-      tenantId: session.user.tenantId,
-    };
-    
-    if (statusParam && ['PENDING', 'PAID', 'OVERDUE', 'CANCELED'].includes(statusParam)) {
-      where.status = statusParam;
-    }
-
-    const [invoices, total] = await Promise.all([
-      prisma.invoice.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit
-      }),
-      prisma.invoice.count({ where })
-    ]);
-
-    return NextResponse.json({
-      invoices,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    });
-  } catch (error) {
-    console.error('Get invoices error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  if (status && ['PENDING', 'PAID', 'OVERDUE', 'CANCELED'].includes(status)) {
+    where.status = status;
   }
-}
+
+  const [invoices, total] = await Promise.all([
+    prisma.invoice.findMany({
+      where,
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.invoice.count({ where }),
+  ]);
+
+  return successResponse(paginationResponse(invoices, total, page, limit));
+});

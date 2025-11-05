@@ -15,9 +15,19 @@ async function main() {
 
   if (!existingSuperAdmin) {
     try {
+      // Get super admin password from environment variable or generate a secure random one
+      const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD;
+
+      if (!superAdminPassword) {
+        console.error('❌ SUPER_ADMIN_PASSWORD environment variable is not set');
+        console.error('   Please set SUPER_ADMIN_PASSWORD in your .env file');
+        console.error('   Example: SUPER_ADMIN_PASSWORD=YourSecurePassword123!');
+        throw new Error('SUPER_ADMIN_PASSWORD environment variable is required for seeding');
+      }
+
       // Create SUPER_ADMIN user directly with Prisma
-      const hashedPassword = await hash('SuperAdmin@123!', 12);
-      
+      const hashedPassword = await hash(superAdminPassword, 12);
+
       await prisma.user.create({
         data: {
           email: superAdminEmail,
@@ -34,10 +44,11 @@ async function main() {
 
       console.log('✅ Created SUPER_ADMIN user');
       console.log('   Email:', superAdminEmail);
-      console.log('   Password: SuperAdmin@123!');
-      console.log('   ⚠️  Please change the password after first login!');
+      console.log('   ⚠️  Password set from SUPER_ADMIN_PASSWORD environment variable');
+      console.log('   ⚠️  Please store the password securely and change it after first login!');
     } catch (error) {
       console.error('❌ Error creating super admin:', error);
+      throw error;
     }
   } else {
     console.log('✅ SUPER_ADMIN user already exists');
