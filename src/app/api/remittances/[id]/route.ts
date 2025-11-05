@@ -1,185 +1,169 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { requireTenant } from '@/lib/auth-helpers';
-import { getTenantPrisma } from '@/lib/get-tenant-prisma';
-import { setTenantContext } from '@/lib/tenant';
+import { NextRequest } from 'next/server';
+import { withTenantAuth, successResponse, validateBody } from '@/lib/api-middleware';
+import { serializePrismaResults } from '@/lib/serialize-prisma';
+import { z } from 'zod';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// Validation schema for updating a remittance
+const updateRemittanceSchema = z.object({
+  driverId: z.string().uuid().optional(),
+  vehicleId: z.string().uuid().optional(),
+  amount: z.number().positive().optional(),
+  date: z.string().refine((date) => !isNaN(Date.parse(date)), 'Invalid date').optional(),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
+  proofOfPayment: z.string().url().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+export const GET = withTenantAuth(async ({ prisma, tenantId, request }, { params }) => {
   const { id } = await params;
-  try {
-    const { user, tenantId } = await requireTenant();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
-    }
-    
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
-    const remittance = await prisma.remittance.findUnique({
-      where: { id },
-      include: {
-        driver: true,
-        vehicle: true,
+  const remittance = await prisma.remittance.findFirst({
+    where: {
+      id,
+      tenantId,
+    },
+    include: {
+      driver: {
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+          licenseNumber: true,
+          debtBalance: true,
+        },
       },
-    });
+      vehicle: {
+        select: {
+          id: true,
+          registrationNumber: true,
+          make: true,
+          model: true,
+        },
+      },
+    },
+  });
 
-    if (!remittance) {
-      return NextResponse.json(
-        { error: 'Remittance not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(remittance);
-  } catch (error) {
-    console.error('Remittance fetch error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch remittance' },
-      { status: 500 }
-    );
+  if (!remittance) {
+    return successResponse({ error: 'Remittance not found' }, 404);
   }
-}
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  return successResponse(serializePrismaResults(remittance));
+});
+
+export const PUT = withTenantAuth(async ({ prisma, tenantId, user, request }, { params }) => {
   const { id } = await params;
-  try {
-    const { user, tenantId } = await requireTenant();
-    const data = await request.json();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
+  const data = await validateBody(request, updateRemittanceSchema);
+
+  // Get existing remittance
+  const existingRemittance = await prisma.remittance.findFirst({
+    where: {
+      id,
+      tenantId,
+    },
+  });
+
+  if (!existingRemittance) {
+    return successResponse({ error: 'Remittance not found' }, 404);
+  }
+
+  // Calculate debt balance change if status is changing
+  let debtBalanceChange = 0;
+  if (data.status && data.status !== existingRemittance.status) {
+    if (existingRemittance.status === 'APPROVED' && data.status !== 'APPROVED') {
+      // Previously approved, now not approved - add back to debt
+      debtBalanceChange = Number(existingRemittance.amount);
+    } else if (existingRemittance.status !== 'APPROVED' && data.status === 'APPROVED') {
+      // Previously not approved, now approved - reduce debt
+      debtBalanceChange = -Number(data.amount || existingRemittance.amount);
     }
-    
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
+  }
 
-    // Get existing remittance
-    const existingRemittance = await prisma.remittance.findUnique({
-      where: { id },
-    });
+  // Build update data
+  const updateData: any = {};
+  if (data.driverId) updateData.driverId = data.driverId;
+  if (data.vehicleId) updateData.vehicleId = data.vehicleId;
+  if (data.amount) updateData.amount = data.amount;
+  if (data.date) updateData.date = new Date(data.date);
+  if (data.proofOfPayment !== undefined) updateData.proofOfPayment = data.proofOfPayment;
+  if (data.notes !== undefined) updateData.notes = data.notes;
 
-    if (!existingRemittance) {
-      return NextResponse.json(
-        { error: 'Remittance not found' },
-        { status: 404 }
-      );
-    }
+  if (data.status) {
+    updateData.status = data.status;
+    updateData.approvedBy = data.status === 'APPROVED' ? user.id : null;
+    updateData.approvedAt = data.status === 'APPROVED' ? new Date() : null;
+  }
 
-    // Calculate debt balance change if status is changing
-    let debtBalanceChange = 0;
-    if (data.status && data.status !== existingRemittance.status) {
-      if (existingRemittance.status === 'APPROVED' && data.status !== 'APPROVED') {
-        // Previously approved, now not approved - add back to debt
-        debtBalanceChange = Number(existingRemittance.amount);
-      } else if (existingRemittance.status !== 'APPROVED' && data.status === 'APPROVED') {
-        // Previously not approved, now approved - reduce debt
-        debtBalanceChange = -Number(data.amount || existingRemittance.amount);
-      }
-    }
+  // Update remittance
+  const updatedRemittance = await prisma.remittance.update({
+    where: { id },
+    data: updateData,
+    include: {
+      driver: {
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+          licenseNumber: true,
+          debtBalance: true,
+        },
+      },
+      vehicle: {
+        select: {
+          id: true,
+          registrationNumber: true,
+          make: true,
+          model: true,
+        },
+      },
+    },
+  });
 
-    // Update remittance
-    const updatedRemittance = await prisma.remittance.update({
-      where: { id },
+  // Update driver's debt balance if needed
+  if (debtBalanceChange !== 0) {
+    await prisma.driver.update({
+      where: { id: existingRemittance.driverId },
       data: {
-        ...(data.driverId && { driverId: data.driverId }),
-        ...(data.vehicleId && { vehicleId: data.vehicleId }),
-        ...(data.amount && { amount: data.amount }),
-        ...(data.date && { date: new Date(data.date) }),
-        ...(data.status && { 
-          status: data.status,
-          approvedBy: data.status === 'APPROVED' ? user.id : null,
-          approvedAt: data.status === 'APPROVED' ? new Date() : null,
-        }),
-        ...(data.proofOfPayment !== undefined && { proofOfPayment: data.proofOfPayment }),
-        ...(data.notes !== undefined && { notes: data.notes }),
-      },
-      include: {
-        driver: true,
-        vehicle: true,
+        debtBalance: {
+          increment: debtBalanceChange,
+        },
       },
     });
-
-    // Update driver's debt balance if needed
-    if (debtBalanceChange !== 0) {
-      await prisma.driver.update({
-        where: { id: existingRemittance.driverId },
-        data: {
-          debtBalance: {
-            increment: debtBalanceChange,
-          },
-        },
-      });
-    }
-
-    return NextResponse.json(updatedRemittance);
-  } catch (error) {
-    console.error('Remittance update error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update remittance' },
-      { status: 500 }
-    );
   }
-}
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  return successResponse(serializePrismaResults(updatedRemittance));
+});
+
+export const DELETE = withTenantAuth(async ({ prisma, tenantId, request }, { params }) => {
   const { id } = await params;
-  try {
-    const { user, tenantId } = await requireTenant();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
-    }
-    
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
-    // Get existing remittance
-    const existingRemittance = await prisma.remittance.findUnique({
-      where: { id },
-    });
+  // Get existing remittance
+  const existingRemittance = await prisma.remittance.findFirst({
+    where: {
+      id,
+      tenantId,
+    },
+  });
 
-    if (!existingRemittance) {
-      return NextResponse.json(
-        { error: 'Remittance not found' },
-        { status: 404 }
-      );
-    }
-
-    // Update driver's debt balance if remittance was approved
-    if (existingRemittance.status === 'APPROVED') {
-      await prisma.driver.update({
-        where: { id: existingRemittance.driverId },
-        data: {
-          debtBalance: {
-            increment: Number(existingRemittance.amount),
-          },
-        },
-      });
-    }
-
-    // Delete remittance
-    await prisma.remittance.delete({
-      where: { id },
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Remittance deletion error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete remittance' },
-      { status: 500 }
-    );
+  if (!existingRemittance) {
+    return successResponse({ error: 'Remittance not found' }, 404);
   }
-}
+
+  // Update driver's debt balance if remittance was approved
+  if (existingRemittance.status === 'APPROVED') {
+    await prisma.driver.update({
+      where: { id: existingRemittance.driverId },
+      data: {
+        debtBalance: {
+          increment: Number(existingRemittance.amount),
+        },
+      },
+    });
+  }
+
+  // Delete remittance
+  await prisma.remittance.delete({
+    where: { id },
+  });
+
+  return successResponse({ success: true });
+});
