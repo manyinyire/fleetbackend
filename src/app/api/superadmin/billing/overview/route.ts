@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { subscriptionAnalyticsService } from '@/services/subscription-analytics.service';
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,53 +17,31 @@ export async function GET(request: NextRequest) {
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - days);
 
-    // Get tenant counts by plan
-    const [premiumTenants, basicTenants, freeTenants] = await Promise.all([
-      prisma.tenant.count({ where: { plan: 'PREMIUM' } }),
-      prisma.tenant.count({ where: { plan: 'BASIC' } }),
-      prisma.tenant.count({ where: { plan: 'FREE' } })
-    ]);
-
-    // Calculate MRR and ARR
-    const mrr = (premiumTenants * 60) + (basicTenants * 15);
-    const arr = mrr * 12;
-
-    // Get previous period for comparison
-    const previousEndDate = startDate;
-    const previousStartDate = new Date();
-    previousStartDate.setDate(previousEndDate.getDate() - days);
-
-    const [prevPremiumTenants, prevBasicTenants] = await Promise.all([
-      prisma.tenant.count({ 
-        where: { 
-          plan: 'PREMIUM',
-          createdAt: { lte: previousEndDate }
-        } 
-      }),
-      prisma.tenant.count({ 
-        where: { 
-          plan: 'BASIC',
-          createdAt: { lte: previousEndDate }
-        } 
+    // Get current metrics using new analytics service
+    const [revenueMetrics, churnMetrics, planCounts] = await Promise.all([
+      subscriptionAnalyticsService.getRevenueMetrics(),
+      subscriptionAnalyticsService.calculateChurnMetrics(startDate, endDate),
+      prisma.tenant.groupBy({
+        by: ['plan'],
+        _count: { plan: true }
       })
     ]);
 
-    const prevMRR = (prevPremiumTenants * 60) + (prevBasicTenants * 15);
-    const mrrGrowth = prevMRR > 0 ? ((mrr - prevMRR) / prevMRR) * 100 : 0;
+    // Format plan distribution
+    const planDistribution: Record<string, number> = {
+      premium: 0,
+      basic: 0,
+      free: 0
+    };
 
-    // Get churn data
-    const cancelledTenants = await prisma.tenant.count({
-      where: {
-        status: 'CANCELED',
-        updatedAt: {
-          gte: startDate,
-          lte: endDate
-        }
-      }
+    let totalTenants = 0;
+    planCounts.forEach(({ plan, _count }) => {
+      const count = _count.plan;
+      totalTenants += count;
+      if (plan === 'PREMIUM') planDistribution.premium = count;
+      else if (plan === 'BASIC') planDistribution.basic = count;
+      else if (plan === 'FREE') planDistribution.free = count;
     });
-
-    const churnRate = (premiumTenants + basicTenants) > 0 ? 
-      (cancelledTenants / (premiumTenants + basicTenants)) * 100 : 0;
 
     // Get new subscriptions in period
     const newSubscriptions = await prisma.tenant.count({
@@ -79,68 +56,63 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Calculate ARPU (Average Revenue Per User)
-    const totalPayingTenants = premiumTenants + basicTenants;
-    const arpu = totalPayingTenants > 0 ? mrr / totalPayingTenants : 0;
+    // Get MRR growth trend (use stored metrics for better performance)
+    const metricsData = await subscriptionAnalyticsService.getMetricsForRange(
+      startDate,
+      endDate
+    );
 
-    // Get revenue trend data for charts
-    const revenueTrend = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+    // Format trend data for charts
+    const revenueTrend = metricsData.map(metric => ({
+      date: metric.date.toISOString().slice(0, 10),
+      revenue: Number(metric.mrr),
+      premiumTenants: metric.premiumCount,
+      basicTenants: metric.basicCount
+    }));
 
-      const dayPremiumTenants = await prisma.tenant.count({
-        where: {
-          plan: 'PREMIUM',
-          createdAt: { lte: dayEnd }
-        }
-      });
-      const dayBasicTenants = await prisma.tenant.count({
-        where: {
-          plan: 'BASIC',
-          createdAt: { lte: dayEnd }
-        }
-      });
-
-      const dailyRevenue = (dayPremiumTenants * 60) + (dayBasicTenants * 15);
-
+    // If no stored metrics, fall back to current calculation
+    if (revenueTrend.length === 0) {
       revenueTrend.push({
-        date: dayStart.toISOString().slice(0, 10),
-        revenue: dailyRevenue,
-        premiumTenants: dayPremiumTenants,
-        basicTenants: dayBasicTenants
+        date: new Date().toISOString().slice(0, 10),
+        revenue: revenueMetrics.mrr,
+        premiumTenants: planDistribution.premium,
+        basicTenants: planDistribution.basic
       });
     }
+
+    const activeSubscriptions = planDistribution.premium + planDistribution.basic;
 
     return NextResponse.json({
       success: true,
       data: {
         summary: {
-          totalRevenue: mrr,
-          revenueChange: mrrGrowth,
-          activeSubscriptions: totalPayingTenants,
+          totalRevenue: revenueMetrics.mrr,
+          revenueChange: revenueTrend.length > 1 ?
+            ((revenueTrend[revenueTrend.length - 1].revenue - revenueTrend[0].revenue) / revenueTrend[0].revenue) * 100 : 0,
+          activeSubscriptions,
           subscriptionsChange: newSubscriptions,
-          churnRate: churnRate,
-          churnRateChange: 0, // Calculate based on previous period
-          arpu: arpu,
-          arr: arr
+          churnRate: churnMetrics.churnRate,
+          churnRateChange: 0,
+          arpu: revenueMetrics.arpu,
+          arr: revenueMetrics.arr
         },
         planDistribution: {
-          premium: premiumTenants,
-          basic: basicTenants,
-          free: freeTenants,
-          total: premiumTenants + basicTenants + freeTenants
+          premium: planDistribution.premium,
+          basic: planDistribution.basic,
+          free: planDistribution.free,
+          total: totalTenants
         },
         revenueTrend,
         metrics: {
-          mrr,
-          arr,
-          arpu,
-          churnRate,
+          mrr: revenueMetrics.mrr,
+          arr: revenueMetrics.arr,
+          arpu: revenueMetrics.arpu,
+          ltv: revenueMetrics.ltv,
+          churnRate: churnMetrics.churnRate,
+          retentionRate: churnMetrics.retentionRate,
           newSubscriptions,
-          cancelledTenants
+          cancelledTenants: churnMetrics.churnedCount,
+          churnedRevenue: churnMetrics.churnedRevenue
         }
       }
     });
@@ -151,7 +123,5 @@ export async function GET(request: NextRequest) {
       { error: 'Failed to fetch billing overview' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

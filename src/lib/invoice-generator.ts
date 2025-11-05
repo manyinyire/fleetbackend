@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { prisma } from './prisma';
+import { subscriptionService } from '@/services/subscription.service';
 
 interface InvoiceData {
   tenantId: string;
@@ -25,18 +26,27 @@ class InvoiceGenerator {
     return `INV-${typePrefix}-${timestamp}`;
   }
 
-  private getPlanPricing(plan: string): { monthly: number; features: string[] } {
-    const pricing = {
-      FREE: { monthly: 0, features: ['Up to 5 vehicles', 'Basic reporting', 'Email support'] },
-      BASIC: { monthly: 29.99, features: ['Up to 25 vehicles', 'Advanced reporting', 'Priority support', 'API access'] },
-      PREMIUM: { monthly: 99.99, features: ['Unlimited vehicles', 'Custom reporting', '24/7 support', 'Full API access', 'Custom integrations'] }
-    };
-    return pricing[plan as keyof typeof pricing] || pricing.FREE;
+  private async getPlanPricing(plan: string): Promise<{ monthly: number; features: string[] }> {
+    try {
+      const config = await subscriptionService.getPlanConfig(plan as any);
+      return {
+        monthly: config.monthlyPrice,
+        features: config.features
+      };
+    } catch (error) {
+      // Fallback to default pricing if service fails
+      const pricing = {
+        FREE: { monthly: 0, features: ['Up to 5 vehicles', 'Basic reporting', 'Email support'] },
+        BASIC: { monthly: 29.99, features: ['Up to 25 vehicles', 'Advanced reporting', 'Priority support', 'API access'] },
+        PREMIUM: { monthly: 99.99, features: ['Unlimited vehicles', 'Custom reporting', '24/7 support', 'Full API access', 'Custom integrations'] }
+      };
+      return pricing[plan as keyof typeof pricing] || pricing.FREE;
+    }
   }
 
-  private generateInvoiceItems(data: InvoiceData): InvoiceItem[] {
+  private async generateInvoiceItems(data: InvoiceData): Promise<InvoiceItem[]> {
     const items: InvoiceItem[] = [];
-    const pricing = this.getPlanPricing(data.plan);
+    const pricing = await this.getPlanPricing(data.plan);
 
     if (data.type === 'SUBSCRIPTION' || data.type === 'RENEWAL') {
       items.push({
@@ -46,16 +56,12 @@ class InvoiceGenerator {
         total: pricing.monthly
       });
     } else if (data.type === 'UPGRADE') {
-      // Calculate upgrade cost based on plan difference
-      const currentPlan = data.plan === 'PREMIUM' ? 'BASIC' : 'FREE';
-      const currentPricing = this.getPlanPricing(currentPlan);
-      const upgradeAmount = pricing.monthly - currentPricing.monthly;
-      
+      // For upgrades, use the provided amount (which may be prorated)
       items.push({
-        description: `Upgrade to ${data.plan} Plan`,
+        description: data.description || `Upgrade to ${data.plan} Plan`,
         quantity: 1,
-        unitPrice: upgradeAmount,
-        total: upgradeAmount
+        unitPrice: data.amount,
+        total: data.amount
       });
     } else if (data.type === 'OVERAGE') {
       items.push({
@@ -90,7 +96,7 @@ class InvoiceGenerator {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 30); // 30 days from now
 
-    const items = this.generateInvoiceItems(data);
+    const items = await this.generateInvoiceItems(data);
     const subtotal = items.reduce((sum, item) => sum + item.total, 0);
     const tax = subtotal * 0.15; // 15% tax (adjust as needed)
     const total = subtotal + tax;
@@ -228,8 +234,8 @@ class InvoiceGenerator {
     }
 
     // Calculate upgrade amount (difference between new and current plan)
-    const currentPricing = this.getPlanPricing(currentPlan);
-    const newPricing = this.getPlanPricing(newPlan);
+    const currentPricing = await this.getPlanPricing(currentPlan);
+    const newPricing = await this.getPlanPricing(newPlan);
     const upgradeAmount = newPricing.monthly - currentPricing.monthly;
 
     return this.generateInvoice({
@@ -242,7 +248,7 @@ class InvoiceGenerator {
   }
 
   async createRenewalInvoice(tenantId: string, plan: 'FREE' | 'BASIC' | 'PREMIUM'): Promise<{ invoice: any; pdf: Buffer }> {
-    const pricing = this.getPlanPricing(plan);
+    const pricing = await this.getPlanPricing(plan);
     return this.generateInvoice({
       tenantId,
       type: 'RENEWAL',
