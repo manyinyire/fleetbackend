@@ -69,24 +69,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Create Payment model in schema
     // Create payment record in database
-    // const payment = await prisma.payment.create({
-    //   data: {
-    //     tenantId: invoice.tenantId,
-    //     invoiceId: invoice.id,
-    //     amount: invoice.amount,
-    //     currency: invoice.currency,
-    //     gateway: "PAYNOW",
-    //     pollUrl: paynowResponse.pollUrl,
-    //     status: "PENDING",
-    //     verified: false,
-    //     paymentMetadata: {
-    //       hash: paynowResponse.hash,
-    //       redirectUrl: paynowResponse.redirectUrl,
-    //     },
-    //   },
-    // });
+    const payment = await prisma.payment.create({
+      data: {
+        tenantId: invoice.tenantId,
+        invoiceId: invoice.id,
+        amount: invoice.amount,
+        currency: invoice.currency,
+        gateway: "PAYNOW",
+        pollUrl: paynowResponse.pollUrl,
+        status: "PENDING",
+        verified: false,
+        paymentMetadata: {
+          hash: paynowResponse.hash,
+          redirectUrl: paynowResponse.redirectUrl,
+        },
+      },
+    });
 
     // Log the payment initiation
     await prisma.auditLog.create({
@@ -95,7 +94,7 @@ export async function POST(request: NextRequest) {
         tenantId: invoice.tenantId,
         action: "PAYMENT_INITIATED",
         entityType: "Payment",
-        entityId: invoice.id, // Using invoice ID temporarily
+        entityId: payment.id,
         details: {
           invoiceId: invoice.id,
           invoiceNumber: invoice.invoiceNumber,
@@ -109,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      paymentId: invoice.id, // Using invoice ID temporarily
+      paymentId: payment.id,
       redirectUrl: paynowResponse.redirectUrl,
       pollUrl: paynowResponse.pollUrl,
       // Return tracking info for client-side analytics

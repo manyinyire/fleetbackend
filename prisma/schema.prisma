@@ -39,6 +39,7 @@ model Tenant {
   settings         TenantSettings?
   invoices         Invoice[]
   invoiceReminders InvoiceReminder[]
+  payments         Payment[]
 
   @@map("tenants")
 }
@@ -736,6 +737,7 @@ model Invoice {
   // Relationships
   tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   reminders InvoiceReminder[]
+  payments  Payment[]
 
   @@index([tenantId])
   @@index([status])
@@ -783,4 +785,64 @@ enum ReminderType {
   THREE_DAYS
   ONE_DAY
   OVERDUE
+}
+
+model Payment {
+  id                 String        @id @default(cuid())
+  tenantId           String
+  invoiceId          String
+  amount             Decimal       @db.Decimal(10, 2)
+  currency           String        @default("USD")
+  gateway            PaymentGateway
+  status             PaymentStatus @default(PENDING)
+
+  // Paynow specific fields
+  pollUrl            String? // Critical for server-side verification
+  paynowReference    String?
+
+  // Verification fields
+  verified           Boolean       @default(false)
+  verifiedAt         DateTime?
+  verificationHash   String? // Internal verification hash
+
+  // Payment metadata from gateway
+  paymentMetadata    Json?
+
+  // Auto-action tracking
+  upgradeActioned    Boolean       @default(false)
+  unsuspendActioned  Boolean       @default(false)
+  emailSent          Boolean       @default(false)
+  adminNotified      Boolean       @default(false)
+
+  // Error tracking
+  errorMessage       String?
+
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  // Relationships
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@index([status])
+  @@index([gateway])
+  @@index([paynowReference])
+  @@index([verified])
+  @@map("payments")
+}
+
+enum PaymentGateway {
+  PAYNOW
+  STRIPE
+  MANUAL
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
 }
