@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     const { reference, paynowreference: paynowReference, amount, status } = body;
 
-    // Find the payment by reference (invoice number)
+    // Find the invoice and associated payment
     const invoice = await prisma.invoice.findUnique({
       where: { invoiceNumber: reference },
       include: {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         payments: {
           where: { status: "PENDING" },
           orderBy: { createdAt: "desc" },
-          take: 1,
+          take: 1
         }
       },
     });
@@ -87,19 +87,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify payment status with PayNow servers - CRITICAL security step
+    // Verify payment status with PayNow
     const statusCheck = await checkPaymentStatus(payment.pollUrl);
 
     if (!statusCheck.success) {
       console.error("Payment status check failed:", statusCheck.error);
 
-      // Update payment with error
       await prisma.payment.update({
         where: { id: payment.id },
         data: {
           status: "FAILED",
-          errorMessage: statusCheck.error,
-        },
+          errorMessage: statusCheck.error || "Payment verification failed",
+          paymentMetadata: statusCheck
+        }
       });
 
       return NextResponse.json(
@@ -115,14 +115,13 @@ export async function POST(request: NextRequest) {
         status: statusCheck.status,
       });
 
-      // Update payment status
       await prisma.payment.update({
         where: { id: payment.id },
         data: {
           status: "FAILED",
           errorMessage: `Payment status: ${statusCheck.status}`,
-          paymentMetadata: statusCheck,
-        },
+          paymentMetadata: statusCheck
+        }
       });
 
       return NextResponse.json({
@@ -141,14 +140,13 @@ export async function POST(request: NextRequest) {
         paid: paidAmount,
       });
 
-      // Update payment status
       await prisma.payment.update({
         where: { id: payment.id },
         data: {
           status: "FAILED",
           errorMessage: `Amount mismatch: expected ${expectedAmount}, got ${paidAmount}`,
-          paymentMetadata: statusCheck,
-        },
+          paymentMetadata: statusCheck
+        }
       });
 
       return NextResponse.json(
@@ -173,8 +171,8 @@ export async function POST(request: NextRequest) {
         verifiedAt: new Date(),
         paynowReference: paynowReference,
         verificationHash,
-        paymentMetadata: statusCheck,
-      },
+        paymentMetadata: statusCheck
+      }
     });
 
     // Update invoice status
@@ -193,10 +191,11 @@ export async function POST(request: NextRequest) {
         tenantId: invoice.tenantId,
         action: "PAYMENT_CONFIRMED",
         entityType: "Payment",
-        entityId: updatedPayment.id,
+        entityId: payment.id,
         details: {
           invoiceId: invoice.id,
           invoiceNumber: invoice.invoiceNumber,
+          paymentId: payment.id,
           amount: amount,
           paynowReference: paynowReference,
           verified: true,
@@ -371,8 +370,8 @@ async function performAutoActions(
         upgradeActioned: actionsPerformed.upgraded || payment.upgradeActioned,
         unsuspendActioned: actionsPerformed.unsuspended || payment.unsuspendActioned,
         emailSent: actionsPerformed.emailSent || payment.emailSent,
-        adminNotified: actionsPerformed.adminNotified || payment.adminNotified,
-      },
+        adminNotified: actionsPerformed.adminNotified || payment.adminNotified
+      }
     });
 
     return actionsPerformed;
@@ -401,9 +400,9 @@ export async function GET(request: NextRequest) {
       include: {
         payments: {
           orderBy: { createdAt: "desc" },
-          take: 1,
-        },
-      },
+          take: 1
+        }
+      }
     });
 
     if (!invoice) {
@@ -419,7 +418,7 @@ export async function GET(request: NextRequest) {
       invoiceStatus: invoice.status,
       paymentStatus: payment?.status,
       verified: payment?.verified,
-      amount: invoice.amount,
+      amount: invoice.amount
     });
   } catch (error) {
     console.error("Payment status check error:", error);

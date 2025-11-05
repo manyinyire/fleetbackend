@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
+import bcrypt from 'bcryptjs';
 
 export const runtime = 'nodejs';
 
@@ -65,8 +66,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verify password - placeholder since verifyPassword doesn't exist in better-auth
-    const passwordValid = true; // TODO: Implement proper password verification
+    // Verify password using bcrypt
+    if (!user.password) {
+      await logSecurityEvent('FAILED_LOGIN', {
+        userId: user.id,
+        email,
+        ip: clientIP,
+        reason: 'No password set for user'
+      });
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    const passwordValid = await bcrypt.compare(password, user.password);
 
     if (!passwordValid) {
       await logSecurityEvent('FAILED_LOGIN', {
@@ -78,18 +89,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // Check if 2FA is required - placeholder since adminSettings doesn't exist yet
-    const twoFactorEnabled = false;
+    // Check if 2FA is required
+    const twoFactorEnabled = user.twoFactorEnabled || false;
     if (twoFactorEnabled) {
       if (!totpCode) {
-        return NextResponse.json({ 
+        return NextResponse.json({
           requires2FA: true,
           message: 'Two-factor authentication required'
         }, { status: 200 });
       }
 
-      // Verify TOTP code - placeholder since adminSettings doesn't exist yet
-      const verified = true; // TODO: Implement proper TOTP verification
+      // Verify TOTP code
+      if (!user.twoFactorSecret) {
+        await logSecurityEvent('FAILED_2FA', {
+          userId: user.id,
+          email,
+          ip: clientIP,
+          reason: 'No 2FA secret configured'
+        });
+        return NextResponse.json({ error: 'Invalid 2FA configuration' }, { status: 500 });
+      }
+
+      const verified = speakeasy.totp.verify({
+        secret: user.twoFactorSecret,
+        encoding: 'base32',
+        token: totpCode,
+        window: 2 // Allow 2 time steps before/after for clock skew
+      });
 
       if (!verified) {
         await logSecurityEvent('FAILED_2FA', {
@@ -102,8 +128,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check for concurrent session limit - placeholder since adminSession doesn't exist yet
-    const activeSessions = 0; // TODO: Implement proper session management
+    // Check for concurrent session limit using AdminSession model
+    const now = new Date();
+    const activeSessions = await prisma.adminSession.count({
+      where: {
+        userId: user.id,
+        expiresAt: {
+          gt: now
+        }
+      }
+    });
 
     const maxSessions = 2; // Default max sessions
     if (activeSessions >= maxSessions) {
@@ -118,12 +152,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Create session
-    const sessionExpiry = rememberDevice ? 
+    const sessionExpiry = rememberDevice ?
       new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : // 7 days
       new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
 
-    // Create session - placeholder since adminSession doesn't exist yet
-    const session = { id: 'placeholder-session-id' }; // TODO: Implement proper session creation
+    // Create admin session
+    const session = await prisma.adminSession.create({
+      data: {
+        userId: user.id,
+        ipAddress: clientIP,
+        userAgent: request.headers.get('user-agent') || 'unknown',
+        expiresAt: sessionExpiry,
+        rememberDevice: rememberDevice || false
+      }
+    });
 
     // Log successful login
     await logSecurityEvent('SUCCESSFUL_LOGIN', {
@@ -297,9 +339,15 @@ export async function PATCH(request: NextRequest) {
 // Security event logging
 async function logSecurityEvent(eventType: string, data: any) {
   try {
-    // TODO: Create security log entry when model is available
-    console.log('Security event:', eventType, data);
+    await prisma.adminSecurityLog.create({
+      data: {
+        eventType,
+        data,
+        timestamp: new Date()
+      }
+    });
   } catch (error) {
     console.error('Failed to log security event:', error);
+    // Don't throw - logging failures shouldn't break authentication
   }
 }
