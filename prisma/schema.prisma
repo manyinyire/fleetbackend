@@ -736,6 +736,7 @@ model Invoice {
   // Relationships
   tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   reminders InvoiceReminder[]
+  payments  Payment[]
 
   @@index([tenantId])
   @@index([status])
@@ -783,4 +784,42 @@ enum ReminderType {
   THREE_DAYS
   ONE_DAY
   OVERDUE
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  invoiceId         String
+  tenantId          String
+  status            PaymentStatus @default(PENDING)
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("USD")
+  paymentMethod     String // e.g., "paynow", "manual", "bank_transfer"
+  paymentProvider   String? // e.g., "paynow", "stripe"
+  providerReference String? // Payment gateway reference (e.g., paynowreference)
+  pollUrl           String? // PayNow poll URL for verification
+  metadata          Json? // Additional payment data (e.g., phone number, email)
+  paidAt            DateTime?
+  verifiedAt        DateTime? // When payment was verified with provider
+  failedAt          DateTime?
+  failureReason     String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relationships
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([providerReference])
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
 }

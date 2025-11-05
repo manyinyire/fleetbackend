@@ -4,13 +4,15 @@ import { emailOTP, admin } from 'better-auth/plugins';
 import { nextCookies } from 'better-auth/next-js';
 import { prisma } from './prisma';
 import { emailService } from './email';
+import { appConfig } from '@/config/app';
+import { SESSION, OTP } from '@/config/constants';
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
   }),
 
-  baseURL: process.env.BETTER_AUTH_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000',
+  baseURL: appConfig.authUrl,
   basePath: '/api/auth',
 
   // Disable telemetry to avoid Edge Runtime issues
@@ -45,26 +47,26 @@ export const auth = betterAuth({
           await emailService.sendOTPEmail(email, otp, userName);
         }
       },
-      otpLength: 6,
-      expiresIn: 600, // 10 minutes
-      allowedAttempts: 3,
+      otpLength: OTP.LENGTH,
+      expiresIn: OTP.EXPIRY,
+      allowedAttempts: OTP.ALLOWED_ATTEMPTS,
       overrideDefaultEmailVerification: true, // Use OTP instead of verification links
     }),
     admin({
       defaultRole: 'USER',
       adminRoles: ['SUPER_ADMIN', 'admin'], // SUPER_ADMIN is our custom role, admin is BetterAuth default
-      impersonationSessionDuration: 60 * 60, // 1 hour
+      impersonationSessionDuration: SESSION.IMPERSONATION_DURATION,
       bannedUserMessage: 'You have been banned from this application. Please contact support if you believe this is an error.',
     }),
     nextCookies(), // Must be last plugin - automatically sets cookies in server actions
   ],
 
   session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // 1 day
+    expiresIn: SESSION.EXPIRY,
+    updateAge: SESSION.UPDATE_AGE,
     cookieCache: {
       enabled: true,
-      maxAge: 60 * 5, // 5 minutes
+      maxAge: SESSION.COOKIE_CACHE_MAX_AGE,
     },
   },
 
@@ -186,7 +188,7 @@ export const auth = betterAuth({
     crossSubDomainCookies: {
       enabled: false,
     },
-    useSecureCookies: process.env.NODE_ENV === 'production',
+    useSecureCookies: appConfig.isProduction,
   },
 
   // CSRF protection

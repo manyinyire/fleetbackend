@@ -1,80 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenant } from '@/lib/auth-helpers';
-import { getTenantPrisma } from '@/lib/get-tenant-prisma';
-import { setTenantContext } from '@/lib/tenant';
+import { withTenantContext, withErrorHandler, parsePaginationParams, paginatedResponse, calculateSkip, buildOrderBy } from '@/lib/api';
+import { createVehicleSchema } from '@/lib/validations/vehicle';
+import { serializePrismaResults } from '@/lib/serialize-prisma';
+import { logger } from '@/lib/logger';
 
-export async function GET(request: NextRequest) {
-  try {
-    const { user, tenantId } = await requireTenant();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
-    }
-    
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
+export const GET = withErrorHandler(
+  withTenantContext(async (context, request) => {
+    const { prisma, tenantId } = context;
+    const { searchParams } = new URL(request.url);
 
-    const vehicles = await prisma.vehicle.findMany({
-      include: {
-        drivers: {
-          include: {
-            driver: true
-          }
+    // Parse pagination parameters
+    const { page = 1, limit = 25, sortBy, sortOrder = 'desc' } = parsePaginationParams(searchParams);
+    const skip = calculateSkip(page, limit);
+
+    // Build query
+    const where = { tenantId: tenantId! };
+
+    // Execute query with pagination
+    const [vehicles, total] = await prisma.$transaction([
+      prisma.vehicle.findMany({
+        where,
+        include: {
+          drivers: {
+            include: {
+              driver: true,
+            },
+          },
+          maintenanceRecords: {
+            orderBy: { date: 'desc' },
+            take: 5,
+          },
         },
-        maintenanceRecords: {
-          orderBy: { date: 'desc' },
-          take: 5
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      where: {
-        tenantId: tenantId
-      }
-    });
+        orderBy: buildOrderBy(sortBy, sortOrder),
+        skip,
+        take: limit,
+      }),
+      prisma.vehicle.count({ where }),
+    ]);
 
-    return NextResponse.json(vehicles);
-  } catch (error) {
-    console.error('Vehicles fetch error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch vehicles' },
-      { status: 500 }
-    );
-  }
-}
+    logger.info({ tenantId, count: vehicles.length, total }, 'Fetched vehicles');
 
-export async function POST(request: NextRequest) {
-  try {
-    const { user, tenantId } = await requireTenant();
-    const data = await request.json();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
-    }
-    
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
+    return paginatedResponse(serializePrismaResults(vehicles), total, page, limit);
+  }),
+  'vehicles:GET'
+);
 
+export const POST = withErrorHandler(
+  withTenantContext(async (context, request) => {
+    const { prisma, tenantId } = context;
+
+    // Parse and validate request body
+    const body = await request.json();
+    const validatedData = createVehicleSchema.parse(body);
+
+    // Create vehicle
     const vehicle = await prisma.vehicle.create({
       data: {
-        registrationNumber: data.registrationNumber,
-        make: data.make,
-        model: data.model,
-        year: data.year,
-        type: data.type,
-        initialCost: data.initialCost,
+        tenantId: tenantId!,
+        registrationNumber: validatedData.registrationNumber,
+        make: validatedData.make,
+        model: validatedData.model,
+        year: validatedData.year,
+        type: validatedData.type,
+        initialCost: validatedData.initialCost,
         currentMileage: 0,
         status: 'ACTIVE',
-      }
+        paymentModel: validatedData.paymentModel || 'DRIVER_REMITS',
+        paymentConfig: validatedData.paymentConfig || {},
+      },
     });
 
-    return NextResponse.json(vehicle);
-  } catch (error) {
-    console.error('Vehicle creation error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create vehicle' },
-      { status: 500 }
-    );
-  }
-}
+    logger.info({ tenantId, vehicleId: vehicle.id }, 'Vehicle created');
+
+    return NextResponse.json(serializePrismaResults(vehicle), { status: 201 });
+  }),
+  'vehicles:POST'
+);

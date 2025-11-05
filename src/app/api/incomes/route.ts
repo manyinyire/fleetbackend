@@ -1,112 +1,83 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenant } from '@/lib/auth-helpers';
-import { getTenantPrisma } from '@/lib/get-tenant-prisma';
-import { setTenantContext } from '@/lib/tenant';
+import { withTenantContext, withErrorHandler, parsePaginationParams, paginatedResponse, calculateSkip, buildOrderBy } from '@/lib/api';
+import { createIncomeSchema, incomeSourceEnum } from '@/lib/validations/financial';
 import { serializePrismaResults } from '@/lib/serialize-prisma';
+import { logger } from '@/lib/logger';
 
-export async function GET(request: NextRequest) {
-  try {
-    const { user, tenantId } = await requireTenant();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
-    }
-    
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
-
-    // Get query parameters for filtering
+export const GET = withErrorHandler(
+  withTenantContext(async (context, request) => {
+    const { prisma, tenantId } = context;
     const { searchParams } = new URL(request.url);
+
+    // Parse pagination parameters
+    const { page = 1, limit = 50, sortBy = 'date', sortOrder = 'desc' } = parsePaginationParams(searchParams);
+    const skip = calculateSkip(page, limit);
+
+    // Parse filter parameters
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const source = searchParams.get('source');
     const vehicleId = searchParams.get('vehicleId');
 
     // Build where clause
-    const where: any = {
-      tenantId: tenantId
-    };
-    
+    const where: any = { tenantId: tenantId! };
+
     if (startDate || endDate) {
       where.date = {};
       if (startDate) where.date.gte = new Date(startDate);
       if (endDate) where.date.lte = new Date(endDate);
     }
-    
+
     if (source) where.source = source;
     if (vehicleId) where.vehicleId = vehicleId;
 
-    console.log('Incomes query where clause:', where);
+    // Execute query with pagination
+    const [incomes, total] = await prisma.$transaction([
+      prisma.income.findMany({
+        where,
+        include: {
+          vehicle: true,
+        },
+        orderBy: buildOrderBy(sortBy, sortOrder),
+        skip,
+        take: limit,
+      }),
+      prisma.income.count({ where }),
+    ]);
 
-    const incomes = await prisma.income.findMany({
-      where,
-      include: {
-        vehicle: true,
-      },
-      orderBy: { date: 'desc' },
-      take: 1000, // Remove any default limit
-    });
+    logger.info({ tenantId, count: incomes.length, total, filters: { startDate, endDate, source, vehicleId } }, 'Fetched incomes');
 
-    console.log('Incomes found:', incomes.length);
-    
-    // Convert Decimal objects to numbers
-    const serializedIncomes = serializePrismaResults(incomes);
-    
-    return NextResponse.json(serializedIncomes);
-  } catch (error) {
-    console.error('Incomes fetch error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch incomes' },
-      { status: 500 }
-    );
-  }
-}
+    return paginatedResponse(serializePrismaResults(incomes), total, page, limit);
+  }),
+  'incomes:GET'
+);
 
-export async function POST(request: NextRequest) {
-  try {
-    const { user, tenantId } = await requireTenant();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
-    }
-    
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
+export const POST = withErrorHandler(
+  withTenantContext(async (context, request) => {
+    const { prisma, tenantId } = context;
 
+    // Parse and validate request body
     const body = await request.json();
-    const { vehicleId, source, amount, date, description } = body;
-
-    // Validate required fields
-    if (!source || !amount || !date) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
+    const validatedData = createIncomeSchema.parse(body);
 
     // Create income
     const income = await prisma.income.create({
       data: {
-        tenantId,
-        vehicleId: vehicleId || null,
-        source,
-        amount: parseFloat(amount),
-        date: new Date(date),
-        description: description || null,
+        tenantId: tenantId!,
+        vehicleId: validatedData.vehicleId,
+        source: validatedData.source,
+        amount: validatedData.amount,
+        date: new Date(validatedData.date),
+        description: validatedData.description,
       },
       include: {
         vehicle: true,
       },
     });
 
-    return NextResponse.json(income, { status: 201 });
-  } catch (error) {
-    console.error('Income creation error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create income' },
-      { status: 500 }
-    );
-  }
-}
+    logger.info({ tenantId, incomeId: income.id, amount: income.amount }, 'Income created');
+
+    return NextResponse.json(serializePrismaResults(income), { status: 201 });
+  }),
+  'incomes:POST'
+);
