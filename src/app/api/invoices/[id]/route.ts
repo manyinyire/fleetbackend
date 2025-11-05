@@ -1,51 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth';
+import { NextRequest } from 'next/server';
+import { withTenantAuth, successResponse } from '@/lib/api-middleware';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const session = await auth.api.getSession({
-      headers: request.headers
-    });
+export const GET = withTenantAuth(async ({ prisma, tenantId, request }, { params }) => {
+  const { id } = await params;
 
-    if (!session?.user?.id || !session?.user?.tenantId) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    const invoice = await prisma.invoice.findFirst({
-      where: {
-        id: id,
-        tenantId: session.user.tenantId
+  const invoice = await prisma.invoice.findFirst({
+    where: {
+      id: id,
+      tenantId: tenantId,
+    },
+    include: {
+      tenant: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+        include: {
+          settings: true,
+        },
       },
-      include: {
-        tenant: {
-          include: {
-            settings: true
-          }
-        }
-      }
-    });
+    },
+  });
 
-    if (!invoice) {
-      return NextResponse.json(
-        { error: 'Invoice not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ invoice });
-  } catch (error) {
-    console.error('Get invoice error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  if (!invoice) {
+    return successResponse({ error: 'Invoice not found' }, 404);
   }
-}
+
+  return successResponse(invoice);
+});
