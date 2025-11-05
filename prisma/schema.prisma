@@ -30,17 +30,23 @@ model Tenant {
   // Billing fields
   subscriptionStartDate DateTime?
   subscriptionEndDate   DateTime?
-  autoRenew             Boolean   @default(true)
+  autoRenew             Boolean          @default(true)
+  billingCycle          BillingCycle     @default(MONTHLY)
+  trialStartDate        DateTime?
+  trialEndDate          DateTime?
+  isInTrial             Boolean          @default(false)
+  canceledAt            DateTime?
+  cancelReason          String?
 
   // Relationships
-  users            User[]
-  vehicles         Vehicle[]
-  drivers          Driver[]
-  settings         TenantSettings?
-  invoices         Invoice[]
-  invoiceReminders InvoiceReminder[]
-  scheduledReports ScheduledReport[]
-  whiteLabel       WhiteLabel?
+  users                User[]
+  vehicles             Vehicle[]
+  drivers              Driver[]
+  settings             TenantSettings?
+  invoices             Invoice[]
+  invoiceReminders     InvoiceReminder[]
+  payments             Payment[]
+  subscriptionHistory  SubscriptionHistory[]
 
   @@map("tenants")
 }
@@ -55,6 +61,11 @@ enum SubscriptionPlan {
   FREE
   BASIC
   PREMIUM
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
 }
 
 model User {
@@ -738,6 +749,7 @@ model Invoice {
   // Relationships
   tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   reminders InvoiceReminder[]
+  payments  Payment[]
 
   @@index([tenantId])
   @@index([status])
@@ -788,115 +800,148 @@ enum ReminderType {
 }
 
 // ============================================
-// SCHEDULED REPORTS (PREMIUM FEATURE)
+// PAYMENT AND SUBSCRIPTION TABLES
 // ============================================
 
-model ScheduledReport {
-  id          String              @id @default(cuid())
-  tenantId    String
-  name        String
-  description String?
-  reportType  ReportType
-  frequency   ReportFrequency
-  format      ReportFormat[]
-  recipients  String[] // Email addresses
-  filters     Json? // Report-specific filters
-  isActive    Boolean             @default(true)
-  lastRunAt   DateTime?
-  nextRunAt   DateTime?
-  createdBy   String
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+model Payment {
+  id                String        @id @default(cuid())
+  tenantId          String
+  invoiceId         String
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("USD")
+  status            PaymentStatus @default(PENDING)
+  paymentMethod     String        @default("paynow")
+
+  // Payment gateway fields
+  paynowReference   String?       @unique
+  pollUrl           String?
+  redirectUrl       String?
+
+  // Verification
+  verified          Boolean       @default(false)
+  verifiedAt        DateTime?
+  verificationHash  String?
+
+  // Metadata
+  paymentMetadata   Json?
+  errorMessage      String?
+
+  // Action tracking
+  upgradeActioned   Boolean       @default(false)
+  unsuspendActioned Boolean       @default(false)
+  emailSent         Boolean       @default(false)
+  adminNotified     Boolean       @default(false)
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   // Relationships
-  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  runs   ReportRun[]
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
-  @@index([frequency])
-  @@index([nextRunAt])
-  @@map("scheduled_reports")
-}
-
-enum ReportType {
-  FINANCIAL_SUMMARY
-  VEHICLE_PERFORMANCE
-  DRIVER_PERFORMANCE
-  MAINTENANCE_SUMMARY
-  REMITTANCE_SUMMARY
-  CUSTOM
-}
-
-enum ReportFrequency {
-  DAILY
-  WEEKLY
-  MONTHLY
-  QUARTERLY
-}
-
-enum ReportFormat {
-  PDF
-  CSV
-  EXCEL
-}
-
-model ReportRun {
-  id               String         @id @default(cuid())
-  scheduledReportId String
-  status           ReportRunStatus @default(PENDING)
-  startedAt        DateTime?
-  completedAt      DateTime?
-  error            String?
-  fileUrls         Json? // URLs to generated report files
-  createdAt        DateTime       @default(now())
-
-  // Relationships
-  scheduledReport ScheduledReport @relation(fields: [scheduledReportId], references: [id], onDelete: Cascade)
-
-  @@index([scheduledReportId])
+  @@index([invoiceId])
   @@index([status])
-  @@index([createdAt])
-  @@map("report_runs")
+  @@index([paynowReference])
+  @@map("payments")
 }
 
-enum ReportRunStatus {
+enum PaymentStatus {
   PENDING
-  RUNNING
-  COMPLETED
+  PAID
   FAILED
+  REFUNDED
+  CANCELLED
 }
 
-// ============================================
-// WHITE-LABELING (PREMIUM FEATURE)
-// ============================================
-
-model WhiteLabel {
-  id               String   @id @default(cuid())
-  tenantId         String   @unique
-  companyName      String
-  logo             String? // URL to logo
-  favicon          String? // URL to favicon
-  primaryColor     String   @default("#3b82f6") // Hex color
-  secondaryColor   String   @default("#1e40af") // Hex color
-  accentColor      String   @default("#10b981") // Hex color
-  customDomain     String?  @unique
-  customDomainVerified Boolean @default(false)
-  emailFromName    String?
-  emailFromAddress String?
-  supportEmail     String?
-  supportPhone     String?
-  termsUrl         String?
-  privacyUrl       String?
-  customCss        String?  @db.Text
-  customFooter     String?
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+model SubscriptionHistory {
+  id            String           @id @default(cuid())
+  tenantId      String
+  fromPlan      SubscriptionPlan
+  toPlan        SubscriptionPlan
+  fromCycle     BillingCycle?
+  toCycle       BillingCycle?
+  changeType    SubscriptionChangeType
+  changeReason  String?
+  proratedAmount Decimal?        @db.Decimal(10, 2)
+  effectiveDate DateTime
+  changedBy     String           // userId or "system"
+  metadata      Json?
+  createdAt     DateTime         @default(now())
 
   // Relationships
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
-  @@index([customDomain])
-  @@map("white_labels")
+  @@index([effectiveDate])
+  @@index([changeType])
+  @@map("subscription_history")
+}
+
+enum SubscriptionChangeType {
+  UPGRADE
+  DOWNGRADE
+  CYCLE_CHANGE
+  TRIAL_START
+  TRIAL_END
+  RENEWAL
+  CANCELLATION
+  REACTIVATION
+}
+
+model PlanConfiguration {
+  id                String           @id @default(cuid())
+  plan              SubscriptionPlan @unique
+  displayName       String
+  description       String?
+  monthlyPrice      Decimal          @db.Decimal(10, 2)
+  yearlyPrice       Decimal          @db.Decimal(10, 2)
+  currency          String           @default("USD")
+  features          Json             // Array of feature strings
+  limits            Json             // Vehicle limits, user limits, etc.
+  isActive          Boolean          @default(true)
+  sortOrder         Int              @default(0)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@map("plan_configurations")
+}
+
+model SubscriptionMetrics {
+  id                    String   @id @default(cuid())
+  date                  DateTime @unique @db.Date
+
+  // Revenue metrics
+  mrr                   Decimal  @db.Decimal(15, 2) // Monthly Recurring Revenue
+  arr                   Decimal  @db.Decimal(15, 2) // Annual Recurring Revenue
+
+  // Subscription counts
+  totalSubscriptions    Int      @default(0)
+  activeSubscriptions   Int      @default(0)
+  trialSubscriptions    Int      @default(0)
+  canceledSubscriptions Int      @default(0)
+
+  // Plan distribution
+  freeCount             Int      @default(0)
+  basicCount            Int      @default(0)
+  premiumCount          Int      @default(0)
+
+  // Churn metrics
+  churnedCount          Int      @default(0)
+  churnRate             Decimal  @db.Decimal(5, 2) // Percentage
+
+  // Conversion metrics
+  trialToBasic          Int      @default(0)
+  trialToPremium        Int      @default(0)
+  basicToPremium        Int      @default(0)
+
+  // Financial metrics
+  newRevenue            Decimal  @db.Decimal(15, 2)
+  churnedRevenue        Decimal  @db.Decimal(15, 2)
+  expansionRevenue      Decimal  @db.Decimal(15, 2) // From upgrades
+
+  createdAt             DateTime @default(now())
+
+  @@index([date])
+  @@map("subscription_metrics")
 }

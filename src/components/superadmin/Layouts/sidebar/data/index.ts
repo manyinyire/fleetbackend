@@ -34,6 +34,12 @@ export const SUPER_ADMIN_NAV_DATA = [
         items: [],
       },
       {
+        title: "Plans",
+        icon: Icons.RectangleStackIcon,
+        url: "/superadmin/plans",
+        items: [],
+      },
+      {
         title: "Billing",
         icon: Icons.CurrencyDollarIcon,
         url: "/superadmin/billing",
