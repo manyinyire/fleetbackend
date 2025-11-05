@@ -25,24 +25,30 @@ async function main() {
         throw new Error('SUPER_ADMIN_PASSWORD environment variable is required for seeding');
       }
 
-      // Create SUPER_ADMIN user directly with Prisma
+      // Hash the password
       const hashedPassword = await hash(superAdminPassword, 12);
 
-      await prisma.user.create({
+      // Create SUPER_ADMIN user
+      const superAdminUser = await prisma.user.create({
         data: {
           email: superAdminEmail,
-          password: hashedPassword,
           name: 'Super Admin',
+          emailVerified: true, // Super admin is pre-verified
+          role: 'SUPER_ADMIN',
         },
       });
 
-      // Update the user role to SUPER_ADMIN
-      await prisma.user.update({
-        where: { email: superAdminEmail },
-        data: { role: 'SUPER_ADMIN' },
+      // Create credential account for BetterAuth
+      await prisma.account.create({
+        data: {
+          userId: superAdminUser.id,
+          accountId: superAdminUser.id, // Use user ID as account ID
+          providerId: 'credential', // BetterAuth credential provider
+          password: hashedPassword,
+        },
       });
 
-      console.log('✅ Created SUPER_ADMIN user');
+      console.log('✅ Created SUPER_ADMIN user and credentials');
       console.log('   Email:', superAdminEmail);
       console.log('   ⚠️  Password set from SUPER_ADMIN_PASSWORD environment variable');
       console.log('   ⚠️  Please store the password securely and change it after first login!');
@@ -52,6 +58,37 @@ async function main() {
     }
   } else {
     console.log('✅ SUPER_ADMIN user already exists');
+
+    // Check if account exists for existing super admin
+    const existingAccount = await prisma.account.findFirst({
+      where: {
+        userId: existingSuperAdmin.id,
+        providerId: 'credential',
+      },
+    });
+
+    if (!existingAccount) {
+      console.log('⚠️  Super admin exists but has no credential account. Creating one...');
+      const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD;
+
+      if (!superAdminPassword) {
+        console.error('❌ SUPER_ADMIN_PASSWORD environment variable is not set');
+        throw new Error('SUPER_ADMIN_PASSWORD required to create credential account');
+      }
+
+      const hashedPassword = await hash(superAdminPassword, 12);
+
+      await prisma.account.create({
+        data: {
+          userId: existingSuperAdmin.id,
+          accountId: existingSuperAdmin.id,
+          providerId: 'credential',
+          password: hashedPassword,
+        },
+      });
+
+      console.log('✅ Created credential account for existing super admin');
+    }
   }
 
   // Create a sample tenant

@@ -21,7 +21,8 @@
     "db:push": "echo 'Warning: db:push is deprecated. Use db:migrate:dev instead.' && prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "db:setup": "prisma migrate deploy && tsx prisma/seed.ts"
+    "db:setup": "prisma migrate deploy && tsx prisma/seed.ts",
+    "reset:superadmin": "tsx scripts/reset-superadmin.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
