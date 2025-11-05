@@ -61,6 +61,26 @@ export async function DELETE(
   try {
     const adminUser = await requireRole('SUPER_ADMIN');
 
+    // Get user info before deletion for logging
+    const userToDelete = await prisma.user.findUnique({
+      where: { id },
+      select: { email: true, name: true, role: true },
+    });
+
+    if (!userToDelete) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    // Clear all sessions for this user BEFORE deletion to prevent cached data
+    const sessionsCleared = await prisma.session.deleteMany({
+      where: { userId: id },
+    });
+
+    console.log(`Cleared ${sessionsCleared.count} session(s) for user ${userToDelete.email}`);
+
     // Use BetterAuth admin plugin to remove user
     const headersList = await headers();
     await auth.api.removeUser({
@@ -78,7 +98,10 @@ export async function DELETE(
         entityType: 'User',
         entityId: id,
         newValues: {
-          deletedAt: new Date().toISOString()
+          deletedAt: new Date().toISOString(),
+          userEmail: userToDelete.email,
+          userName: userToDelete.name,
+          sessionsCleared: sessionsCleared.count,
         },
         ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown'
@@ -87,7 +110,8 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: 'User deleted successfully'
+      message: 'User deleted successfully',
+      sessionsCleared: sessionsCleared.count,
     });
   } catch (error: any) {
     console.error('Delete user error:', error);
