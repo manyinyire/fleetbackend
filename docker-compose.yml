@@ -1,5 +1,15 @@
 # Azaire Fleet Manager - Docker Compose Configuration
-# For local development and testing
+# ⚠️  WARNING: FOR LOCAL DEVELOPMENT ONLY - DO NOT USE IN PRODUCTION
+#
+# This configuration uses default passwords and is NOT secure for production use.
+# For production deployment:
+#   1. Use docker-compose.production.yml with proper environment variables
+#   2. Set strong passwords via environment variables
+#   3. Never commit production credentials to version control
+#   4. Use secrets management (Docker secrets, Kubernetes secrets, etc.)
+#   5. Ensure all URLs use HTTPS
+#
+# See docker-compose.production.yml and DEPLOYMENT_QUICK_START.md for production setup.
 
 version: '3.8'
 
@@ -13,7 +23,7 @@ services:
       - "5432:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: postgres  # ⚠️ DEVELOPMENT ONLY - Change in production!
       POSTGRES_DB: azaire_dev
     volumes:
       - postgres_data:/var/lib/postgresql/data

@@ -77,7 +77,8 @@ class EmailService {
   }
 
   async sendVerificationEmail(email: string, verificationToken: string, userName: string): Promise<boolean> {
-    const verificationUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+    const { appConfig } = await import('@/config/app');
+    const verificationUrl = `${appConfig.baseUrl}/verify-email?token=${verificationToken}`;
     
     const html = `
       <!DOCTYPE html>
@@ -248,6 +249,7 @@ class EmailService {
     invoicePdf: Buffer
   ): Promise<boolean> {
     const { getPlatformSettingsWithDefaults } = await import('@/lib/platform-settings');
+    const { appConfig } = await import('@/config/app');
     const platformSettings = await getPlatformSettingsWithDefaults();
     
     const html = `
@@ -278,7 +280,7 @@ class EmailService {
             <p>Please ensure payment is made before the due date to avoid any service interruption. The invoice PDF is attached for your convenience.</p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${platformSettings.platformUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000'}/billing" 
+              <a href="${platformSettings.platformUrl || appConfig.baseUrl}/billing"
                  style="background: #fd7e14; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
                 View Billing Dashboard
               </a>
