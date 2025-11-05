@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { join, normalize, basename } from 'path';
 import { existsSync } from 'fs';
+import { randomBytes } from 'crypto';
 
 /**
  * Upload platform logo
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
+    // Validate file type against allowlist
     const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
@@ -31,6 +32,16 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Map MIME types to safe extensions (don't trust client-provided extensions)
+    const extensionMap: Record<string, string> = {
+      'image/png': 'png',
+      'image/jpeg': 'jpg',
+      'image/jpg': 'jpg',
+      'image/svg+xml': 'svg',
+      'image/webp': 'webp',
+    };
+    const extension = extensionMap[file.type] || 'png';
 
     // Validate file size (max 5MB)
     const maxSize = 5 * 1024 * 1024; // 5MB
@@ -41,25 +52,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert file to base64 for storage in database
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const base64 = buffer.toString('base64');
-    const dataUri = `data:${file.type};base64,${base64}`;
 
-    // Also save to public/uploads directory for serving
+    // Generate cryptographically random filename (prevents path traversal)
+    const randomName = randomBytes(16).toString('hex');
+    const filename = `platform-logo-${randomName}.${extension}`;
+
+    // Define and validate upload directory
     const uploadsDir = join(process.cwd(), 'public', 'uploads', 'logos');
-    
+    const filePath = join(uploadsDir, filename);
+
+    // Security: Validate final path is within allowed directory
+    const normalizedPath = normalize(filePath);
+    const normalizedDir = normalize(uploadsDir);
+    if (!normalizedPath.startsWith(normalizedDir)) {
+      return NextResponse.json(
+        { error: 'Invalid file path' },
+        { status: 400 }
+      );
+    }
+
     // Create directory if it doesn't exist
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true });
     }
-
-    // Generate unique filename
-    const timestamp = Date.now();
-    const extension = file.name.split('.').pop() || 'png';
-    const filename = `platform-logo-${timestamp}.${extension}`;
-    const filePath = join(uploadsDir, filename);
 
     // Save file to disk
     await writeFile(filePath, buffer);
@@ -73,14 +90,22 @@ export async function POST(request: NextRequest) {
     if (platformSettings) {
       // Delete old logo file if it exists
       if (platformSettings.platformLogo && platformSettings.platformLogo.startsWith('/uploads/')) {
-        const oldFilePath = join(process.cwd(), 'public', platformSettings.platformLogo);
-        if (existsSync(oldFilePath)) {
-          try {
-            const { unlink } = await import('fs/promises');
-            await unlink(oldFilePath);
-          } catch (err) {
-            // Ignore errors deleting old file
-            console.warn('Failed to delete old logo:', err);
+        const oldFilename = basename(platformSettings.platformLogo);
+
+        // Security: Validate old filename matches expected pattern before deletion
+        if (/^platform-logo-[a-f0-9]{32}\.(png|jpg|svg|webp)$/i.test(oldFilename)) {
+          const oldFilePath = join(uploadsDir, oldFilename);
+          const normalizedOldPath = normalize(oldFilePath);
+
+          // Security: Ensure old file is within allowed directory
+          if (normalizedOldPath.startsWith(normalizedDir) && existsSync(oldFilePath)) {
+            try {
+              const { unlink } = await import('fs/promises');
+              await unlink(oldFilePath);
+            } catch (err) {
+              // Ignore errors deleting old file
+              console.warn('Failed to delete old logo:', err);
+            }
           }
         }
       }

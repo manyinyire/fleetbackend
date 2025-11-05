@@ -13,12 +13,69 @@ import {
 } from '@/lib/email';
 import { apiLogger } from '@/lib/logger';
 
+// Webhook-specific rate limiting (100 requests per minute per IP)
+const webhookRateLimiter = new Map<string, { count: number; resetTime: number }>();
+
+function checkWebhookRateLimit(identifier: string): boolean {
+  const now = Date.now();
+  const limit = 100;
+  const window = 60 * 1000; // 1 minute
+
+  const record = webhookRateLimiter.get(identifier);
+
+  if (!record || record.resetTime < now) {
+    webhookRateLimiter.set(identifier, { count: 1, resetTime: now + window });
+    return true;
+  }
+
+  if (record.count >= limit) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+}
+
+// Replay attack protection (track processed webhooks for 1 hour)
+const processedWebhooks = new Map<string, number>();
+
+function isReplayAttack(reference: string, timestamp: number): boolean {
+  const processed = processedWebhooks.get(reference);
+
+  if (processed && timestamp <= processed) {
+    return true;
+  }
+
+  // Clean up old entries (older than 1 hour)
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  for (const [key, time] of processedWebhooks.entries()) {
+    if (time < oneHourAgo) {
+      processedWebhooks.delete(key);
+    }
+  }
+
+  return false;
+}
+
 /**
  * PayNow Callback Handler
  * CRITICAL: This endpoint handles payment confirmation from PayNow
  * Security is paramount - we MUST verify every payment before taking action
  */
 export const POST = withErrorHandler(async (request: NextRequest) => {
+  const startTime = Date.now();
+
+  // SECURITY: Get client IP for rate limiting and logging
+  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] ||
+                   request.headers.get('x-real-ip') ||
+                   'unknown';
+
+  // SECURITY: Webhook-specific rate limiting
+  if (!checkWebhookRateLimit(clientIp)) {
+    apiLogger.error({ clientIp }, 'Webhook rate limit exceeded');
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+  }
+
   const body = await request.json();
 
   apiLogger.info(
@@ -26,6 +83,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       reference: body.reference,
       paynowreference: body.paynowreference,
       status: body.status,
+      clientIp,
     },
     'PayNow callback received'
   );
@@ -33,11 +91,17 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   // SECURITY CHECK 1: Verify webhook signature
   const isValidSignature = verifyWebhookSignature(body);
   if (!isValidSignature) {
-    apiLogger.error('Invalid webhook signature - possible fraud attempt');
+    apiLogger.error({ clientIp, body }, 'Invalid webhook signature - possible fraud attempt');
     return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
   }
 
   const { reference, paynowreference: paynowReference, amount, status } = body;
+
+  // SECURITY CHECK 2: Replay attack protection
+  if (isReplayAttack(reference, startTime)) {
+    apiLogger.error({ reference, clientIp }, 'Replay attack detected');
+    return NextResponse.json({ error: 'Duplicate webhook' }, { status: 409 });
+  }
 
   // Find the invoice and associated payment
   const invoice = await prisma.invoice.findUnique({
@@ -136,15 +200,19 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     });
   }
 
-  // SECURITY CHECK 4: Verify amount matches
-  const expectedAmount = Number(invoice.amount);
-  const paidAmount = Number(statusCheck.amount);
+  // SECURITY CHECK 4: Verify amount matches (using integer comparison to avoid floating-point issues)
+  // Convert to cents for precise comparison
+  const expectedAmountCents = Math.round(Number(invoice.amount) * 100);
+  const paidAmountCents = Math.round(Number(statusCheck.amount) * 100);
 
-  if (Math.abs(paidAmount - expectedAmount) > 0.01) {
+  if (expectedAmountCents !== paidAmountCents) {
     apiLogger.error(
       {
-        expected: expectedAmount,
-        paid: paidAmount,
+        expected: expectedAmountCents / 100,
+        expectedCents: expectedAmountCents,
+        paid: paidAmountCents / 100,
+        paidCents: paidAmountCents,
+        invoice: invoice.invoiceNumber,
       },
       'Payment amount mismatch - possible fraud'
     );
@@ -153,8 +221,13 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       where: { id: payment.id },
       data: {
         status: "FAILED",
-        errorMessage: `Amount mismatch: expected ${expectedAmount}, got ${paidAmount}`,
-        paymentMetadata: statusCheck as any
+        errorMessage: `Amount mismatch: expected ${expectedAmountCents / 100} (${expectedAmountCents} cents), got ${paidAmountCents / 100} (${paidAmountCents} cents)`,
+        paymentMetadata: {
+          ...statusCheck,
+          expectedAmountCents,
+          paidAmountCents,
+          mismatchDetected: true,
+        } as any
       }
     });
 
@@ -224,6 +297,9 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   // Perform auto-actions (includes analytics tracking)
   await performAutoActions(invoice, updatedPayment);
+
+  // SECURITY: Mark webhook as processed to prevent replay attacks
+  processedWebhooks.set(reference, startTime);
 
   return NextResponse.json({
     success: true,

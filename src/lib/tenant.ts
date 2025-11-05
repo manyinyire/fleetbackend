@@ -1,26 +1,37 @@
 import { prisma } from './prisma';
 import { cache } from 'react';
+import { z } from 'zod';
+
+// Validate tenant ID format (CUID)
+const tenantIdSchema = z.string().regex(/^c[a-z0-9]{24}$/, 'Invalid tenant ID format');
 
 export async function setTenantContext(
-  tenantId: string, 
+  tenantId: string,
   isSuperAdmin: boolean = false
 ) {
-  // Set PostgreSQL session variables for RLS
-  await prisma.$executeRawUnsafe(
-    `SELECT set_config('app.current_tenant_id', $1::TEXT, FALSE)`,
-    tenantId
-  );
-  
-  await prisma.$executeRawUnsafe(
-    `SELECT set_config('app.is_super_admin', $1::TEXT, FALSE)`,
-    isSuperAdmin ? 'true' : 'false'
-  );
+  // Validate tenant ID format to prevent SQL injection
+  try {
+    tenantIdSchema.parse(tenantId);
+  } catch (error) {
+    throw new Error(`Invalid tenant ID format: ${tenantId}`);
+  }
+
+  // Use $queryRaw with template literals for safe parameterized queries
+  // This prevents SQL injection by properly escaping parameters
+  await prisma.$queryRaw`
+    SELECT set_config('app.current_tenant_id', ${tenantId}::TEXT, FALSE)
+  `;
+
+  await prisma.$queryRaw`
+    SELECT set_config('app.is_super_admin', ${isSuperAdmin ? 'true' : 'false'}::TEXT, FALSE)
+  `;
 }
 
 export async function getTenantId(): Promise<string | null> {
-  const result = await prisma.$queryRawUnsafe<Array<{ current_setting: string }>>(
-    `SELECT current_setting('app.current_tenant_id', true) as current_setting`
-  );
+  // Use $queryRaw with template literals instead of $queryRawUnsafe
+  const result = await prisma.$queryRaw<Array<{ current_setting: string }>>`
+    SELECT current_setting('app.current_tenant_id', true) as current_setting
+  `;
   return result[0]?.current_setting || null;
 }
 
