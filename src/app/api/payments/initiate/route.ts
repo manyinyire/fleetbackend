@@ -73,15 +73,16 @@ export async function POST(request: NextRequest) {
         invoiceId: invoice.id,
         amount: invoice.amount,
         currency: invoice.currency,
-        gateway: "PAYNOW",
+        paymentMethod: "paynow",
         pollUrl: paynowResponse.pollUrl,
+        redirectUrl: paynowResponse.redirectUrl,
         status: "PENDING",
         verified: false,
         paymentMetadata: {
           hash: paynowResponse.hash,
-          redirectUrl: paynowResponse.redirectUrl,
-        },
-      },
+          initiatedBy: session.user.id
+        }
+      }
     });
 
     // Log the payment initiation
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest) {
         entityType: "Payment",
         entityId: payment.id,
         details: {
+          paymentId: payment.id,
           invoiceId: invoice.id,
           invoiceNumber: invoice.invoiceNumber,
           amount: invoice.amount.toString(),
