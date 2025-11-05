@@ -241,9 +241,8 @@ export async function PATCH(request: NextRequest) {
 
     if (action === 'add-ip') {
       const { ipAddress, description } = ipWhitelistSchema.parse(data);
-      
+
       // TODO: Create IP whitelist entry when model is available
-      console.log('IP whitelist entry would be created:', { userId, ipAddress, description });
 
       await logSecurityEvent('IP_WHITELIST_ADDED', {
         userId,
@@ -256,9 +255,8 @@ export async function PATCH(request: NextRequest) {
 
     if (action === 'remove-ip') {
       const { ipId } = data;
-      
+
       // TODO: Delete IP whitelist entry when model is available
-      console.log('IP whitelist entry would be deleted:', { ipId });
 
       await logSecurityEvent('IP_WHITELIST_REMOVED', {
         userId,
@@ -298,7 +296,6 @@ export async function PATCH(request: NextRequest) {
 async function logSecurityEvent(eventType: string, data: any) {
   try {
     // TODO: Create security log entry when model is available
-    console.log('Security event:', eventType, data);
   } catch (error) {
     console.error('Failed to log security event:', error);
   }

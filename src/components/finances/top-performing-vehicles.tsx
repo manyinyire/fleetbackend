@@ -36,14 +36,6 @@ interface VehiclePerformance {
 }
 
 export function TopPerformingVehicles({ incomes, expenses }: TopPerformingVehiclesProps) {
-  // Debug logging
-  console.log('TopPerformingVehicles received:', {
-    incomes: incomes?.length,
-    expenses: expenses?.length,
-    sampleIncome: incomes?.[0],
-    sampleExpense: expenses?.[0]
-  });
-
   const vehiclePerformance = useMemo(() => {
     const vehicleData: { [key: string]: VehiclePerformance } = {};
     

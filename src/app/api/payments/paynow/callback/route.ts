@@ -20,12 +20,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    console.log("PayNow callback received:", {
-      reference: body.reference,
-      paynowreference: body.paynowreference,
-      status: body.status,
-    });
-
     // SECURITY CHECK 1: Verify webhook signature
     const isValidSignature = verifyWebhookSignature(body);
     if (!isValidSignature) {
@@ -287,7 +281,6 @@ async function performAutoActions(
         });
 
         actionsPerformed.upgraded = true;
-        console.log(`Auto-upgraded tenant ${invoice.tenantId} from ${tenant.plan} to ${invoice.plan}`);
       }
     }
 
@@ -325,7 +318,6 @@ async function performAutoActions(
       });
 
       actionsPerformed.unsuspended = true;
-      console.log(`Auto-unsuspended tenant ${invoice.tenantId}`);
     }
 
     // Send payment confirmation email with invoice
@@ -344,7 +336,6 @@ async function performAutoActions(
 
       if (emailResult) {
         actionsPerformed.emailSent = true;
-        console.log(`Payment confirmation email sent to ${invoice.tenant.email}`);
       } else {
         console.error("Failed to send payment confirmation email");
       }
@@ -363,7 +354,6 @@ async function performAutoActions(
 
       if (adminAlertResult) {
         actionsPerformed.adminNotified = true;
-        console.log("Admin payment alert sent");
       } else {
         console.error("Failed to send admin payment alert");
       }

@@ -20,16 +20,6 @@ interface IncomeExpenseChartProps {
 }
 
 export function IncomeExpenseChart({ incomes, expenses }: IncomeExpenseChartProps) {
-  // Debug logging
-  console.log('IncomeExpenseChart received:', {
-    incomes: incomes?.length,
-    expenses: expenses?.length,
-    sampleIncome: incomes?.[0],
-    sampleExpense: expenses?.[0],
-    allIncomes: incomes,
-    allExpenses: expenses
-  });
-
   const chartData = useMemo(() => {
     // Group data by month
     const monthlyData: { [key: string]: { income: number; expense: number } } = {};
@@ -62,13 +52,7 @@ export function IncomeExpenseChart({ incomes, expenses }: IncomeExpenseChartProp
       }))
       .sort((a, b) => a.month.localeCompare(b.month))
       .slice(-6); // Last 6 months
-    
-    console.log('IncomeExpenseChart processed data:', {
-      monthlyDataKeys: Object.keys(monthlyData),
-      resultLength: result.length,
-      result: result
-    });
-    
+
     return result;
   }, [incomes, expenses]);
 

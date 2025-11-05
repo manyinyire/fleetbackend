@@ -83,12 +83,10 @@ export default async function AuditPage() {
 
       <AdvancedSearch
         onSearch={(searchData) => {
-          // This would be implemented with client-side filtering or server-side search
-          console.log('Search data:', searchData);
+          // TODO: Implement client-side filtering or server-side search
         }}
         onClear={() => {
-          // This would clear the search
-          console.log('Clear search');
+          // TODO: Implement clear search
         }}
         filters={filterOptions}
         placeholder="Search audit logs..."

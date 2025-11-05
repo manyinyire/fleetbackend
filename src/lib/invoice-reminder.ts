@@ -179,8 +179,6 @@ class InvoiceReminderService {
           type: reminderType
         }
       });
-
-      console.log(`Invoice reminder sent for ${invoice.invoiceNumber} (${reminderType})`);
     } else {
       console.error(`Failed to send invoice reminder for ${invoice.invoiceNumber}`);
     }
@@ -190,7 +188,6 @@ class InvoiceReminderService {
     // This would typically be called by a cron job
     try {
       await this.checkAndSendReminders();
-      console.log('Invoice reminders processed successfully');
     } catch (error) {
       console.error('Error processing invoice reminders:', error);
     }

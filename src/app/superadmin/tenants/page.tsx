@@ -102,25 +102,20 @@ export default function TenantsPage() {
 
     switch (action) {
       case 'change-plan':
-        // Implement change plan logic
-        console.log('Change plan for:', selectedTenants);
+        // TODO: Implement change plan logic
         break;
       case 'suspend':
-        // Implement suspend logic
-        console.log('Suspend:', selectedTenants);
+        // TODO: Implement suspend logic
         break;
       case 'email':
-        // Implement email logic
-        console.log('Email:', selectedTenants);
+        // TODO: Implement email logic
         break;
       case 'export':
-        // Implement export logic
-        console.log('Export:', selectedTenants);
+        // TODO: Implement export logic
         break;
       case 'delete':
         if (confirm('Are you sure you want to delete the selected tenants?')) {
-          // Implement delete logic
-          console.log('Delete:', selectedTenants);
+          // TODO: Implement delete logic
         }
         break;
     }

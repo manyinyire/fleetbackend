@@ -46,20 +46,17 @@ export async function POST(request: NextRequest) {
     });
 
     // TODO: Create admin settings when model is available
-    console.log('Admin settings would be created for user:', adminUser.id);
 
     // If IP whitelist is enabled, add current IP
     if (enableIpWhitelist) {
-      const clientIP = request.headers.get('x-forwarded-for') || 
-                      request.headers.get('x-real-ip') || 
+      const clientIP = request.headers.get('x-forwarded-for') ||
+                      request.headers.get('x-real-ip') ||
                       '127.0.0.1';
-      
+
       // TODO: Create IP whitelist entry when model is available
-      console.log('IP whitelist entry would be created:', { userId: adminUser.id, ipAddress: clientIP });
     }
 
     // TODO: Log admin creation when adminSecurityLog model is available
-    console.log('Admin creation logged for user:', adminUser.id);
 
     return NextResponse.json({ 
       success: true,

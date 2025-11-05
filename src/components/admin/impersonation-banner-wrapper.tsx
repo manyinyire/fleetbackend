@@ -32,11 +32,10 @@ export function ImpersonationBannerWrapper() {
     url.searchParams.delete('impersonate');
     url.searchParams.delete('reason');
     window.history.replaceState({}, '', url.toString());
-    
+
     setImpersonationData(null);
-    
+
     // In a real implementation, you'd call an API to stop impersonation
-    console.log('Stopped impersonation');
   };
 
   if (!impersonationData) return null;

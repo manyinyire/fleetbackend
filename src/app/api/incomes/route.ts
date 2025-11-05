@@ -37,8 +37,6 @@ export async function GET(request: NextRequest) {
     if (source) where.source = source;
     if (vehicleId) where.vehicleId = vehicleId;
 
-    console.log('Incomes query where clause:', where);
-
     const incomes = await prisma.income.findMany({
       where,
       include: {
@@ -48,8 +46,6 @@ export async function GET(request: NextRequest) {
       take: 1000, // Remove any default limit
     });
 
-    console.log('Incomes found:', incomes.length);
-    
     // Convert Decimal objects to numbers
     const serializedIncomes = serializePrismaResults(incomes);
     

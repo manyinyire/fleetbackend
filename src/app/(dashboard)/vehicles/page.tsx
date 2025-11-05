@@ -49,12 +49,6 @@ export default async function VehiclesPage() {
   // Serialize all Decimal fields to numbers for client components
   const vehiclesForClient = serializePrismaArray(vehicles) as typeof vehicles;
 
-  // Debug: Log the data
-  console.log('Vehicles page - vehicles count:', vehicles.length);
-  console.log('Vehicles page - vehiclesForClient count:', vehiclesForClient.length);
-  console.log('Vehicles page - first vehicle:', vehicles[0]);
-  console.log('Vehicles page - first vehicleForClient:', vehiclesForClient[0]);
-
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
