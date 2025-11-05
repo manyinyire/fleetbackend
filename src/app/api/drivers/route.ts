@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenant } from '@/lib/auth-helpers';
-import { getTenantPrisma } from '@/lib/get-tenant-prisma';
-import { setTenantContext } from '@/lib/tenant';
+import { z } from 'zod';
+import { withTenantAuth, ApiContext, successResponse, paginationResponse, getPaginationFromRequest, validateBody } from '@/lib/api-middleware';
 import { PremiumFeatureService } from '@/lib/premium-features';
+import { DriverStatus } from '@prisma/client';
 
 // Validation schema for creating a driver
 const createDriverSchema = z.object({
@@ -19,132 +19,61 @@ const createDriverSchema = z.object({
   defensiveLicenseExpiry: z.string().optional(),
 });
 
-export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
+/**
+ * GET /api/drivers
+ * List all drivers with filtering and pagination
+ */
+export const GET = withTenantAuth(async ({ services, request }: ApiContext) => {
   const { page, limit } = getPaginationFromRequest(request);
   const { searchParams } = new URL(request.url);
-  const status = searchParams.get('status');
-  const search = searchParams.get('search');
 
-  // Build where clause
-  const where: any = {
-    tenantId: tenantId,
+  const filters = {
+    status: (searchParams.get('status') as DriverStatus) || undefined,
+    search: searchParams.get('search') || undefined,
+    hasDefensiveLicense: searchParams.get('hasDefensiveLicense') === 'true' ? true : undefined,
+    page,
+    limit,
   };
 
-  if (status) {
-    where.status = status;
-  }
+  // Use DriverService for business logic
+  const result = await services.drivers.findAll(filters);
 
-  if (search) {
-    where.OR = [
-      { fullName: { contains: search, mode: 'insensitive' } },
-      { nationalId: { contains: search, mode: 'insensitive' } },
-      { licenseNumber: { contains: search, mode: 'insensitive' } },
-      { phone: { contains: search, mode: 'insensitive' } },
-    ];
-  }
+  return successResponse(result);
+});
 
-  const [drivers, total] = await Promise.all([
-    prisma.driver.findMany({
-      where,
-      include: {
-        vehicles: {
-          where: {
-            endDate: null, // Active assignments only
-          },
-          include: {
-            vehicle: {
-              select: {
-                id: true,
-                registrationNumber: true,
-                make: true,
-                model: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            remittances: true,
-            contracts: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.driver.count({ where }),
-  ]);
-
-export async function POST(request: NextRequest) {
-  try {
-    const { user, tenantId } = await requireTenant();
-    const data = await request.json();
-
-    // Check if tenant can add more drivers (premium feature check)
-    const featureCheck = await PremiumFeatureService.canAddDriver(tenantId);
-
-    if (!featureCheck.allowed) {
-      return NextResponse.json(
-        {
-          error: featureCheck.reason,
-          currentUsage: featureCheck.currentUsage,
-          limit: featureCheck.limit,
-          suggestedPlan: featureCheck.suggestedPlan,
-          upgradeMessage: featureCheck.upgradeMessage,
-        },
-        { status: 403 }
-      );
-    }
-
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
-    }
-
-export const POST = withTenantAuth(async ({ prisma, tenantId, request }) => {
+/**
+ * POST /api/drivers
+ * Create a new driver
+ */
+export const POST = withTenantAuth(async ({ services, tenantId, user, request }: ApiContext) => {
+  // Validate request body
   const data = await validateBody(request, createDriverSchema);
 
-  // Check for duplicate national ID
-  const existing = await prisma.driver.findFirst({
-    where: {
-      tenantId: tenantId,
-      nationalId: data.nationalId,
-    },
-  });
-
-  if (existing) {
+  // Check premium feature limit
+  const featureCheck = await PremiumFeatureService.canAddDriver(tenantId);
+  if (!featureCheck.allowed) {
     return NextResponse.json(
-      { error: `A driver with national ID "${data.nationalId}" already exists` },
-      { status: 409 }
+      {
+        error: featureCheck.reason,
+        currentUsage: featureCheck.currentUsage,
+        limit: featureCheck.limit,
+        suggestedPlan: featureCheck.suggestedPlan,
+        upgradeMessage: featureCheck.upgradeMessage,
+      },
+      { status: 403 }
     );
   }
 
-  const driver = await prisma.driver.create({
-    data: {
-      tenantId,
-      fullName: data.fullName,
-      nationalId: data.nationalId,
-      licenseNumber: data.licenseNumber,
-      phone: data.phone,
-      email: data.email || null,
-      homeAddress: data.homeAddress,
-      nextOfKin: data.nextOfKin,
-      nextOfKinPhone: data.nextOfKinPhone,
-      hasDefensiveLicense: data.hasDefensiveLicense,
-      defensiveLicenseNumber: data.defensiveLicenseNumber || null,
-      defensiveLicenseExpiry: data.defensiveLicenseExpiry ? new Date(data.defensiveLicenseExpiry) : null,
-      debtBalance: 0,
-      status: 'ACTIVE',
-    },
-    include: {
-      vehicles: {
-        include: {
-          vehicle: true,
-        },
-      },
-    },
-  });
+  // Transform data for service
+  const driverData = {
+    ...data,
+    defensiveLicenseExpiry: data.defensiveLicenseExpiry
+      ? new Date(data.defensiveLicenseExpiry)
+      : undefined,
+  };
+
+  // Use DriverService for creation
+  const driver = await services.drivers.create(driverData, user.id);
 
   return successResponse(driver, 201);
 });

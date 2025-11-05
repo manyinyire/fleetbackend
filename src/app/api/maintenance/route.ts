@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
-import { withTenantAuth, successResponse, validateBody, getPaginationFromRequest, getDateRangeFromRequest, paginationResponse } from '@/lib/api-middleware';
+import { withTenantAuth, ApiContext, successResponse, validateBody, getPaginationFromRequest, getDateRangeFromRequest } from '@/lib/api-middleware';
 import { serializePrismaResults } from '@/lib/serialize-prisma';
 import { z } from 'zod';
+import { MaintenanceType } from '@prisma/client';
 
 // Validation schema for creating a maintenance record
 const createMaintenanceSchema = z.object({
@@ -15,91 +16,57 @@ const createMaintenanceSchema = z.object({
   invoice: z.string().url().optional().nullable(),
 });
 
-export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
+/**
+ * GET /api/maintenance
+ * List all maintenance records with filtering and pagination
+ */
+export const GET = withTenantAuth(async ({ services, request }: ApiContext) => {
   const { page, limit } = getPaginationFromRequest(request);
   const { startDate, endDate } = getDateRangeFromRequest(request);
   const { searchParams } = new URL(request.url);
-  const vehicleId = searchParams.get('vehicleId');
-  const type = searchParams.get('type');
 
-  // Build where clause
-  const where: any = {
-    tenantId: tenantId,
+  const filters = {
+    vehicleId: searchParams.get('vehicleId') || undefined,
+    type: (searchParams.get('type') as MaintenanceType) || undefined,
+    startDate,
+    endDate,
+    page,
+    limit,
   };
 
-  if (startDate || endDate) {
-    where.date = {};
-    if (startDate) where.date.gte = startDate;
-    if (endDate) where.date.lte = endDate;
-  }
+  // Use MaintenanceService for business logic
+  const result = await services.maintenance.findAll(filters);
 
-  if (vehicleId) where.vehicleId = vehicleId;
-  if (type) where.type = type;
+  // Serialize Decimal objects to numbers
+  const serialized = {
+    records: serializePrismaResults(result.records),
+    pagination: result.pagination,
+  };
 
-  const [maintenanceRecords, total] = await Promise.all([
-    prisma.maintenanceRecord.findMany({
-      where,
-      include: {
-        vehicle: {
-          select: {
-            id: true,
-            registrationNumber: true,
-            make: true,
-            model: true,
-          },
-        },
-      },
-      orderBy: { date: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.maintenanceRecord.count({ where }),
-  ]);
-
-  // Convert Decimal objects to numbers
-  const serialized = serializePrismaResults(maintenanceRecords);
-
-  return successResponse(paginationResponse(serialized, total, page, limit));
+  return successResponse(serialized);
 });
 
-export const POST = withTenantAuth(async ({ prisma, tenantId, request }) => {
+/**
+ * POST /api/maintenance
+ * Create a new maintenance record
+ */
+export const POST = withTenantAuth(async ({ services, user, request }: ApiContext) => {
   const data = await validateBody(request, createMaintenanceSchema);
 
-  // Verify vehicle exists and belongs to tenant
-  const vehicle = await prisma.vehicle.findFirst({
-    where: {
-      id: data.vehicleId,
-      tenantId: tenantId,
-    },
-  });
+  // Transform data for service
+  const maintenanceData = {
+    vehicleId: data.vehicleId,
+    date: new Date(data.date),
+    mileage: data.mileage,
+    type: data.type as MaintenanceType,
+    description: data.description,
+    cost: data.cost,
+    provider: data.provider,
+    invoice: data.invoice || undefined,
+  };
 
-  if (!vehicle) {
-    return successResponse({ error: 'Vehicle not found' }, 404);
-  }
+  // Use MaintenanceService for creation
+  const maintenance = await services.maintenance.create(maintenanceData, user.id);
 
-  const maintenanceRecord = await prisma.maintenanceRecord.create({
-    data: {
-      tenantId,
-      vehicleId: data.vehicleId,
-      date: new Date(data.date),
-      mileage: data.mileage,
-      type: data.type,
-      description: data.description,
-      cost: data.cost,
-      provider: data.provider,
-      invoice: data.invoice || null,
-    },
-    include: {
-      vehicle: {
-        select: {
-          id: true,
-          registrationNumber: true,
-          make: true,
-          model: true,
-        },
-      },
-    },
-  });
-
-  return successResponse(serializePrismaResults(maintenanceRecord), 201);
+  return successResponse(serializePrismaResults(maintenance), 201);
 });

@@ -1,66 +1,36 @@
 import { NextRequest } from 'next/server';
-import { withTenantAuth, successResponse, getPaginationFromRequest, getDateRangeFromRequest, paginationResponse } from '@/lib/api-middleware';
+import { withTenantAuth, ApiContext, successResponse, getPaginationFromRequest, getDateRangeFromRequest } from '@/lib/api-middleware';
 import { serializePrismaResults } from '@/lib/serialize-prisma';
-import {
-  createRemittanceSchema,
-  updateRemittanceSchema,
-  remittanceStatusEnum,
-} from '@/lib/validations/financial';
-import { z } from 'zod';
+import { RemittanceStatus } from '@prisma/client';
 
-export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
+/**
+ * GET /api/remittances
+ * List all remittances with filtering and pagination
+ */
+export const GET = withTenantAuth(async ({ services, request }: ApiContext) => {
   const { page, limit } = getPaginationFromRequest(request);
   const { startDate, endDate } = getDateRangeFromRequest(request);
   const { searchParams } = new URL(request.url);
-  const vehicleId = searchParams.get('vehicleId');
-  const driverId = searchParams.get('driverId');
-  const status = searchParams.get('status');
 
-  // Build where clause
-  const where: any = {
-    tenantId: tenantId,
+  const filters = {
+    vehicleId: searchParams.get('vehicleId') || undefined,
+    driverId: searchParams.get('driverId') || undefined,
+    status: (searchParams.get('status') as RemittanceStatus) || undefined,
+    targetReached: searchParams.get('targetReached') === 'true' ? true : searchParams.get('targetReached') === 'false' ? false : undefined,
+    startDate,
+    endDate,
+    page,
+    limit,
   };
 
-  if (startDate || endDate) {
-    where.date = {};
-    if (startDate) where.date.gte = startDate;
-    if (endDate) where.date.lte = endDate;
-  }
+  // Use RemittanceService for business logic
+  const result = await services.remittances.findAll(filters);
 
-  if (vehicleId) where.vehicleId = vehicleId;
-  if (driverId) where.driverId = driverId;
-  if (status) where.status = status;
+  // Serialize Decimal objects to numbers
+  const serialized = {
+    remittances: serializePrismaResults(result.remittances),
+    pagination: result.pagination,
+  };
 
-  const [remittances, total] = await Promise.all([
-    prisma.remittance.findMany({
-      where,
-      include: {
-        vehicle: {
-          select: {
-            id: true,
-            registrationNumber: true,
-            make: true,
-            model: true,
-          },
-        },
-        driver: {
-          select: {
-            id: true,
-            fullName: true,
-            phone: true,
-            licenseNumber: true,
-          },
-        },
-      },
-      orderBy: { date: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.remittance.count({ where }),
-  ]);
-
-  // Convert Decimal objects to numbers
-  const serializedRemittances = serializePrismaResults(remittances);
-
-  return successResponse(paginationResponse(serializedRemittances, total, page, limit));
+  return successResponse(serialized);
 });

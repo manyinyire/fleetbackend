@@ -37,26 +37,25 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
   }
 
-    const { reference, paynowreference: paynowReference, amount, status } = body;
+  const { reference, paynowreference: paynowReference, amount, status } = body;
 
-    // Find the invoice and associated payment
-    const invoice = await prisma.invoice.findUnique({
-      where: { invoiceNumber: reference },
-      include: {
-        tenant: {
-          include: {
-            users: {
-              take: 1,
-              orderBy: { createdAt: 'asc' }
-            }
+  // Find the invoice and associated payment
+  const invoice = await prisma.invoice.findUnique({
+    where: { invoiceNumber: reference },
+    include: {
+      tenant: {
+        include: {
+          users: {
+            take: 1,
+            orderBy: { createdAt: 'asc' }
           }
-        },
-        payments: {
-          where: { status: "PENDING" },
-          orderBy: { createdAt: "desc" },
-          take: 1
         }
       },
+      payments: {
+        where: { status: "PENDING" },
+        orderBy: { createdAt: "desc" },
+        take: 1
+      }
     },
   });
 
@@ -65,49 +64,52 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
   }
 
-  // TODO: Create Payment model in schema
   // Find the payment record
-  // const payment = await prisma.payment.findFirst({
-  //   where: {
-  //     invoiceId: invoice.id,
-  //     status: "PENDING",
-  //   },
-  //   orderBy: { createdAt: "desc" },
-  // });
-
-  // if (!payment) {
-  //   apiLogger.error({ reference }, 'Payment record not found for invoice');
-  //   return NextResponse.json(
-  //     { error: "Payment record not found" },
-  //     { status: 404 }
-  //   );
-  // }
+  const payment = invoice.payments[0];
+  if (!payment) {
+    apiLogger.error({ reference }, 'Payment record not found for invoice');
+    return NextResponse.json(
+      { error: "Payment record not found" },
+      { status: 404 }
+    );
+  }
 
   // SECURITY CHECK 2: Double-check payment status with PayNow servers
   // NEVER trust webhook data alone - always verify with the payment gateway
-  // TODO: Store pollUrl in invoice metadata or create Payment model
-  // For now, we'll skip this check but it should be implemented for production
-  // if (!payment.pollUrl) {
-  //   apiLogger.error({ paymentId: payment.id }, 'No poll URL for payment');
-  //   return NextResponse.json(
-  //     { error: "Cannot verify payment - no poll URL" },
-  //     { status: 400 }
-  //   );
-  // }
+  if (!payment.pollUrl) {
+    apiLogger.error({ paymentId: payment.id }, 'No poll URL for payment - cannot verify');
+    // If no pollUrl, we can only trust the webhook signature
+    // This should not happen in normal operation - pollUrl should be stored during payment initiation
+    apiLogger.warn({ paymentId: payment.id }, 'Proceeding with webhook data only - SECURITY RISK');
+  }
 
-  // Note: Without Payment model, we can't verify with PayNow poll URL
-  // This is a security risk and should be fixed by creating the Payment model
-  const statusCheck = { success: true, paid: status === 'Paid', status, amount };
+  let statusCheck;
+  if (payment.pollUrl) {
+    // Verify payment status directly with PayNow servers
+    apiLogger.info({ pollUrl: payment.pollUrl }, 'Verifying payment with PayNow API');
+    statusCheck = await checkPaymentStatus(payment.pollUrl);
 
-  // Note: Without Payment model, we skip PayNow verification
-  // This check is skipped since we can't verify with poll URL
-  // if (!statusCheck.success) {
-  //   apiLogger.error({ error: statusCheck.error }, 'Payment status check failed');
-  //   return NextResponse.json(
-  //     { error: "Payment verification failed" },
-  //     { status: 500 }
-  //   );
-  // }
+    if (!statusCheck.success) {
+      apiLogger.error({ error: statusCheck.error }, 'Payment status check failed');
+
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: "FAILED",
+          errorMessage: statusCheck.error || "Payment verification failed",
+          paymentMetadata: statusCheck as any
+        }
+      });
+
+      return NextResponse.json(
+        { error: "Payment verification failed" },
+        { status: 500 }
+      );
+    }
+  } else {
+    // Fallback: use webhook data (less secure but webhook signature was verified)
+    statusCheck = { success: true, paid: status === 'Paid', status, amount };
+  }
 
   // SECURITY CHECK 3: Verify payment is actually paid
   if (!statusCheck.paid || statusCheck.status !== 'Paid') {
@@ -119,69 +121,20 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       'Payment not confirmed as paid'
     );
 
-    // Find the payment record
-    const payment = invoice.payments[0];
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: "FAILED",
+        errorMessage: `Payment status: ${statusCheck.status}`,
+        paymentMetadata: statusCheck as any
+      }
+    });
 
-    if (!payment) {
-      console.error("Payment record not found for invoice:", reference);
-      return NextResponse.json(
-        { error: "Payment record not found" },
-        { status: 404 }
-      );
-    }
-
-    // SECURITY CHECK 2: Double-check payment status with PayNow servers
-    // NEVER trust webhook data alone - always verify with the payment gateway
-    if (!payment.pollUrl) {
-      console.error("No poll URL for payment:", payment.id);
-      return NextResponse.json(
-        { error: "Cannot verify payment - no poll URL" },
-        { status: 400 }
-      );
-    }
-
-    // Verify payment status with PayNow
-    const statusCheck = await checkPaymentStatus(payment.pollUrl);
-
-    if (!statusCheck.success) {
-      console.error("Payment status check failed:", statusCheck.error);
-
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: "FAILED",
-          errorMessage: statusCheck.error || "Payment verification failed",
-          paymentMetadata: statusCheck
-        }
-      });
-
-      return NextResponse.json(
-        { error: "Payment verification failed" },
-        { status: 500 }
-      );
-    }
-
-    // SECURITY CHECK 3: Verify payment is actually paid
-    if (!statusCheck.paid || statusCheck.status !== "Paid") {
-      console.warn("Payment not confirmed as paid:", {
-        paid: statusCheck.paid,
-        status: statusCheck.status,
-      });
-
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: "FAILED",
-          errorMessage: `Payment status: ${statusCheck.status}`,
-          paymentMetadata: statusCheck
-        }
-      });
-
-      return NextResponse.json({
-        success: false,
-        message: "Payment not confirmed",
-      });
-    }
+    return NextResponse.json({
+      success: false,
+      message: "Payment not confirmed",
+    });
+  }
 
   // SECURITY CHECK 4: Verify amount matches
   const expectedAmount = Number(invoice.amount);
@@ -192,81 +145,81 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       {
         expected: expectedAmount,
         paid: paidAmount,
-      });
+      },
+      'Payment amount mismatch - possible fraud'
+    );
 
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: "FAILED",
-          errorMessage: `Amount mismatch: expected ${expectedAmount}, got ${paidAmount}`,
-          paymentMetadata: statusCheck
-        }
-      });
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: "FAILED",
+        errorMessage: `Amount mismatch: expected ${expectedAmount}, got ${paidAmount}`,
+        paymentMetadata: statusCheck as any
+      }
+    });
 
-      return NextResponse.json(
-        { error: "Payment amount mismatch" },
-        { status: 400 }
-      );
-    }
-
-    // Generate verification hash for internal records
-    const verificationHash = generatePaymentVerificationHash(
-      payment.id,
-      amount,
-      paynowReference
+    return NextResponse.json(
+      { error: "Payment amount mismatch" },
+      { status: 400 }
     );
   }
+
+  // Generate verification hash for internal records
+  const verificationHash = generatePaymentVerificationHash(
+    payment.id,
+    String(amount),
+    paynowReference
+  );
 
   // Payment verified successfully - update records
   const now = new Date();
 
-    // ALL CHECKS PASSED - Now we can safely process the payment
-    const updatedPayment = await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: "PAID",
-        verified: true,
-        verifiedAt: new Date(),
+  // ALL CHECKS PASSED - Now we can safely process the payment
+  const updatedPayment = await prisma.payment.update({
+    where: { id: payment.id },
+    data: {
+      status: "PAID",
+      verified: true,
+      verifiedAt: new Date(),
+      paynowReference: paynowReference,
+      verificationHash,
+      paymentMetadata: statusCheck as any
+    }
+  });
+
+  // Update invoice status
+  await prisma.invoice.update({
+    where: { id: invoice.id },
+    data: {
+      status: 'PAID',
+      paidAt: now,
+    }
+  });
+
+  // Log to audit trail
+  await prisma.auditLog.create({
+    data: {
+      userId: invoice.tenant.users[0]?.id || 'system',
+      tenantId: invoice.tenantId,
+      action: "PAYMENT_CONFIRMED",
+      entityType: "Payment",
+      entityId: payment.id,
+      details: {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        paymentId: payment.id,
+        amount: amount,
         paynowReference: paynowReference,
-        verificationHash,
-        paymentMetadata: statusCheck
-      }
-    });
-
-    // Update invoice status
-    prisma.invoice.update({
-      where: { id: invoice.id },
-      data: {
-        status: 'PAID',
-        paidAt: now,
-      }
-    }),
-
-    // Log to audit trail
-    prisma.auditLog.create({
-      data: {
-        userId: invoice.tenant.users[0]?.id || 'system',
-        tenantId: invoice.tenantId,
-        action: "PAYMENT_CONFIRMED",
-        entityType: "Payment",
-        entityId: payment.id,
-        details: {
-          invoiceId: invoice.id,
-          invoiceNumber: invoice.invoiceNumber,
-          paymentId: payment.id,
-          amount: amount,
-          paynowReference: paynowReference,
-          verified: true,
-          analytics: {
-            event: "purchase",
-            value: Number(amount),
-            currency: invoice.currency,
-          },
+        verified: true,
+        analytics: {
+          event: "purchase",
+          value: Number(amount),
+          currency: invoice.currency,
         },
       },
       ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
       userAgent: request.headers.get('user-agent') || 'unknown',
-    },
+    }
   });
 
   // Perform auto-actions (includes analytics tracking)
