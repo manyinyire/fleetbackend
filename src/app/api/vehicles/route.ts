@@ -114,6 +114,15 @@ export async function POST(request: NextRequest) {
     // Get scoped Prisma client
     const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
+export const POST = withErrorHandler(
+  withTenantContext(async (context, request) => {
+    const { prisma, tenantId } = context;
+
+    // Parse and validate request body
+    const body = await request.json();
+    const validatedData = createVehicleSchema.parse(body);
+
+    // Create vehicle
     const vehicle = await prisma.vehicle.create({
       data: {
         registrationNumber: data.registrationNumber,

@@ -1,6 +1,12 @@
 import { NextRequest } from 'next/server';
 import { withTenantAuth, successResponse, getPaginationFromRequest, getDateRangeFromRequest, paginationResponse } from '@/lib/api-middleware';
 import { serializePrismaResults } from '@/lib/serialize-prisma';
+import {
+  createRemittanceSchema,
+  updateRemittanceSchema,
+  remittanceStatusEnum,
+} from '@/lib/validations/financial';
+import { z } from 'zod';
 
 export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
   const { page, limit } = getPaginationFromRequest(request);

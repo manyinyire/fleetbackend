@@ -215,6 +215,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       amount,
       paynowReference
     );
+  }
+
+  // Payment verified successfully - update records
+  const now = new Date();
 
     // ALL CHECKS PASSED - Now we can safely process the payment
     const updatedPayment = await prisma.payment.update({
@@ -230,18 +234,18 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     });
 
     // Update invoice status
-    await prisma.invoice.update({
+    prisma.invoice.update({
       where: { id: invoice.id },
       data: {
-        status: "PAID",
-        paidAt: new Date(),
-      },
-    });
+        status: 'PAID',
+        paidAt: now,
+      }
+    }),
 
-    // Create audit log with analytics flag
-    await prisma.auditLog.create({
+    // Log to audit trail
+    prisma.auditLog.create({
       data: {
-        userId: invoice.tenant.users[0]?.id || "system",
+        userId: invoice.tenant.users[0]?.id || 'system',
         tenantId: invoice.tenantId,
         action: "PAYMENT_CONFIRMED",
         entityType: "Payment",
@@ -294,7 +298,11 @@ async function performAutoActions(invoice: any, payment: any) {
     ) {
       const tenant = await prisma.tenant.findUnique({
         where: { id: invoice.tenantId },
-        select: { plan: true },
+        data: {
+          plan: newPlan,
+          subscriptionStartDate: now,
+          subscriptionEndDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        }
       });
 
       if (tenant) {

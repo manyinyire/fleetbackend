@@ -21,49 +21,118 @@ const ipWhitelistSchema = z.object({
   isActive: z.boolean().default(true)
 });
 
-// Super Admin Login Route
-export async function POST(request: NextRequest) {
+// Security event logger
+async function logSecurityEvent(action: string, data: any) {
   try {
-    const body = await request.json();
-    const { email, password, totpCode, rememberDevice } = loginSchema.parse(body);
-    
-    // Get client IP
-    const clientIP = request.headers.get('x-forwarded-for') || 
-                    request.headers.get('x-real-ip') || 
-                    '127.0.0.1';
-    
-    // Check if user is super admin
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: {
-        tenant: true,
-      }
-    });
-
-    if (!user || user.role !== 'SUPER_ADMIN') {
-      await logSecurityEvent('FAILED_LOGIN', {
-        email,
-        ip: clientIP,
-        reason: 'Not a super admin user'
+    // If we have a userId, log to audit log
+    if (data.userId) {
+      await prisma.auditLog.create({
+        data: {
+          userId: data.userId,
+          action,
+          entityType: 'AdminAuth',
+          entityId: data.userId,
+          newValues: data,
+          ipAddress: data.ip || 'unknown',
+          userAgent: data.userAgent || 'unknown',
+        }
       });
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Check IP whitelist if enabled - placeholder since adminSettings doesn't exist yet
-    const ipWhitelistEnabled = false;
-    if (ipWhitelistEnabled) {
-      // Placeholder for IP whitelist check
-      const isIPAllowed = true;
-      
-      if (!isIPAllowed) {
-        await logSecurityEvent('BLOCKED_IP_ACCESS', {
-          userId: user.id,
-          email,
-          ip: clientIP,
-          reason: 'IP not in whitelist'
-        });
-        return NextResponse.json({ error: 'IP address not authorized' }, { status: 403 });
-      }
+    logger.info({ action, ...data }, 'Admin security event');
+  } catch (error) {
+    logger.error({ err: error, action, data }, 'Failed to log security event');
+  }
+}
+
+// Super Admin Login Route
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  const body = await request.json();
+  const { email, password, totpCode, rememberDevice } = loginSchema.parse(body);
+
+  // Get client IP
+  const clientIP = request.headers.get('x-forwarded-for') ||
+                  request.headers.get('x-real-ip') ||
+                  '127.0.0.1';
+
+  const userAgent = request.headers.get('user-agent') || 'unknown';
+
+  // Check if user is super admin
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: {
+      accounts: {
+        where: {
+          providerId: 'credential' // Better-auth stores password in accounts
+        }
+      },
+      adminSettings: true,
+    }
+  });
+
+  if (!user || user.role !== 'SUPER_ADMIN') {
+    await logSecurityEvent('FAILED_LOGIN', {
+      email,
+      ip: clientIP,
+      userAgent,
+      reason: 'Not a super admin user'
+    });
+
+    // Use generic message to prevent user enumeration
+    return NextResponse.json({ error: ERROR_MESSAGES.INVALID_CREDENTIALS }, { status: 401 });
+  }
+
+  // Check if user is banned
+  if (user.banned) {
+    await logSecurityEvent('BLOCKED_LOGIN', {
+      userId: user.id,
+      email,
+      ip: clientIP,
+      userAgent,
+      reason: 'User is banned'
+    });
+    return NextResponse.json({
+      error: user.banReason || 'Account has been suspended'
+    }, { status: 403 });
+  }
+
+  // Get password hash from account
+  const account = user.accounts[0];
+  if (!account || !account.password) {
+    logger.error({ userId: user.id, email }, 'Admin user has no password');
+    return NextResponse.json({ error: ERROR_MESSAGES.INVALID_CREDENTIALS }, { status: 401 });
+  }
+
+  // Verify password using bcrypt
+  const passwordValid = await bcrypt.compare(password, account.password);
+
+  if (!passwordValid) {
+    await logSecurityEvent('FAILED_LOGIN', {
+      userId: user.id,
+      email,
+      ip: clientIP,
+      userAgent,
+      reason: 'Invalid password'
+    });
+    return NextResponse.json({ error: ERROR_MESSAGES.INVALID_CREDENTIALS }, { status: 401 });
+  }
+
+  // Check if 2FA is enabled for this admin
+  const twoFactorEnabled = user.adminSettings?.twoFactorEnabled || false;
+
+  if (twoFactorEnabled) {
+    if (!totpCode) {
+      return NextResponse.json({
+        requires2FA: true,
+        message: 'Two-factor authentication required'
+      }, { status: 200 });
+    }
+
+    // Verify TOTP code
+    const twoFactorSecret = user.adminSettings?.twoFactorSecret;
+    if (!twoFactorSecret) {
+      logger.error({ userId: user.id }, '2FA enabled but no secret found');
+      return NextResponse.json({ error: 'Two-factor configuration error' }, { status: 500 });
     }
 
     // Verify password using bcrypt
@@ -79,15 +148,17 @@ export async function POST(request: NextRequest) {
 
     const passwordValid = await bcrypt.compare(password, user.password);
 
-    if (!passwordValid) {
-      await logSecurityEvent('FAILED_LOGIN', {
+    if (!verified) {
+      await logSecurityEvent('FAILED_2FA', {
         userId: user.id,
         email,
         ip: clientIP,
-        reason: 'Invalid password'
+        userAgent,
+        reason: 'Invalid TOTP code'
       });
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid 2FA code' }, { status: 401 });
     }
+  }
 
     // Check if 2FA is required
     const twoFactorEnabled = user.twoFactorEnabled || false;
@@ -126,7 +197,7 @@ export async function POST(request: NextRequest) {
         });
         return NextResponse.json({ error: 'Invalid 2FA code' }, { status: 401 });
       }
-    }
+    });
 
     // Check for concurrent session limit using AdminSession model
     const now = new Date();
@@ -139,17 +210,19 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    const maxSessions = 2; // Default max sessions
-    if (activeSessions >= maxSessions) {
-      await logSecurityEvent('SESSION_LIMIT_EXCEEDED', {
+    if (!isIPAllowed) {
+      await logSecurityEvent('BLOCKED_IP_ACCESS', {
         userId: user.id,
         email,
         ip: clientIP,
-        activeSessions,
-        maxSessions
+        userAgent,
+        reason: 'IP not in whitelist'
       });
-      return NextResponse.json({ error: 'Maximum concurrent sessions exceeded' }, { status: 403 });
+      return NextResponse.json({
+        error: 'Access denied: IP address not authorized. Please contact support.'
+      }, { status: 403 });
     }
+  }
 
     // Create session
     const sessionExpiry = rememberDevice ?
@@ -167,177 +240,272 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Log successful login
-    await logSecurityEvent('SUCCESSFUL_LOGIN', {
+  if (activeSessions >= maxSessions) {
+    await logSecurityEvent('SESSION_LIMIT_EXCEEDED', {
       userId: user.id,
       email,
       ip: clientIP,
-      sessionId: session.id,
-      rememberDevice: rememberDevice || false
+      userAgent,
+      activeSessions,
+      maxSessions
     });
-
-    // Set session cookie
-    const response = NextResponse.json({ 
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
-    });
-
-    response.cookies.set('admin-session', session.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: Math.floor((sessionExpiry.getTime() - Date.now()) / 1000)
-    });
-
-    return response;
-
-  } catch (error) {
-    console.error('Admin login error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({
+      error: `Maximum concurrent sessions (${maxSessions}) exceeded. Please log out from another device.`
+    }, { status: 403 });
   }
-}
+
+  // Create admin session
+  const sessionExpiry = rememberDevice ?
+    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : // 7 days
+    new Date(Date.now() + 8 * 60 * 60 * 1000); // 8 hours
+
+  const session = await prisma.adminSession.create({
+    data: {
+      userId: user.id,
+      token: crypto.randomUUID(),
+      expiresAt: sessionExpiry,
+      ipAddress: clientIP,
+      userAgent,
+      isActive: true,
+    }
+  });
+
+  // Update last login time
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() }
+  });
+
+  // Log successful login
+  await logSecurityEvent('SUCCESSFUL_LOGIN', {
+    userId: user.id,
+    email,
+    ip: clientIP,
+    userAgent,
+    sessionId: session.id,
+    rememberDevice: rememberDevice || false
+  });
+
+  // Set session cookie
+  const response = NextResponse.json({
+    success: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role
+    }
+  });
+
+  response.cookies.set('admin-session', session.token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: Math.floor((sessionExpiry.getTime() - Date.now()) / 1000)
+  });
+
+  return response;
+}, 'admin-auth:POST');
 
 // Setup 2FA
-export async function PUT(request: NextRequest) {
-  try {
-    const { userId, action } = await request.json();
-    
-    if (action === 'enable-2fa') {
-      // Generate secret
-      const secret = speakeasy.generateSecret({
-        name: 'Azaire Admin',
-        issuer: 'Azaire Fleet Manager'
-      });
+export const PUT = withErrorHandler(async (request: NextRequest) => {
+  const { userId, action } = await request.json();
 
-      // Generate QR code
-      const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url!);
+  if (action === 'enable-2fa') {
+    // Generate secret
+    const secret = speakeasy.generateSecret({
+      name: 'Azaire Admin',
+      issuer: 'Azaire Fleet Manager'
+    });
 
-      // Save secret temporarily (not activated yet)
-      await prisma.user.update({
-        where: { id: userId },
+    // Generate QR code
+    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url!);
+
+    // Save secret temporarily (not activated yet)
+    await prisma.adminSettings.upsert({
+      where: { userId },
+      create: {
+        userId,
+        twoFactorSecret: secret.base32,
+        twoFactorEnabled: false, // Not enabled until verified
+      },
+      update: {
+        twoFactorSecret: secret.base32,
+      }
+    });
+
+    logger.info({ userId }, '2FA setup initiated');
+
+    return NextResponse.json({
+      secret: secret.base32,
+      qrCodeUrl,
+      manualEntryKey: secret.base32
+    });
+  }
+
+  if (action === 'verify-2fa') {
+    const { totpCode } = await request.json();
+
+    const adminSettings = await prisma.adminSettings.findUnique({
+      where: { userId },
+      include: { user: true }
+    });
+
+    if (!adminSettings?.twoFactorSecret) {
+      return NextResponse.json({ error: 'No 2FA secret found' }, { status: 400 });
+    }
+
+    // Verify TOTP code
+    const verified = speakeasy.totp.verify({
+      secret: adminSettings.twoFactorSecret,
+      encoding: 'base32',
+      token: totpCode,
+      window: 2
+    });
+
+    if (verified) {
+      // Enable 2FA
+      await prisma.adminSettings.update({
+        where: { userId },
         data: {
-          // TODO: Update admin settings when model is available
+          twoFactorEnabled: true,
         }
       });
 
-      return NextResponse.json({
-        secret: secret.base32,
-        qrCodeUrl,
-        manualEntryKey: secret.base32
-      });
-    }
-
-    if (action === 'verify-2fa') {
-      const { totpCode } = await request.json();
-      
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
+      await logSecurityEvent('2FA_ENABLED', {
+        userId,
+        email: adminSettings.user.email
       });
 
-      // TODO: Check admin settings when model is available
-      const hasTwoFactorSecret = false;
-      if (!hasTwoFactorSecret) {
-        return NextResponse.json({ error: 'No 2FA secret found' }, { status: 400 });
-      }
+      logger.info({ userId }, '2FA enabled successfully');
 
-      // TODO: Implement proper TOTP verification
-      const verified = true;
-
-      if (verified) {
-        // Enable 2FA - placeholder since adminSettings doesn't exist yet
-        await prisma.user.update({
-          where: { id: userId },
-          data: {
-            // TODO: Update admin settings when model is available
-          }
-        });
-
-        await logSecurityEvent('2FA_ENABLED', {
-          userId,
-          email: user?.email || 'unknown'
-        });
-
-        return NextResponse.json({ success: true });
-      } else {
-        return NextResponse.json({ error: 'Invalid code' }, { status: 400 });
-      }
+      return NextResponse.json({ success: true });
+    } else {
+      return NextResponse.json({ error: 'Invalid code' }, { status: 400 });
     }
-
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-
-  } catch (error) {
-    console.error('2FA setup error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+
+  if (action === 'disable-2fa') {
+    const { totpCode } = await request.json();
+
+    const adminSettings = await prisma.adminSettings.findUnique({
+      where: { userId },
+      include: { user: true }
+    });
+
+    if (!adminSettings?.twoFactorSecret || !adminSettings.twoFactorEnabled) {
+      return NextResponse.json({ error: '2FA is not enabled' }, { status: 400 });
+    }
+
+    // Verify TOTP code before disabling
+    const verified = speakeasy.totp.verify({
+      secret: adminSettings.twoFactorSecret,
+      encoding: 'base32',
+      token: totpCode,
+      window: 2
+    });
+
+    if (verified) {
+      await prisma.adminSettings.update({
+        where: { userId },
+        data: {
+          twoFactorEnabled: false,
+          twoFactorSecret: null,
+        }
+      });
+
+      await logSecurityEvent('2FA_DISABLED', {
+        userId,
+        email: adminSettings.user.email
+      });
+
+      logger.info({ userId }, '2FA disabled');
+
+      return NextResponse.json({ success: true });
+    } else {
+      return NextResponse.json({ error: 'Invalid code' }, { status: 400 });
+    }
+  }
+
+  return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+}, 'admin-auth:PUT');
 
 // IP Whitelist Management
-export async function PATCH(request: NextRequest) {
-  try {
-    const { userId, action, ...data } = await request.json();
+export const PATCH = withErrorHandler(async (request: NextRequest) => {
+  const { userId, action, ...data } = await request.json();
 
-    if (action === 'add-ip') {
-      const { ipAddress, description } = ipWhitelistSchema.parse(data);
-      
-      // TODO: Create IP whitelist entry when model is available
-      console.log('IP whitelist entry would be created:', { userId, ipAddress, description });
+  if (action === 'add-ip') {
+    const { ipAddress, description } = ipWhitelistSchema.parse(data);
 
-      await logSecurityEvent('IP_WHITELIST_ADDED', {
+    const whitelistEntry = await prisma.adminIpWhitelist.create({
+      data: {
         userId,
         ipAddress,
-        description
-      });
+        description,
+        isActive: true,
+      }
+    });
 
-      return NextResponse.json({ success: true });
-    }
+    await logSecurityEvent('IP_WHITELIST_ADDED', {
+      userId,
+      ipAddress,
+      description
+    });
 
-    if (action === 'remove-ip') {
-      const { ipId } = data;
-      
-      // TODO: Delete IP whitelist entry when model is available
-      console.log('IP whitelist entry would be deleted:', { ipId });
+    logger.info({ userId, ipAddress }, 'IP added to whitelist');
 
-      await logSecurityEvent('IP_WHITELIST_REMOVED', {
-        userId,
-        ipId
-      });
-
-      return NextResponse.json({ success: true });
-    }
-
-    if (action === 'toggle-whitelist') {
-      const { enabled } = data;
-      
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          // TODO: Update admin settings when model is available
-        }
-      });
-
-      await logSecurityEvent('IP_WHITELIST_TOGGLED', {
-        userId,
-        enabled
-      });
-
-      return NextResponse.json({ success: true });
-    }
-
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-
-  } catch (error) {
-    console.error('IP whitelist error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(whitelistEntry);
   }
-}
 
-// Security event logging
-async function logSecurityEvent(eventType: string, data: any) {
+  if (action === 'remove-ip') {
+    const { ipAddress } = data;
+
+    await prisma.adminIpWhitelist.deleteMany({
+      where: {
+        userId,
+        ipAddress
+      }
+    });
+
+    await logSecurityEvent('IP_WHITELIST_REMOVED', {
+      userId,
+      ipAddress
+    });
+
+    logger.info({ userId, ipAddress }, 'IP removed from whitelist');
+
+    return NextResponse.json({ success: true });
+  }
+
+  if (action === 'toggle-whitelist') {
+    const { enabled } = data;
+
+    await prisma.adminSettings.upsert({
+      where: { userId },
+      create: {
+        userId,
+        ipWhitelistEnabled: enabled,
+      },
+      update: {
+        ipWhitelistEnabled: enabled,
+      }
+    });
+
+    await logSecurityEvent('IP_WHITELIST_TOGGLED', {
+      userId,
+      enabled
+    });
+
+    logger.info({ userId, enabled }, 'IP whitelist toggled');
+
+    return NextResponse.json({ success: true, enabled });
+  }
+
+  return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+}, 'admin-auth:PATCH');
+
+// Logout
+export async function DELETE(request: NextRequest) {
   try {
     await prisma.adminSecurityLog.create({
       data: {

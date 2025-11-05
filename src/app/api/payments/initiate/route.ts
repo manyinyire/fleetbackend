@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createPayment, generatePaymentVerificationHash } from "@/lib/paynow";
+import { createPayment } from "@/lib/paynow";
 import { auth } from "@/lib/auth-server";
 import { paymentInitiateSchema } from "@/lib/validations";
 import { createErrorResponse } from "@/lib/errors";
@@ -18,11 +18,8 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
     // Validate input
     const { invoiceId } = paymentInitiateSchema.parse(body);
 
-    // Get invoice details
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: invoiceId },
-      include: { tenant: true },
-    });
+  const body = await request.json();
+  const validatedData = initiatePaymentSchema.parse(body);
 
   // Verify user has access to this invoice
   if (user.role !== 'SUPER_ADMIN' && tenantId !== invoice.tenantId) {
@@ -49,12 +46,13 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
     );
   }
 
-    if (!paynowResponse.success) {
-      return NextResponse.json(
-        { error: paynowResponse.error || "Payment initiation failed" },
-        { status: 500 }
-      );
-    }
+  // Check if there's already a pending payment for this invoice
+  if (invoice.payments.length > 0) {
+    return NextResponse.json(
+      { error: "There is already a pending payment for this invoice" },
+      { status: 400 }
+    );
+  }
 
     // Create payment record in database
     const payment = await prisma.payment.create({
@@ -111,4 +109,63 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
   } catch (error) {
     return createErrorResponse(error);
   }
-}
+
+  // Create payment record in database
+  const payment = await prisma.payment.create({
+    data: {
+      invoiceId: invoice.id,
+      tenantId: invoice.tenantId,
+      amount: validatedData.amount,
+      currency: invoice.currency,
+      paymentMethod: validatedData.paymentMethod,
+      paymentProvider: 'paynow',
+      pollUrl: paynowResponse.pollUrl,
+      status: 'PENDING',
+      metadata: {
+        hash: paynowResponse.hash,
+        redirectUrl: paynowResponse.redirectUrl,
+        phone: validatedData.phone,
+        email: validatedData.email,
+      },
+    },
+  });
+
+  // Log the payment initiation
+  await prisma.auditLog.create({
+    data: {
+      userId: session.user.id,
+      tenantId: invoice.tenantId,
+      action: "PAYMENT_INITIATED",
+      entityType: "Payment",
+      entityId: payment.id,
+      newValues: {
+        paymentId: payment.id,
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        amount: validatedData.amount.toString(),
+        method: validatedData.paymentMethod,
+      },
+      ipAddress: request.headers.get("x-forwarded-for") || "unknown",
+      userAgent: request.headers.get("user-agent") || "unknown",
+    },
+  });
+
+  logger.info({
+    paymentId: payment.id,
+    invoiceId: invoice.id,
+    amount: validatedData.amount,
+    method: validatedData.paymentMethod,
+  }, 'Payment initiated');
+
+  return NextResponse.json({
+    success: true,
+    paymentId: payment.id,
+    redirectUrl: paynowResponse.redirectUrl,
+    pollUrl: paynowResponse.pollUrl,
+    analytics: {
+      invoiceNumber: invoice.invoiceNumber,
+      amount: Number(validatedData.amount),
+      currency: invoice.currency,
+    },
+  });
+}, 'payments-initiate:POST');

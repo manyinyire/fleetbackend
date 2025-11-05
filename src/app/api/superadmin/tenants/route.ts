@@ -1,233 +1,216 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
-import { PrismaClient } from '@prisma/client';
+import { withErrorHandler, parsePaginationParams, calculateSkip, buildOrderBy } from '@/lib/api';
+import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/prisma';
+import { z } from 'zod';
 
-const prisma = new PrismaClient();
+const createTenantSchema = z.object({
+  name: z.string().min(1),
+  slug: z.string().min(1).regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens'),
+  email: z.string().email(),
+  phone: z.string().optional(),
+  plan: z.enum(['FREE', 'BASIC', 'PREMIUM']).default('FREE'),
+});
 
-export async function GET(request: NextRequest) {
-  try {
-    // Require super admin role
-    await requireRole('SUPER_ADMIN');
+export const GET = withErrorHandler(async (request: NextRequest) => {
+  // Require super admin role
+  await requireRole('SUPER_ADMIN');
 
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '25');
-    const search = searchParams.get('search') || '';
-    const status = searchParams.get('status') || '';
-    const plan = searchParams.get('plan') || '';
-    const sortBy = searchParams.get('sortBy') || 'createdAt';
-    const sortOrder = searchParams.get('sortOrder') || 'desc';
+  const { searchParams } = new URL(request.url);
 
-    const skip = (page - 1) * limit;
+  // Parse pagination parameters
+  const { page = 1, limit = 25, sortBy = 'createdAt', sortOrder = 'desc' } = parsePaginationParams(searchParams);
+  const skip = calculateSkip(page, limit);
 
-    // Build where clause
-    const where: any = {};
+  // Parse filter parameters
+  const search = searchParams.get('search') || '';
+  const status = searchParams.get('status') || '';
+  const plan = searchParams.get('plan') || '';
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { slug: { contains: search, mode: 'insensitive' } }
-      ];
-    }
+  // Build where clause
+  const where: any = {};
 
-    if (status) {
-      where.status = status;
-    }
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+      { slug: { contains: search, mode: 'insensitive' } }
+    ];
+  }
 
-    if (plan) {
-      where.plan = plan;
-    }
+  if (status) {
+    where.status = status;
+  }
 
-    // Get tenants with pagination
-    const [tenants, total] = await Promise.all([
-      prisma.tenant.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { [sortBy]: sortOrder },
-        include: {
-          users: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true,
-              createdAt: true
-            }
-          },
-          _count: {
-            select: {
-              users: true,
-              vehicles: true,
-              drivers: true
+  if (plan) {
+    where.plan = plan;
+  }
+
+  // Execute single query with all includes - NO N+1!
+  const [tenants, total] = await prisma.$transaction([
+    prisma.tenant.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: buildOrderBy(sortBy, sortOrder),
+      include: {
+        users: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            createdAt: true,
+            sessions: {
+              select: {
+                createdAt: true,
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
             }
           }
-        }
-      }),
-      prisma.tenant.count({ where })
-    ]);
-
-    // Calculate additional metrics for each tenant
-    const tenantsWithMetrics = await Promise.all(
-      tenants.map(async (tenant) => {
-        // Calculate MRR based on plan
-        const mrr = tenant.plan === 'PREMIUM' ? 60 : tenant.plan === 'BASIC' ? 15 : 0;
-        
-        // Get last login (from user sessions - simplified)
-        const lastLogin = await prisma.session.findFirst({
-          where: {
-            user: {
-              tenantId: tenant.id
-            }
-          },
-          orderBy: { createdAt: 'desc' },
-          select: { createdAt: true }
-        });
-
-        return {
-          ...tenant,
-          mrr,
-          lastLogin: lastLogin?.createdAt || null,
-          userCount: tenant._count.users,
-          vehicleCount: tenant._count.vehicles,
-          driverCount: tenant._count.drivers
-        };
-      })
-    );
-
-    // Get summary statistics
-    const stats = await prisma.tenant.groupBy({
-      by: ['status'],
-      _count: { status: true }
-    });
-
-    const planStats = await prisma.tenant.groupBy({
-      by: ['plan'],
-      _count: { plan: true }
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        tenants: tenantsWithMetrics,
-        pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit)
         },
-        stats: {
-          total: total,
-          active: stats.find(s => s.status === 'ACTIVE')?._count.status || 0,
-          suspended: stats.find(s => s.status === 'SUSPENDED')?._count.status || 0,
-          cancelled: stats.find(s => s.status === 'CANCELED')?._count.status || 0,
-          free: planStats.find(p => p.plan === 'FREE')?._count.plan || 0,
-          basic: planStats.find(p => p.plan === 'BASIC')?._count.plan || 0,
-          premium: planStats.find(p => p.plan === 'PREMIUM')?._count.plan || 0
-        }
-      }
-    });
-
-  } catch (error) {
-    console.error('Tenants fetch error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch tenants' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    // Require super admin role
-    const user = await requireRole('SUPER_ADMIN');
-
-    const data = await request.json();
-    const { name, email, phone, plan = 'FREE', status = 'ACTIVE' } = data;
-
-    // Validate required fields
-    if (!name || !email) {
-      return NextResponse.json(
-        { error: 'Name and email are required' },
-        { status: 400 }
-      );
-    }
-
-    // Generate slug from name
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
-    // Check if slug already exists
-    const existingTenant = await prisma.tenant.findUnique({
-      where: { slug }
-    });
-
-    if (existingTenant) {
-      return NextResponse.json(
-        { error: 'A tenant with this name already exists' },
-        { status: 400 }
-      );
-    }
-
-    // Create tenant
-    const tenant = await prisma.tenant.create({
-      data: {
-        name,
-        email,
-        phone,
-        slug,
-        plan,
-        status
-      },
-      include: {
         _count: {
           select: {
             users: true,
             vehicles: true,
-            drivers: true
+            drivers: true,
+            invoices: true,
           }
         }
       }
-    });
+    }),
+    prisma.tenant.count({ where })
+  ]);
 
-    // Log the creation
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'TENANT_CREATED',
-        entityType: 'Tenant',
-        entityId: tenant.id,
-        newValues: {
-          name: tenant.name,
-          email: tenant.email,
-          plan: tenant.plan,
-          status: tenant.status
-        },
-        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-        userAgent: request.headers.get('user-agent') || 'unknown'
-      }
-    });
+  // Transform tenants with calculated metrics - NO ADDITIONAL QUERIES!
+  const tenantsWithMetrics = tenants.map(tenant => {
+    // Calculate MRR based on plan
+    const mrr = tenant.plan === 'PREMIUM' ? 60 : tenant.plan === 'BASIC' ? 15 : 0;
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...tenant,
-        mrr: plan === 'PREMIUM' ? 60 : plan === 'BASIC' ? 15 : 0,
-        userCount: 0,
-        vehicleCount: 0,
-        driverCount: 0
-      }
-    });
+    // Get last login from users' sessions (already loaded)
+    const lastLogin = tenant.users.reduce((latest: Date | null, user) => {
+      const userLastLogin = user.sessions[0]?.createdAt;
+      if (!userLastLogin) return latest;
+      if (!latest) return userLastLogin;
+      return userLastLogin > latest ? userLastLogin : latest;
+    }, null);
 
-  } catch (error) {
-    console.error('Tenant creation error:', error);
+    return {
+      id: tenant.id,
+      name: tenant.name,
+      slug: tenant.slug,
+      email: tenant.email,
+      phone: tenant.phone,
+      status: tenant.status,
+      plan: tenant.plan,
+      monthlyRevenue: tenant.monthlyRevenue,
+      subscriptionStartDate: tenant.subscriptionStartDate,
+      subscriptionEndDate: tenant.subscriptionEndDate,
+      autoRenew: tenant.autoRenew,
+      suspendedAt: tenant.suspendedAt,
+      createdAt: tenant.createdAt,
+      updatedAt: tenant.updatedAt,
+      mrr,
+      lastLogin,
+      userCount: tenant._count.users,
+      vehicleCount: tenant._count.vehicles,
+      driverCount: tenant._count.drivers,
+      invoiceCount: tenant._count.invoices,
+      users: tenant.users.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        createdAt: u.createdAt,
+      })),
+    };
+  });
+
+  // Get summary statistics in parallel
+  const [statusStats, planStats, totalRevenue] = await Promise.all([
+    prisma.tenant.groupBy({
+      by: ['status'],
+      _count: { status: true },
+      where: where.OR ? undefined : where,
+    }),
+    prisma.tenant.groupBy({
+      by: ['plan'],
+      _count: { plan: true },
+      where: where.OR ? undefined : where,
+    }),
+    prisma.tenant.aggregate({
+      _sum: { monthlyRevenue: true },
+      where: where.OR ? undefined : where,
+    })
+  ]);
+
+  logger.info({
+    page,
+    limit,
+    total,
+    filters: { search, status, plan }
+  }, 'Fetched tenants list');
+
+  return NextResponse.json({
+    tenants: tenantsWithMetrics,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      hasMore: page < Math.ceil(total / limit),
+    },
+    summary: {
+      total,
+      byStatus: statusStats.map(stat => ({
+        status: stat.status,
+        count: stat._count.status
+      })),
+      byPlan: planStats.map(stat => ({
+        plan: stat.plan,
+        count: stat._count.plan
+      })),
+      totalRevenue: Number(totalRevenue._sum.monthlyRevenue || 0),
+    }
+  });
+}, 'superadmin-tenants:GET');
+
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  // Require super admin role
+  await requireRole('SUPER_ADMIN');
+
+  const body = await request.json();
+  const validatedData = createTenantSchema.parse(body);
+
+  // Check if slug is unique
+  const existingTenant = await prisma.tenant.findUnique({
+    where: { slug: validatedData.slug }
+  });
+
+  if (existingTenant) {
     return NextResponse.json(
-      { error: 'Failed to create tenant' },
-      { status: 500 }
+      { error: 'A tenant with this slug already exists' },
+      { status: 409 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
-}
+
+  // Create tenant
+  const tenant = await prisma.tenant.create({
+    data: {
+      name: validatedData.name,
+      slug: validatedData.slug,
+      email: validatedData.email,
+      phone: validatedData.phone,
+      status: 'ACTIVE',
+      plan: validatedData.plan,
+      monthlyRevenue: 0,
+      autoRenew: true,
+    },
+  });
+
+  logger.info({ tenantId: tenant.id, slug: tenant.slug }, 'Tenant created by super admin');
+
+  return NextResponse.json(tenant, { status: 201 });
+}, 'superadmin-tenants:POST');
