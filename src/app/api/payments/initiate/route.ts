@@ -5,17 +5,13 @@ import { auth } from "@/lib/auth-server";
 import { paymentInitiateSchema } from "@/lib/validations";
 import { createErrorResponse } from "@/lib/errors";
 
-export async function POST(request: NextRequest) {
-  try {
-    // Authenticate user
-    const session = await auth.api.getSession({ headers: request.headers });
+// Validation schema for payment initiation
+const initiatePaymentSchema = z.object({
+  invoiceId: z.string().uuid('Invalid invoice ID'),
+});
 
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) => {
+  const data = await validateBody(request, initiatePaymentSchema);
 
     const body = await request.json();
 
@@ -28,36 +24,30 @@ export async function POST(request: NextRequest) {
       include: { tenant: true },
     });
 
-    if (!invoice) {
-      return NextResponse.json(
-        { error: "Invoice not found" },
-        { status: 404 }
-      );
-    }
+  // Verify user has access to this invoice
+  if (user.role !== 'SUPER_ADMIN' && tenantId !== invoice.tenantId) {
+    return successResponse({ error: 'Unauthorized to pay this invoice' }, 403);
+  }
 
-    // Verify user has access to this invoice
-    if (session.user.role !== "SUPER_ADMIN" && session.user.tenantId !== invoice.tenantId) {
-      return NextResponse.json(
-        { error: "Unauthorized to pay this invoice" },
-        { status: 403 }
-      );
-    }
+  // Check if invoice is already paid
+  if (invoice.status === 'PAID') {
+    return successResponse({ error: 'Invoice is already paid' }, 400);
+  }
 
-    // Check if invoice is already paid
-    if (invoice.status === "PAID") {
-      return NextResponse.json(
-        { error: "Invoice is already paid" },
-        { status: 400 }
-      );
-    }
+  // Create payment in PayNow
+  const paynowResponse = await createPayment(
+    invoice.invoiceNumber,
+    Number(invoice.amount),
+    invoice.tenant.email,
+    invoice.description || `Invoice ${invoice.invoiceNumber}`
+  );
 
-    // Create payment in PayNow
-    const paynowResponse = await createPayment(
-      invoice.invoiceNumber,
-      Number(invoice.amount),
-      invoice.tenant.email,
-      invoice.description || `Invoice ${invoice.invoiceNumber}`
+  if (!paynowResponse.success) {
+    return successResponse(
+      { error: paynowResponse.error || 'Payment initiation failed' },
+      500
     );
+  }
 
     if (!paynowResponse.success) {
       return NextResponse.json(
@@ -114,8 +104,8 @@ export async function POST(request: NextRequest) {
       pollUrl: paynowResponse.pollUrl,
       analytics: {
         invoiceNumber: invoice.invoiceNumber,
-        amount: Number(invoice.amount),
-        currency: invoice.currency,
+        amount: invoice.amount.toString(),
+        gaTracked: true, // Client-side will track
       },
     });
   } catch (error) {
