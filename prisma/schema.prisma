@@ -39,6 +39,7 @@ model Tenant {
   settings         TenantSettings?
   invoices         Invoice[]
   invoiceReminders InvoiceReminder[]
+  payments         Payment[]
 
   @@map("tenants")
 }
@@ -736,6 +737,7 @@ model Invoice {
   // Relationships
   tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   reminders InvoiceReminder[]
+  payments  Payment[]
 
   @@index([tenantId])
   @@index([status])
@@ -783,4 +785,49 @@ enum ReminderType {
   THREE_DAYS
   ONE_DAY
   OVERDUE
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  tenantId        String
+  invoiceId       String
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("USD")
+  gateway         PaymentGateway
+  gatewayRef      String?       // External payment reference
+  pollUrl         String?       // PayNow poll URL for status checking
+  status          PaymentStatus @default(PENDING)
+  verified        Boolean       @default(false)
+  verifiedAt      DateTime?
+  paymentMetadata Json?         // Store gateway-specific data (hash, redirect URL, etc.)
+  failureReason   String?       // Reason if payment failed
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relationships
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@index([status])
+  @@index([gateway])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+enum PaymentGateway {
+  PAYNOW
+  STRIPE
+  PAYPAL
+  MANUAL
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
 }

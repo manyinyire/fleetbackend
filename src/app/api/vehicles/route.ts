@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
+import { vehicleSchema } from '@/lib/validations';
+import { createErrorResponse } from '@/lib/errors';
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,24 +37,23 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(vehicles);
   } catch (error) {
-    console.error('Vehicles fetch error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch vehicles' },
-      { status: 500 }
-    );
+    return createErrorResponse(error);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { user, tenantId } = await requireTenant();
-    const data = await request.json();
-    
+    const body = await request.json();
+
+    // Validate input
+    const data = vehicleSchema.parse(body);
+
     // Set RLS context
     if (tenantId) {
       await setTenantContext(tenantId);
     }
-    
+
     // Get scoped Prisma client
     const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
 
@@ -64,17 +65,15 @@ export async function POST(request: NextRequest) {
         year: data.year,
         type: data.type,
         initialCost: data.initialCost,
-        currentMileage: 0,
-        status: 'ACTIVE',
+        currentMileage: data.currentMileage || 0,
+        status: data.status || 'ACTIVE',
+        paymentModel: data.paymentModel,
+        paymentConfig: data.paymentConfig,
       }
     });
 
     return NextResponse.json(vehicle);
   } catch (error) {
-    console.error('Vehicle creation error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create vehicle' },
-      { status: 500 }
-    );
+    return createErrorResponse(error);
   }
 }

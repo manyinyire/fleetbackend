@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createPayment, generatePaymentVerificationHash } from "@/lib/paynow";
 import { auth } from "@/lib/auth-server";
+import { paymentInitiateSchema } from "@/lib/validations";
+import { createErrorResponse } from "@/lib/errors";
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,14 +18,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { invoiceId } = body;
 
-    if (!invoiceId) {
-      return NextResponse.json(
-        { error: "Invoice ID is required" },
-        { status: 400 }
-      );
-    }
+    // Validate input
+    const { invoiceId } = paymentInitiateSchema.parse(body);
 
     // Get invoice details
     const invoice = await prisma.invoice.findUnique({
@@ -69,24 +66,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Create Payment model in schema
     // Create payment record in database
-    // const payment = await prisma.payment.create({
-    //   data: {
-    //     tenantId: invoice.tenantId,
-    //     invoiceId: invoice.id,
-    //     amount: invoice.amount,
-    //     currency: invoice.currency,
-    //     gateway: "PAYNOW",
-    //     pollUrl: paynowResponse.pollUrl,
-    //     status: "PENDING",
-    //     verified: false,
-    //     paymentMetadata: {
-    //       hash: paynowResponse.hash,
-    //       redirectUrl: paynowResponse.redirectUrl,
-    //     },
-    //   },
-    // });
+    const payment = await prisma.payment.create({
+      data: {
+        tenantId: invoice.tenantId,
+        invoiceId: invoice.id,
+        amount: invoice.amount,
+        currency: invoice.currency,
+        gateway: "PAYNOW",
+        pollUrl: paynowResponse.pollUrl,
+        status: "PENDING",
+        verified: false,
+        paymentMetadata: {
+          hash: paynowResponse.hash,
+          redirectUrl: paynowResponse.redirectUrl,
+        },
+      },
+    });
 
     // Log the payment initiation
     await prisma.auditLog.create({
@@ -95,12 +91,14 @@ export async function POST(request: NextRequest) {
         tenantId: invoice.tenantId,
         action: "PAYMENT_INITIATED",
         entityType: "Payment",
-        entityId: invoice.id, // Using invoice ID temporarily
+        entityId: payment.id,
         details: {
           invoiceId: invoice.id,
           invoiceNumber: invoice.invoiceNumber,
           amount: invoice.amount.toString(),
-          gaTracked: true, // Client-side will track
+          paymentId: payment.id,
+          gateway: "PAYNOW",
+          gaTracked: true,
         },
         ipAddress: request.headers.get("x-forwarded-for") || "unknown",
         userAgent: request.headers.get("user-agent") || "unknown",
@@ -109,10 +107,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      paymentId: invoice.id, // Using invoice ID temporarily
+      paymentId: payment.id,
       redirectUrl: paynowResponse.redirectUrl,
       pollUrl: paynowResponse.pollUrl,
-      // Return tracking info for client-side analytics
       analytics: {
         invoiceNumber: invoice.invoiceNumber,
         amount: Number(invoice.amount),
@@ -120,10 +117,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Payment initiation error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return createErrorResponse(error);
   }
 }
