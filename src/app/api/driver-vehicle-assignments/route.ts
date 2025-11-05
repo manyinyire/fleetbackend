@@ -1,63 +1,119 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenant } from '@/lib/auth-helpers';
-import { getTenantPrisma } from '@/lib/get-tenant-prisma';
-import { setTenantContext } from '@/lib/tenant';
+import {
+  withErrorHandler,
+  withTenantContext,
+  parsePaginationParams,
+  calculateSkip,
+  buildOrderBy,
+  paginatedResponse,
+} from '@/lib/api';
+import { logger } from '@/lib/logger';
+import { serializePrismaResults } from '@/lib/serialize-prisma';
+import { createAssignmentSchema } from '@/lib/validations/assignment';
 
-export async function GET(request: NextRequest) {
-  try {
-    const { user, tenantId } = await requireTenant();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
-    }
-    
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
+/**
+ * GET /api/driver-vehicle-assignments
+ * Fetch driver-vehicle assignments with pagination and filters
+ */
+export const GET = withErrorHandler(
+  withTenantContext(async (context, request) => {
+    const { prisma, tenantId } = context;
+    const { searchParams } = new URL(request.url);
 
-    const assignments = await prisma.driverVehicleAssignment.findMany({
-      include: {
-        driver: true,
-        vehicle: true
+    // Parse pagination parameters
+    const { page = 1, limit = 25, sortBy = 'createdAt', sortOrder = 'desc' } = parsePaginationParams(searchParams);
+    const skip = calculateSkip(page, limit);
+
+    // Parse filter parameters
+    const driverId = searchParams.get('driverId');
+    const vehicleId = searchParams.get('vehicleId');
+    const activeOnly = searchParams.get('activeOnly') === 'true';
+
+    // Build where clause
+    const where: any = {
+      tenantId: tenantId!,
+    };
+
+    if (driverId) where.driverId = driverId;
+    if (vehicleId) where.vehicleId = vehicleId;
+    if (activeOnly) where.endDate = null;
+
+    // Execute query with pagination
+    const [assignments, total] = await prisma.$transaction([
+      prisma.driverVehicleAssignment.findMany({
+        where,
+        include: {
+          driver: {
+            select: {
+              id: true,
+              fullName: true,
+              licenseNumber: true,
+              phone: true,
+            },
+          },
+          vehicle: {
+            select: {
+              id: true,
+              registrationNumber: true,
+              model: true,
+              make: true,
+            },
+          },
+        },
+        orderBy: buildOrderBy(sortBy, sortOrder),
+        skip,
+        take: limit,
+      }),
+      prisma.driverVehicleAssignment.count({ where }),
+    ]);
+
+    logger.info(
+      {
+        tenantId,
+        count: assignments.length,
+        total,
+        filters: { driverId, vehicleId, activeOnly },
       },
-      orderBy: { createdAt: 'desc' },
-      where: {
-        tenantId: tenantId
-      }
-    });
-
-    return NextResponse.json(assignments);
-  } catch (error) {
-    console.error('Assignments fetch error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch assignments' },
-      { status: 500 }
+      'Fetched driver-vehicle assignments'
     );
-  }
-}
 
-export async function POST(request: NextRequest) {
-  try {
-    const { user, tenantId } = await requireTenant();
-    const data = await request.json();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
-    }
-    
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
+    return paginatedResponse(serializePrismaResults(assignments), total, page, limit);
+  }),
+  'assignments:GET'
+);
+
+/**
+ * POST /api/driver-vehicle-assignments
+ * Create a new driver-vehicle assignment
+ */
+export const POST = withErrorHandler(
+  withTenantContext(async (context, request) => {
+    const { prisma, tenantId } = context;
+    const body = await request.json();
+
+    // Validate input
+    const validatedData = createAssignmentSchema.parse(body);
 
     // Check if driver and vehicle exist and belong to tenant
     const [driver, vehicle] = await Promise.all([
-      prisma.driver.findUnique({ where: { id: data.driverId } }),
-      prisma.vehicle.findUnique({ where: { id: data.vehicleId } }),
+      prisma.driver.findFirst({
+        where: { id: validatedData.driverId, tenantId: tenantId! },
+      }),
+      prisma.vehicle.findFirst({
+        where: { id: validatedData.vehicleId, tenantId: tenantId! },
+      }),
     ]);
 
-    if (!driver || !vehicle) {
+    if (!driver) {
       return NextResponse.json(
-        { error: 'Driver or vehicle not found' },
+        { error: 'Driver not found or does not belong to your organization' },
+        { status: 404 }
+      );
+    }
+
+    if (!vehicle) {
+      return NextResponse.json(
+        { error: 'Vehicle not found or does not belong to your organization' },
         { status: 404 }
       );
     }
@@ -65,8 +121,8 @@ export async function POST(request: NextRequest) {
     // Check if there's already an active assignment for this driver to this vehicle
     const existingAssignment = await prisma.driverVehicleAssignment.findFirst({
       where: {
-        driverId: data.driverId,
-        vehicleId: data.vehicleId,
+        driverId: validatedData.driverId,
+        vehicleId: validatedData.vehicleId,
         endDate: null,
       },
     });
@@ -81,28 +137,32 @@ export async function POST(request: NextRequest) {
     // Check if the vehicle is already assigned to ANY driver
     const vehicleAssignment = await prisma.driverVehicleAssignment.findFirst({
       where: {
-        vehicleId: data.vehicleId,
+        vehicleId: validatedData.vehicleId,
         endDate: null,
       },
       include: {
-        driver: true,
+        driver: {
+          select: {
+            fullName: true,
+          },
+        },
       },
     });
 
     if (vehicleAssignment) {
       return NextResponse.json(
-        { 
-          error: `This vehicle is already assigned to ${vehicleAssignment.driver.fullName}` 
+        {
+          error: `This vehicle is already assigned to ${vehicleAssignment.driver.fullName}`,
         },
         { status: 400 }
       );
     }
 
-    // If isPrimary, end all other primary assignments for this driver
-    if (data.isPrimary !== false) {
+    // If isPrimary, unset all other primary assignments for this driver
+    if (validatedData.isPrimary) {
       await prisma.driverVehicleAssignment.updateMany({
         where: {
-          driverId: data.driverId,
+          driverId: validatedData.driverId,
           isPrimary: true,
           endDate: null,
         },
@@ -112,27 +172,47 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Create assignment
     const assignment = await prisma.driverVehicleAssignment.create({
       data: {
-        tenantId,
-        driverId: data.driverId,
-        vehicleId: data.vehicleId,
-        isPrimary: data.isPrimary || true,
-        startDate: new Date(data.startDate),
-        endDate: data.endDate ? new Date(data.endDate) : null,
+        tenantId: tenantId!,
+        driverId: validatedData.driverId,
+        vehicleId: validatedData.vehicleId,
+        isPrimary: validatedData.isPrimary,
+        startDate: validatedData.startDate,
+        endDate: validatedData.endDate || null,
       },
       include: {
-        driver: true,
-        vehicle: true
-      }
+        driver: {
+          select: {
+            id: true,
+            fullName: true,
+            licenseNumber: true,
+          },
+        },
+        vehicle: {
+          select: {
+            id: true,
+            registrationNumber: true,
+            model: true,
+            make: true,
+          },
+        },
+      },
     });
 
-    return NextResponse.json(assignment);
-  } catch (error) {
-    console.error('Assignment creation error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create assignment' },
-      { status: 500 }
+    logger.info(
+      {
+        tenantId,
+        assignmentId: assignment.id,
+        driverId: validatedData.driverId,
+        vehicleId: validatedData.vehicleId,
+        isPrimary: validatedData.isPrimary,
+      },
+      'Driver-vehicle assignment created'
     );
-  }
-}
+
+    return NextResponse.json(serializePrismaResults(assignment), { status: 201 });
+  }),
+  'assignments:POST'
+);

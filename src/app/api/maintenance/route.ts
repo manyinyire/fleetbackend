@@ -1,120 +1,163 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenant } from '@/lib/auth-helpers';
-import { getTenantPrisma } from '@/lib/get-tenant-prisma';
-import { setTenantContext } from '@/lib/tenant';
+import {
+  withErrorHandler,
+  withTenantContext,
+  parsePaginationParams,
+  calculateSkip,
+  buildOrderBy,
+  paginatedResponse,
+} from '@/lib/api';
+import { logger } from '@/lib/logger';
 import { serializePrismaResults } from '@/lib/serialize-prisma';
+import {
+  createMaintenanceSchema,
+  updateMaintenanceSchema,
+  maintenanceTypeEnum,
+} from '@/lib/validations/maintenance';
 
-export async function GET(request: NextRequest) {
-  try {
-    const { user, tenantId } = await requireTenant();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
-    }
-    
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
-
+/**
+ * GET /api/maintenance
+ * Fetch maintenance records with pagination and filters
+ */
+export const GET = withErrorHandler(
+  withTenantContext(async (context, request) => {
+    const { prisma, tenantId } = context;
     const { searchParams } = new URL(request.url);
+
+    // Parse pagination parameters
+    const { page = 1, limit = 25, sortBy = 'date', sortOrder = 'desc' } = parsePaginationParams(searchParams);
+    const skip = calculateSkip(page, limit);
+
+    // Parse filter parameters
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const vehicleId = searchParams.get('vehicleId');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const skip = (page - 1) * limit;
+    const type = searchParams.get('type');
 
+    // Build where clause
     const where: any = {
-      tenantId: tenantId
+      tenantId: tenantId!,
     };
-    
+
+    // Date range filter
     if (startDate || endDate) {
       where.date = {};
       if (startDate) where.date.gte = new Date(startDate);
       if (endDate) where.date.lte = new Date(endDate);
     }
-    if (vehicleId) where.vehicleId = vehicleId;
 
-    const [maintenanceRecords, total] = await Promise.all([
+    // Other filters
+    if (vehicleId) where.vehicleId = vehicleId;
+    if (type) {
+      // Validate type is valid enum value
+      const validType = maintenanceTypeEnum.safeParse(type);
+      if (validType.success) {
+        where.type = validType.data;
+      }
+    }
+
+    // Execute query with pagination
+    const [maintenanceRecords, total] = await prisma.$transaction([
       prisma.maintenanceRecord.findMany({
         where,
         include: {
-          vehicle: true,
+          vehicle: {
+            select: {
+              id: true,
+              registrationNumber: true,
+              model: true,
+              make: true,
+            },
+          },
         },
-        orderBy: { date: 'desc' },
+        orderBy: buildOrderBy(sortBy, sortOrder),
         skip,
         take: limit,
       }),
       prisma.maintenanceRecord.count({ where }),
     ]);
 
-    const serialized = serializePrismaResults(maintenanceRecords);
-
-    return NextResponse.json({
-      maintenanceRecords: serialized,
-      pagination: {
-        page,
-        limit,
+    logger.info(
+      {
+        tenantId,
+        count: maintenanceRecords.length,
         total,
-        pages: Math.ceil(total / limit),
+        filters: { startDate, endDate, vehicleId, type },
+      },
+      'Fetched maintenance records'
+    );
+
+    return paginatedResponse(serializePrismaResults(maintenanceRecords), total, page, limit);
+  }),
+  'maintenance:GET'
+);
+
+/**
+ * POST /api/maintenance
+ * Create a new maintenance record
+ */
+export const POST = withErrorHandler(
+  withTenantContext(async (context, request) => {
+    const { prisma, tenantId } = context;
+    const body = await request.json();
+
+    // Validate input
+    const validatedData = createMaintenanceSchema.parse(body);
+
+    // Verify vehicle exists and belongs to tenant
+    const vehicle = await prisma.vehicle.findFirst({
+      where: {
+        id: validatedData.vehicleId,
+        tenantId: tenantId!,
       },
     });
-  } catch (error) {
-    console.error('Maintenance records fetch error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch maintenance records' },
-      { status: 500 }
-    );
-  }
-}
 
-export async function POST(request: NextRequest) {
-  try {
-    const { user, tenantId } = await requireTenant();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
-    }
-    
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
-
-    const body = await request.json();
-    const { vehicleId, date, mileage, type, description, cost, provider, invoice } = body;
-
-    // Validate required fields
-    if (!vehicleId || !date || !mileage || !type || !description || !cost || !provider) {
+    if (!vehicle) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
+        { error: 'Vehicle not found or does not belong to your organization' },
+        { status: 404 }
       );
     }
 
     // Create maintenance record
     const maintenanceRecord = await prisma.maintenanceRecord.create({
       data: {
-        tenantId,
-        vehicleId,
-        date: new Date(date),
-        mileage: parseInt(mileage),
-        type,
-        description,
-        cost: parseFloat(cost),
-        provider,
-        invoice: invoice || null,
+        tenantId: tenantId!,
+        vehicleId: validatedData.vehicleId,
+        date: validatedData.date,
+        mileage: validatedData.mileage,
+        type: validatedData.type,
+        description: validatedData.description,
+        cost: validatedData.cost,
+        provider: validatedData.provider,
+        invoice: validatedData.invoice || null,
+        nextServiceMileage: validatedData.nextServiceMileage || null,
+        nextServiceDate: validatedData.nextServiceDate || null,
       },
       include: {
-        vehicle: true,
+        vehicle: {
+          select: {
+            id: true,
+            registrationNumber: true,
+            model: true,
+            make: true,
+          },
+        },
       },
     });
 
-    return NextResponse.json(maintenanceRecord, { status: 201 });
-  } catch (error) {
-    console.error('Maintenance record creation error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create maintenance record' },
-      { status: 500 }
+    logger.info(
+      {
+        tenantId,
+        maintenanceId: maintenanceRecord.id,
+        vehicleId: validatedData.vehicleId,
+        type: validatedData.type,
+        cost: validatedData.cost,
+      },
+      'Maintenance record created'
     );
-  }
-}
+
+    return NextResponse.json(serializePrismaResults(maintenanceRecord), { status: 201 });
+  }),
+  'maintenance:POST'
+);
