@@ -1,114 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenant } from '@/lib/auth-helpers';
-import { getTenantPrisma } from '@/lib/get-tenant-prisma';
-import { setTenantContext } from '@/lib/tenant';
+import { withTenantAuth, successResponse, validateBody, getPaginationFromRequest, getDateRangeFromRequest, paginationResponse } from '@/lib/api-middleware';
 import { serializePrismaResults } from '@/lib/serialize-prisma';
+import { z } from 'zod';
 
-export async function GET(request: NextRequest) {
-  try {
-    const { user, tenantId } = await requireTenant();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
-    }
-    
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
+// Validation schema for creating an expense
+const createExpenseSchema = z.object({
+  vehicleId: z.string().uuid().optional().nullable(),
+  category: z.enum(['FUEL', 'MAINTENANCE', 'INSURANCE', 'TAX', 'REPAIRS', 'OTHER']),
+  amount: z.number().positive('Amount must be positive'),
+  date: z.string().refine((date) => !isNaN(Date.parse(date)), 'Invalid date'),
+  description: z.string().min(1, 'Description is required'),
+  receipt: z.string().url().optional().nullable(),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional().default('PENDING'),
+});
 
-    // Get query parameters for filtering
-    const { searchParams } = new URL(request.url);
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-    const category = searchParams.get('category');
-    const vehicleId = searchParams.get('vehicleId');
+export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
+  const { page, limit } = getPaginationFromRequest(request);
+  const { startDate, endDate } = getDateRangeFromRequest(request);
+  const { searchParams } = new URL(request.url);
+  const category = searchParams.get('category');
+  const vehicleId = searchParams.get('vehicleId');
+  const status = searchParams.get('status');
 
-    // Build where clause
-    const where: any = {
-      tenantId: tenantId
-    };
-    
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate);
-      if (endDate) where.date.lte = new Date(endDate);
-    }
-    
-    if (category) where.category = category;
-    if (vehicleId) where.vehicleId = vehicleId;
+  // Build where clause
+  const where: any = {
+    tenantId: tenantId,
+  };
 
-    console.log('Expenses query where clause:', where);
+  if (startDate || endDate) {
+    where.date = {};
+    if (startDate) where.date.gte = startDate;
+    if (endDate) where.date.lte = endDate;
+  }
 
-    const expenses = await prisma.expense.findMany({
+  if (category) where.category = category;
+  if (vehicleId) where.vehicleId = vehicleId;
+  if (status) where.status = status;
+
+  const [expenses, total] = await Promise.all([
+    prisma.expense.findMany({
       where,
       include: {
-        vehicle: true,
+        vehicle: {
+          select: {
+            id: true,
+            registrationNumber: true,
+            make: true,
+            model: true,
+          },
+        },
       },
       orderBy: { date: 'desc' },
-      take: 1000, // Remove any default limit
-    });
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.expense.count({ where }),
+  ]);
 
-    console.log('Expenses found:', expenses.length);
-    
-    // Convert Decimal objects to numbers
-    const serializedExpenses = serializePrismaResults(expenses);
-    
-    return NextResponse.json(serializedExpenses);
-  } catch (error) {
-    console.error('Expenses fetch error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch expenses' },
-      { status: 500 }
-    );
-  }
-}
+  // Convert Decimal objects to numbers
+  const serializedExpenses = serializePrismaResults(expenses);
 
-export async function POST(request: NextRequest) {
-  try {
-    const { user, tenantId } = await requireTenant();
-    
-    // Set RLS context
-    if (tenantId) {
-      await setTenantContext(tenantId);
-    }
-    
-    // Get scoped Prisma client
-    const prisma = tenantId ? getTenantPrisma(tenantId) : require('@/lib/prisma').prisma;
+  return successResponse(paginationResponse(serializedExpenses, total, page, limit));
+});
 
-    const body = await request.json();
-    const { vehicleId, category, amount, date, description, receipt, status } = body;
+export const POST = withTenantAuth(async ({ prisma, tenantId, request }) => {
+  const data = await validateBody(request, createExpenseSchema);
 
-    // Validate required fields
-    if (!category || !amount || !date || !description) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    // Create expense
-    const expense = await prisma.expense.create({
-      data: {
-        tenantId,
-        vehicleId: vehicleId || null,
-        category,
-        amount: parseFloat(amount),
-        date: new Date(date),
-        description,
-        receipt: receipt || null,
-        status: status || 'PENDING',
+  const expense = await prisma.expense.create({
+    data: {
+      tenantId,
+      vehicleId: data.vehicleId || null,
+      category: data.category,
+      amount: data.amount,
+      date: new Date(data.date),
+      description: data.description,
+      receipt: data.receipt || null,
+      status: data.status,
+    },
+    include: {
+      vehicle: {
+        select: {
+          id: true,
+          registrationNumber: true,
+          make: true,
+          model: true,
+        },
       },
-      include: {
-        vehicle: true,
-      },
-    });
+    },
+  });
 
-    return NextResponse.json(expense, { status: 201 });
-  } catch (error) {
-    console.error('Expense creation error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create expense' },
-      { status: 500 }
-    );
-  }
-}
+  return successResponse(serializePrismaResults(expense), 201);
+});
