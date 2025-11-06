@@ -3,6 +3,10 @@
 # Deployment Script for Azaire Fleet Manager
 # This script helps automate the deployment process
 # Usage: ./deploy.sh
+#
+# First time setup:
+#   chmod +x deploy.sh
+#   ./deploy.sh
 
 set -e  # Exit on error
 
@@ -14,7 +18,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 APP_DIR="/var/www/fleetbackend"
-APP_USER="fleetapp"
+APP_USER="fleet"
 LOG_DIR="/var/log/pm2"
 
 echo -e "${GREEN}Starting deployment...${NC}"
