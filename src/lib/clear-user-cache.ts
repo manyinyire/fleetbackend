@@ -30,7 +30,7 @@ export async function clearUserSessions(userId: string): Promise<number> {
  */
 export async function clearOrphanedSessions(): Promise<number> {
   try {
-    // Find sessions where the user no longer exists
+    // Find sessions where the user no longer exists - using safe $queryRaw
     const orphanedSessions = await prisma.$queryRaw<Array<{ id: string }>>`
       SELECT s.id
       FROM "sessions" s
