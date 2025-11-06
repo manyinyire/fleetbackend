@@ -57,7 +57,13 @@ const superAdminRoutes = [
 ];
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, protocol, host } = request.nextUrl;
+
+  // 0. Force HTTPS in production
+  if (process.env.NODE_ENV === 'production' && protocol === 'http:') {
+    const httpsUrl = `https://${host}${pathname}${request.nextUrl.search}`;
+    return NextResponse.redirect(httpsUrl, 301);
+  }
 
   // 1. Allow static assets and Next.js internals
   if (staticRoutes.some(route => pathname.startsWith(route))) {
@@ -206,6 +212,14 @@ export async function middleware(request: NextRequest) {
     // 10. Set user context for all authenticated routes
     response.headers.set('x-user-id', user.id);
     response.headers.set('x-user-role', userRole || 'USER');
+
+    // 11. Set security headers
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('X-XSS-Protection', '1; mode=block');
+    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
     return response;
   } catch (error) {

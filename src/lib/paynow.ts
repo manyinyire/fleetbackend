@@ -241,7 +241,10 @@ export function generatePaymentVerificationHash(
   amount: string,
   paynowReference: string
 ): string {
-  const secret = process.env.BETTER_AUTH_SECRET || "fallback-secret";
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) {
+    throw new Error('BETTER_AUTH_SECRET environment variable is required for payment verification');
+  }
   return crypto
     .createHmac("sha256", secret)
     .update(`${paymentId}-${amount}-${paynowReference}`)

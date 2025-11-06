@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Check for orphaned sessions
+    // Check for orphaned sessions using safe $queryRaw
     const orphanedSessions = await prisma.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*) as count
       FROM "sessions" s

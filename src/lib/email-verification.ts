@@ -89,8 +89,9 @@ class EmailVerificationService {
       return { success: true, message: 'If an account with this email exists, a password reset link has been sent' };
     }
 
+    const { appConfig } = await import('@/config/app');
     const token = await this.generateVerificationToken(user.id, 'PASSWORD_RESET');
-    const resetUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    const resetUrl = `${appConfig.baseUrl}/reset-password?token=${token}`;
 
     const html = `
       <!DOCTYPE html>

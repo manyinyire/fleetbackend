@@ -11,6 +11,7 @@ import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import { createErrorResponse } from '@/lib/errors';
 import { apiLogger } from '@/lib/logger';
+import { ServiceContainer } from '@/lib/service-container';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 
@@ -18,6 +19,7 @@ export interface ApiContext {
   user: any;
   tenantId: string;
   prisma: PrismaClient;
+  services: ServiceContainer;
   request: NextRequest;
 }
 
@@ -48,11 +50,15 @@ export function withTenantAuth(handler: ApiHandler) {
         ? getTenantPrisma(tenantId)
         : require('@/lib/prisma').prisma;
 
+      // Create service container for dependency injection
+      const services = new ServiceContainer(tenantId);
+
       // Create context
       const context: ApiContext = {
         user,
         tenantId,
         prisma,
+        services,
         request,
       };
 
