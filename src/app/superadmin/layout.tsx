@@ -10,6 +10,9 @@ import Script from "next/script";
 import { GA_MEASUREMENT_ID } from "@/lib/gtag";
 import { AnalyticsTracker } from "@/components/analytics-tracker";
 
+// Force dynamic rendering for all superadmin routes
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: {
     template: "%s | Azaire Super Admin",

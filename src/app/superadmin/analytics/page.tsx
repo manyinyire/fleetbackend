@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import { ChartBarIcon, UserGroupIcon, ArrowTrendingUpIcon, EyeIcon } from "@heroicons/react/24/outline";
 import { superAdminAPI } from "@/lib/superadmin-api";
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({

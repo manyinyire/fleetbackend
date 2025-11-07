@@ -9,9 +9,6 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  experimental: {
-    isrMemoryCacheSize: 0,
-  },
   async headers() {
     return [
       {

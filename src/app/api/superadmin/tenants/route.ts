@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
 import { withErrorHandler, parsePaginationParams, calculateSkip, buildOrderBy } from '@/lib/api';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
