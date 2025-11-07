@@ -202,7 +202,13 @@ export async function middleware(request: NextRequest) {
           !pathname.startsWith('/auth/verify-email') &&
           !pathname.startsWith('/api/auth/verify-email') &&
           !pathname.startsWith('/api/auth/resend-verification')) {
-        return NextResponse.redirect(new URL('/auth/email-verified?unverified=true', request.url));
+        // Redirect with email parameter to ensure verification form can be displayed
+        const redirectUrl = new URL('/auth/email-verified', request.url);
+        redirectUrl.searchParams.set('unverified', 'true');
+        if (user.email) {
+          redirectUrl.searchParams.set('email', user.email);
+        }
+        return NextResponse.redirect(redirectUrl);
       }
     }
 

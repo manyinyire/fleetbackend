@@ -4,7 +4,7 @@ import Link from "next/link";
 import React, { useState } from "react";
 import InputGroup from "../FormElements/InputGroup";
 import { Checkbox } from "../FormElements/checkbox";
-import { signIn } from "@/lib/auth-client";
+import { signIn, authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 
@@ -44,7 +44,18 @@ export default function SigninWithPassword() {
       // Check if email is verified
       const user = result.data?.user;
       if (user && !user.emailVerified && (user as any).role !== 'SUPER_ADMIN') {
-        toast.error('Please verify your email address before logging in. Check your inbox for the verification code.');
+        // Resend OTP in case the original one expired
+        try {
+          await authClient.emailOtp.sendVerificationOtp({
+            email: user.email || data.email,
+            type: 'email-verification'
+          });
+          toast.success('A new verification code has been sent to your email.');
+        } catch (error) {
+          console.error('Failed to resend verification code:', error);
+          // Continue anyway - user might still have the original code
+        }
+
         setLoading(false);
         // Redirect to email verification page
         router.push(`/auth/email-verified?unverified=true&email=${encodeURIComponent(user.email || data.email)}`);
