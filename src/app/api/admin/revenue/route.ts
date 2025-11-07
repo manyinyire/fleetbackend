@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const [revenueMetrics, churnMetrics, topTenants, revenueTrendData, revenueByPlan] = await Promise.all([
       subscriptionAnalyticsService.getRevenueMetrics(),
       subscriptionAnalyticsService.calculateChurnMetrics(startDate, now),
-      subscriptionAnalyticsService.getTopRevenueTenants(10),
+      subscriptionAnalyticsService.getTopRevenuegenants(10),
       subscriptionAnalyticsService.getMRRGrowth(12),
       subscriptionAnalyticsService.calculateRevenueByPlan()
     ]);

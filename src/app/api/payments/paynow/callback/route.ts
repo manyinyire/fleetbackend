@@ -517,4 +517,4 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       { status: 500 }
     );
   }
-}
+});

@@ -16,9 +16,10 @@ import { rateLimitByPlan } from '@/lib/rate-limit';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const user = await requireAuth();
     const tenant = await requireTenant(user);
 
@@ -67,9 +68,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const user = await requireAuth();
     const tenant = await requireTenant(user);
 
@@ -149,9 +151,10 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const user = await requireAuth();
     const tenant = await requireTenant(user);
 

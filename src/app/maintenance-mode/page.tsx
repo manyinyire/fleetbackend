@@ -23,7 +23,7 @@ export default async function MaintenancePage() {
         
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
           <p className="text-gray-700 dark:text-gray-300 mb-4">
-            We're working hard to improve your experience. Please check back soon.
+            We&apos;re working hard to improve your experience. Please check back soon.
           </p>
           
           {settings.platformEmail && (

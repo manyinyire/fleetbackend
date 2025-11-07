@@ -8,9 +8,10 @@ import { SubscriptionPlan } from "@prisma/client";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { plan: string } }
+  context: { params: Promise<{ plan: string }> }
 ) {
   try {
+    const params = await context.params;
     const { plan } = params;
 
     const planConfig = await prisma.planConfiguration.findUnique({
@@ -43,9 +44,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { plan: string } }
+  context: { params: Promise<{ plan: string }> }
 ) {
   try {
+    const params = await context.params;
     const { plan } = params;
     const body = await request.json();
 
@@ -73,8 +75,9 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { plan: string } }
+  context: { params: Promise<{ plan: string }> }
 ) {
+  const params = await context.params;
   try {
     const { plan } = params;
 

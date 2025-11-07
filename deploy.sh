@@ -40,7 +40,7 @@ fi
 
 # Install/update dependencies
 echo -e "${GREEN}Installing dependencies...${NC}"
-npm ci --only=production --ignore-scripts
+npm ci --only=production --ignore-scripts --legacy-peer-deps
 
 # Generate Prisma Client
 echo -e "${GREEN}Generating Prisma Client...${NC}"

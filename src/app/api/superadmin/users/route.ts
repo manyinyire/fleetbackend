@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { PremiumFeatureService } from '@/lib/premium-features';
-
-const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
@@ -61,32 +59,20 @@ export async function GET(request: NextRequest) {
               },
               orderBy: { createdAt: 'desc' },
               take: 1
+            },
+            _count: {
+              select: {
+                sessions: true,
+              }
             }
           }
-        },
-        sessions: {
-          select: {
-            createdAt: true,
-            expiresAt: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-        _count: {
-          select: {
-            sessions: true,
-          }
-        }
-      },
-      orderBy: buildOrderBy(sortBy, sortOrder),
-      skip,
-      take: limit,
-    }),
-    prisma.user.count({ where }),
-  ]);
+        });
+        return fullUser;
+      })
+    );
 
-  // Transform users with calculated fields
-  const usersWithMetrics = users.map(user => {
+    // Transform users with calculated fields
+    const usersWithMetrics = usersWithTenant.map(user => {
     const lastLogin = user.sessions[0]?.createdAt || null;
     const isActive = lastLogin && new Date(lastLogin) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
@@ -133,46 +119,68 @@ export async function GET(request: NextRequest) {
         ...where,
         banned: true
       }
+    })
+  ]);
 
-      // Check if tenant can add more users (premium feature check)
-      const isAdmin = role === 'TENANT_ADMIN' || role === 'admin';
-      const featureCheck = await PremiumFeatureService.canAddUser(tenantId, isAdmin);
+    return NextResponse.json({
+      users: usersWithMetrics,
+      total: usersResult.total,
+      page,
+      limit
+    });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch users' },
+      { status: 500 }
+    );
+  }
+}
 
-      if (!featureCheck.allowed) {
-        return NextResponse.json(
-          {
-            error: featureCheck.reason,
-            currentUsage: featureCheck.currentUsage,
-            limit: featureCheck.limit,
-            suggestedPlan: featureCheck.suggestedPlan,
-            upgradeMessage: featureCheck.upgradeMessage,
-          },
-          { status: 403 }
-        );
-      }
+export async function POST(request: NextRequest) {
+  try {
+    // Require super admin role
+    await requireRole('SUPER_ADMIN');
+
+    const body = await request.json();
+    const { tenantId, role, email, name } = body;
+
+    // Check if tenant can add more users (premium feature check)
+    const isAdmin = role === 'TENANT_ADMIN' || role === 'admin';
+    const featureCheck = await PremiumFeatureService.canAddUser(tenantId, isAdmin);
+
+    if (!featureCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: featureCheck.reason,
+          currentUsage: featureCheck.currentUsage,
+          limit: featureCheck.limit,
+          suggestedPlan: featureCheck.suggestedPlan,
+          upgradeMessage: featureCheck.upgradeMessage,
+        },
+        { status: 403 }
+      );
     }
-  });
-}, 'superadmin-users:GET');
 
-export const POST = withErrorHandler(async (request: NextRequest) => {
-  // Require super admin role
-  await requireRole('SUPER_ADMIN');
+    // Create user through better-auth would be ideal, but for now create directly
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name,
+        role: role || 'USER',
+        tenantId: tenantId || null,
+        emailVerified: false,
+      },
+    });
 
-  const body = await request.json();
-  const validatedData = createUserSchema.parse(body);
+    console.log('User created by super admin:', { userId: user.id, email: user.email });
 
-  // Create user through better-auth would be ideal, but for now create directly
-  const user = await prisma.user.create({
-    data: {
-      email: validatedData.email,
-      name: validatedData.name,
-      role: validatedData.role || 'USER',
-      tenantId: validatedData.tenantId || null,
-      emailVerified: false,
-    },
-  });
-
-  logger.info({ userId: user.id, email: user.email }, 'User created by super admin');
-
-  return NextResponse.json(user, { status: 201 });
-}, 'superadmin-users:POST');
+    return NextResponse.json(user, { status: 201 });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return NextResponse.json(
+      { error: 'Failed to create user' },
+      { status: 500 }
+    );
+  }
+}

@@ -1,4 +1,4 @@
-﻿-- CreateTable: PlatformSettings
+-- CreateTable: PlatformSettings
 CREATE TABLE IF NOT EXISTS "platform_settings" (
     "id" TEXT NOT NULL,
     "platformName" TEXT NOT NULL DEFAULT 'Azaire Fleet Manager',

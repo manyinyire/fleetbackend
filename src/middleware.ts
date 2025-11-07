@@ -1,7 +1,29 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
 import { rateLimitMiddleware, rateLimitConfigs } from '@/lib/rate-limit';
+
+// Lightweight session check for Edge Runtime
+async function getSession(request: NextRequest) {
+  try {
+    const sessionToken = request.cookies.get('better-auth.session_token')?.value;
+    if (!sessionToken) return null;
+
+    // Make an internal API call to check session
+    const baseUrl = request.nextUrl.origin;
+    const response = await fetch(`${baseUrl}/api/auth/get-session`, {
+      headers: {
+        cookie: request.headers.get('cookie') || '',
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.session || null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Next.js Middleware for Authentication, Authorization, and Rate Limiting
@@ -88,7 +110,7 @@ export async function middleware(request: NextRequest) {
       const { maintenanceMode } = await maintenanceResponse.json();
       
       if (maintenanceMode) {
-        const session = await auth.api.getSession({ headers: request.headers });
+        const session = await getSession(request);
         const userRole = session?.user?.role;
         const isSuperAdmin = (userRole as any) === 'SUPER_ADMIN';
         const isMaintenancePage = pathname === '/maintenance';
@@ -159,9 +181,7 @@ export async function middleware(request: NextRequest) {
 
   try {
     // 4. Get user session
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const session = await getSession(request);
 
     const user = session?.user;
 
@@ -234,6 +254,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(signInUrl);
   }
 }
+
+export const runtime = 'nodejs';
 
 export const config = {
   matcher: [

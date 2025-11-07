@@ -16,9 +16,10 @@ import { rateLimitByPlan } from '@/lib/rate-limit';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const user = await requireAuth();
     const tenant = await requireTenant(user);
 

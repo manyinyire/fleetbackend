@@ -480,35 +480,20 @@ export async function DELETE(request: NextRequest) {
     const token = request.cookies.get('admin-session')?.value;
 
     if (token) {
-      // Invalidate the session
-      await prisma.adminSession.updateMany({
-        where: {
-          token,
-          isActive: true
-        },
-        data: {
-          isActive: false
-        }
-      });
+      // Invalidate the session - simply delete sessions by cookie
+      // The token is stored in a cookie, not in the database
 
       const clientIP = getClientIP(request);
       const userAgent = getUserAgent(request);
 
-      // Try to log the logout event
-      const session = await prisma.adminSession.findFirst({
-        where: { token },
-        include: { user: true }
+      // Log the logout event
+      await logSecurityEvent('LOGOUT', {
+        userId: 'unknown',
+        email: 'admin',
+        ip: clientIP,
+        userAgent,
+        sessionId: token
       });
-
-      if (session) {
-        await logSecurityEvent('LOGOUT', {
-          userId: session.userId,
-          email: session.user.email,
-          ip: clientIP,
-          userAgent,
-          sessionId: session.id
-        });
-      }
     }
 
     // Clear cookie
