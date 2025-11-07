@@ -4,17 +4,35 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      skip_backup:
+        description: 'Skip database backup'
+        required: false
+        default: 'false'
+
+env:
+  APP_DIR: /var/www/fleetbackend
+  DEPLOY_USER: fleet
 
 jobs:
   deploy:
     name: Deploy to Production Server
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://fleetmanager.co.zw
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to server
+      - name: Create deployment timestamp
+        id: timestamp
+        run: echo "timestamp=$(date +'%Y%m%d_%H%M%S')" >> $GITHUB_OUTPUT
+
+      - name: Backup database
+        if: ${{ github.event.inputs.skip_backup != 'true' }}
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -23,16 +41,89 @@ jobs:
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
             set -e
+            cd ${{ env.APP_DIR }}
+
+            echo "📦 Creating database backup..."
+            mkdir -p backups
+
+            # Extract database URL and create backup
+            if [ -f .env ]; then
+              DB_URL=$(grep DATABASE_URL .env | cut -d '=' -f2-)
+              BACKUP_FILE="backups/db_backup_${{ steps.timestamp.outputs.timestamp }}.sql"
+
+              # Parse DATABASE_URL and run pg_dump
+              if [[ $DB_URL =~ postgresql://([^:]+):([^@]+)@([^:]+):([^/]+)/(.+) ]]; then
+                PGPASSWORD="${BASH_REMATCH[2]}" pg_dump \
+                  -h "${BASH_REMATCH[3]}" \
+                  -p "${BASH_REMATCH[4]}" \
+                  -U "${BASH_REMATCH[1]}" \
+                  -d "${BASH_REMATCH[5]}" \
+                  > "$BACKUP_FILE"
+
+                gzip "$BACKUP_FILE"
+                echo "✅ Database backup created: ${BACKUP_FILE}.gz"
+
+                # Keep only last 7 backups
+                ls -t backups/db_backup_*.sql.gz | tail -n +8 | xargs -r rm
+              else
+                echo "⚠️  Could not parse DATABASE_URL, skipping backup"
+              fi
+            fi
+
+      - name: Validate environment
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          script: |
+            set -e
+            cd ${{ env.APP_DIR }}
+
+            echo "🔍 Validating environment..."
+
+            if [ ! -f .env ]; then
+              echo "❌ Error: .env file not found!"
+              exit 1
+            fi
+
+            # Check for required environment variables
+            REQUIRED_VARS="DATABASE_URL BETTER_AUTH_SECRET BETTER_AUTH_URL NEXT_PUBLIC_APP_URL"
+            for var in $REQUIRED_VARS; do
+              if ! grep -q "^${var}=" .env; then
+                echo "❌ Error: Required variable ${var} not found in .env"
+                exit 1
+              fi
+            done
+
+            echo "✅ Environment validation passed"
+
+      - name: Deploy application
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          command_timeout: 20m
+          script: |
+            set -e
 
             echo "🚀 Starting deployment..."
 
             # Navigate to application directory
-            cd /var/www/fleetbackend
+            cd ${{ env.APP_DIR }}
 
             # Pull latest changes
             echo "📦 Pulling latest changes from GitHub..."
             git fetch origin
+            PREV_COMMIT=$(git rev-parse HEAD)
             git reset --hard origin/main
+            NEW_COMMIT=$(git rev-parse HEAD)
+
+            echo "Previous commit: $PREV_COMMIT"
+            echo "New commit: $NEW_COMMIT"
 
             # Install dependencies
             echo "📚 Installing dependencies..."
@@ -44,11 +135,14 @@ jobs:
 
             # Run database migrations
             echo "🗄️  Running database migrations..."
-            npx prisma migrate deploy || echo "⚠️  No migrations to run or migration failed"
+            if ! npx prisma migrate deploy; then
+              echo "❌ Database migration failed!"
+              exit 1
+            fi
 
             # Check migration status
             echo "📊 Checking migration status..."
-            npx prisma migrate status || echo "Migration status check completed"
+            npx prisma migrate status
 
             # Build application
             echo "🏗️  Building application..."
@@ -65,21 +159,34 @@ jobs:
             echo "✅ Checking application status..."
             pm2 status
 
-            # Test application health
-            sleep 3
-            if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
-              echo "✅ Deployment successful! Application is running."
-            else
-              echo "⚠️  Application may not be responding correctly. Check logs with: pm2 logs fleetbackend"
-            fi
+            # Test application health with retries
+            echo "🏥 Testing application health..."
+            for i in {1..10}; do
+              sleep 3
+              if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
+                echo "✅ Deployment successful! Application is healthy."
+                exit 0
+              fi
+              echo "Attempt $i/10: Application not ready yet..."
+            done
 
-            echo "🎉 Deployment completed!"
+            echo "⚠️  Application health check failed!"
+            echo "Check logs with: pm2 logs fleetbackend"
+            exit 1
 
-      - name: Notify deployment status
-        if: always()
+      - name: Notify deployment success
+        if: success()
         run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ Deployment successful!"
-          else
-            echo "❌ Deployment failed!"
-          fi
+          echo "✅ Deployment to production completed successfully!"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Author: ${{ github.actor }}"
+
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          echo "❌ Deployment to production failed!"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Author: ${{ github.actor }}"
+          echo "Check the logs above for details."

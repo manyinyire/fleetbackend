@@ -190,13 +190,29 @@ restore_database() {
     fi
 }
 
-# Function to restart containers
-restart_containers() {
-    log_info "Restarting containers..."
+# Function to restart application
+restart_application() {
+    log_info "Restarting application..."
 
+    # Try PM2 first (for production server deployments)
+    if command -v pm2 &> /dev/null; then
+        log_info "Restarting with PM2..."
+        pm2 restart ecosystem.config.js --env ${ENVIRONMENT}
+        pm2 save
+
+        if [ $? -eq 0 ]; then
+            log_success "PM2 application restarted"
+            return 0
+        else
+            log_error "Failed to restart PM2 application"
+            return 1
+        fi
+    fi
+
+    # Try Docker Compose (for containerized deployments)
     COMPOSE_FILE="docker-compose.${ENVIRONMENT}.yml"
-
     if [ -f "$COMPOSE_FILE" ]; then
+        log_info "Restarting with Docker Compose..."
         docker-compose -f "$COMPOSE_FILE" restart
 
         if [ $? -eq 0 ]; then
@@ -206,10 +222,10 @@ restart_containers() {
             log_error "Failed to restart containers"
             return 1
         fi
-    else
-        log_warning "Compose file not found: ${COMPOSE_FILE}"
-        return 1
     fi
+
+    log_error "No deployment method found (PM2 or Docker Compose)"
+    return 1
 }
 
 # Function to verify rollback
@@ -242,7 +258,7 @@ main() {
     # Final confirmation
     log_warning "This will:"
     log_warning "  1. Restore the database from the selected backup"
-    log_warning "  2. Restart all containers"
+    log_warning "  2. Restart the application (PM2 or Docker)"
     log_warning "  3. Verify the application health"
     echo ""
     read -p "Proceed with rollback? (yes/no): " -r
@@ -261,11 +277,11 @@ main() {
         exit 1
     fi
 
-    # Step 2: Restart containers
-    if restart_containers; then
-        log_success "Containers restarted"
+    # Step 2: Restart application
+    if restart_application; then
+        log_success "Application restarted"
     else
-        log_warning "Container restart failed, but database was restored"
+        log_warning "Application restart failed, but database was restored"
     fi
 
     # Step 3: Verify rollback

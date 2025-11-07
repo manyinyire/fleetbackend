@@ -60,16 +60,6 @@ jobs:
         ports:
           - 5432:5432
 
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -87,7 +77,6 @@ jobs:
         run: |
           cp .env.example .env
           echo "DATABASE_URL=postgresql://postgres:test_password@localhost:5432/azaire_test" >> .env
-          echo "REDIS_URL=redis://localhost:6379" >> .env
           echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)" >> .env
           echo "BETTER_AUTH_URL=http://localhost:3000" >> .env
           echo "NEXT_PUBLIC_APP_URL=http://localhost:3000" >> .env
@@ -192,8 +181,8 @@ jobs:
           cache: 'npm'
 
       - name: Run npm audit
-        run: npm audit --audit-level=moderate
-        continue-on-error: true
+        run: npm audit --audit-level=moderate || echo "::warning::npm audit found vulnerabilities"
+        continue-on-error: false
 
       - name: Check for sensitive files
         run: |
