@@ -1,101 +1,135 @@
-# Deployment Setup
+# Deployment Guide
 
-This document explains how to set up automated deployments using GitHub Actions.
+This document describes the CI/CD setup and deployment procedures for the Azaire Fleet Manager application.
 
-## GitHub Secrets Configuration
+## Table of Contents
 
-To enable automatic deployments, you need to add the following secrets to your GitHub repository:
+- [Overview](#overview)
+- [CI/CD Workflows](#cicd-workflows)
+- [Environment Setup](#environment-setup)
+- [Deployment Process](#deployment-process)
+- [Rollback Procedures](#rollback-procedures)
+- [Monitoring and Alerts](#monitoring-and-alerts)
+- [Troubleshooting](#troubleshooting)
 
-### Required Secrets
+## Overview
 
-1. **SERVER_HOST**
-   - Value: `62.84.183.230` or `fleetmanager.co.zw`
-   - Description: The IP address or hostname of your production server
+The application uses GitHub Actions for CI/CD with the following workflows:
 
-2. **SERVER_USER**
-   - Value: `root`
-   - Description: The SSH user to connect to the server
+- **CI Workflow** (`ci.yml`): Runs tests, linting, type checking, and builds
+- **Deploy Workflow** (`deploy.yml`): Deploys to production server via SSH
+- **Rollback Workflow** (`rollback.yml`): Restores from database backup
 
-3. **SSH_PRIVATE_KEY**
-   - Value: Your SSH private key
-   - Description: The private key for SSH authentication
-   - Get the value by running: `cat ~/.ssh/id_ed25519` on your server
+## CI/CD Workflows
 
-4. **SSH_PASSPHRASE**
-   - Value: `fleetmanager`
-   - Description: The passphrase for your SSH private key
+### Continuous Integration (CI)
 
-### How to Add Secrets
+**Trigger:** Push to \`main\`, \`develop\`, or \`claude/**\` branches, and pull requests
 
-1. Go to your GitHub repository
-2. Click on **Settings** → **Secrets and variables** → **Actions**
-3. Click **New repository secret**
-4. Add each secret with the name and value listed above
+**Jobs:**
+1. **Lint & Type Check** - ESLint and TypeScript validation
+2. **Test** - Run test suite with PostgreSQL service
+3. **Build** - Verify Next.js production build
+4. **Docker Build** - Test Docker image build
+5. **Security Scan** - npm audit and sensitive file check
 
-## Deployment Workflow
+### Continuous Deployment (CD)
 
-The deployment workflow (`deploy.yml`) is triggered automatically when you push to the `main` branch.
+**Trigger:** Push to \`main\` branch (automatic) or manual via workflow dispatch
 
-### What the Workflow Does
+**Steps:**
+1. Database backup creation
+2. Environment validation
+3. Code deployment
+4. Database migrations
+5. Application build
+6. PM2 restart
+7. Health check verification
 
-1. ✅ Pulls the latest code from GitHub
-2. ✅ Installs dependencies
-3. ✅ Generates Prisma Client
-4. ✅ Runs database migrations
-5. ✅ Builds the Next.js application
-6. ✅ Restarts PM2 processes
-7. ✅ Verifies the application is running
+### Rollback
+
+**Trigger:** Manual workflow dispatch only
+
+**Requirements:**
+- Type "ROLLBACK" to confirm
+- Optionally specify backup file
+
+**Steps:**
+1. Validation of rollback request
+2. Pre-rollback backup creation
+3. Database restoration
+4. Application restart
+5. Health verification
+
+## Environment Setup
+
+### Required GitHub Secrets
+
+Configure these secrets in your repository settings:
+
+| Secret | Description | Example |
+|--------|-------------|---------|
+| \`SERVER_HOST\` | Production server hostname or IP | \`123.45.67.89\` |
+| \`SERVER_USER\` | SSH user for deployment | \`fleet\` |
+| \`SSH_PRIVATE_KEY\` | Private SSH key for authentication | (RSA private key) |
+| \`SSH_PASSPHRASE\` | Passphrase for SSH key (if applicable) | (passphrase) |
+| \`CODECOV_TOKEN\` | Codecov token for coverage reports | (optional) |
+
+### GitHub Environment Protection
+
+It's **strongly recommended** to set up environment protection rules for production deployments.
+
+#### Setting Up Production Environment Protection
+
+1. Go to repository **Settings** → **Environments**
+2. Click **New environment** or select **production**
+3. Configure protection rules:
+   - **Required reviewers:** Add 1-2 reviewers for manual approval
+   - **Wait timer:** Optional delay before deployment
+   - **Deployment branches:** Restrict to \`main\` only
+4. Click **Save protection rules**
+
+## Deployment Process
+
+### Automatic Deployment
+
+Merge to main triggers automatic deployment after CI passes.
 
 ### Manual Deployment
 
-If you need to deploy manually without pushing to GitHub:
+Use GitHub Actions workflow dispatch or SSH into server and run \`./deploy.sh\`
 
-```bash
+## Rollback Procedures
+
+### Using GitHub Actions (Recommended)
+
+1. Go to **Actions** → **Rollback Production**
+2. Type "ROLLBACK" to confirm
+3. Optionally specify backup file
+4. Run workflow
+
+### Using Shell Script
+
+SSH into server:
+\`\`\`bash
 cd /var/www/fleetbackend
-git pull origin main
-npm ci --legacy-peer-deps
-npx prisma generate
-npx prisma migrate deploy
-npm run build
-pm2 restart ecosystem.config.js --env production
-pm2 save
-```
+./scripts/rollback.sh production
+\`\`\`
 
-### Monitoring Deployment
+## Monitoring and Alerts
 
-- View GitHub Actions logs: **Actions** tab in your repository
-- View application logs: `pm2 logs fleetbackend`
-- Check application status: `pm2 status`
+- Health endpoint: \`GET /api/health\`
+- PM2 monitoring: \`pm2 status\`, \`pm2 logs\`
+- Backups stored in \`/var/www/fleetbackend/backups/\`
+- Last 7 backups retained automatically
 
 ## Troubleshooting
 
-### Deployment Fails
+Common issues and solutions documented for:
+- Migration failures
+- Health check failures
+- Database backup issues
+- SSH connection problems
+- Build failures
 
-1. Check GitHub Actions logs for error messages
-2. Verify all secrets are correctly configured
-3. Test SSH connection: `ssh root@62.84.183.230`
-4. Check server logs: `pm2 logs fleetbackend --lines 100`
-
-### Database Migration Issues
-
-If migrations fail:
-```bash
-npx prisma migrate status
-npx prisma migrate resolve --applied "migration_name"
-npx prisma migrate deploy
-```
-
-### Application Not Starting
-
-```bash
-pm2 stop fleetbackend
-pm2 delete fleetbackend
-pm2 start ecosystem.config.js --env production
-pm2 save
-```
-
-## Security Notes
-
-- ⚠️ Never commit secrets or private keys to the repository
-- ⚠️ All sensitive data should be stored in GitHub Secrets
-- ⚠️ The `.env` file on the server contains production credentials and should never be committed
+See full documentation for detailed troubleshooting steps.
