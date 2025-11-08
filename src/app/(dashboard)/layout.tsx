@@ -2,6 +2,8 @@ import { Sidebar } from "@/components/Layouts/sidebar";
 import { Header } from "@/components/Layouts/header";
 import type { PropsWithChildren } from "react";
 
+export const dynamic = 'force-dynamic';
+
 export default function DashboardLayout({ children }: PropsWithChildren) {
   return (
     <div className="flex min-h-screen">

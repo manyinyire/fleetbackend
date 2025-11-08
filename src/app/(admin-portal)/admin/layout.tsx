@@ -3,6 +3,8 @@ import { Header } from "@/components/Layouts/header";
 import type { PropsWithChildren } from "react";
 import { requireRole } from '@/lib/auth-helpers';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminLayout({ children }: PropsWithChildren) {
   // Ensure user has SUPER_ADMIN role
   await requireRole('SUPER_ADMIN');

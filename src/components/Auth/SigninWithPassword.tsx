@@ -44,7 +44,24 @@ export default function SigninWithPassword() {
       // Check if email is verified
       const user = result.data?.user;
       if (user && !user.emailVerified && (user as any).role !== 'SUPER_ADMIN') {
-        toast.error('Please verify your email address before logging in. Check your inbox for the verification code.');
+        // Send verification email
+        try {
+          const { authClient } = await import("@/lib/auth-client");
+          const verificationResult = await authClient.emailOtp.sendVerificationOtp({
+            email: user.email || data.email,
+            type: "email-verification",
+          });
+
+          if (verificationResult.error) {
+            toast.error('Failed to send verification email. Please try again.');
+          } else {
+            toast.success('Verification code sent to your email. Please check your inbox.');
+          }
+        } catch (error) {
+          console.error('Error sending verification email:', error);
+          toast.error('Failed to send verification email.');
+        }
+
         setLoading(false);
         // Redirect to email verification page
         router.push(`/auth/email-verified?unverified=true&email=${encodeURIComponent(user.email || data.email)}`);

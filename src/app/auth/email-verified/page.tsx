@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth-helpers';
 import { EmailVerificationForm } from '@/components/Auth/EmailVerificationForm';
 
+export const dynamic = 'force-dynamic';
+
 export default async function EmailVerifiedPage({
   searchParams,
 }: {
