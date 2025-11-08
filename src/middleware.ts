@@ -2,25 +2,41 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { rateLimitMiddleware, rateLimitConfigs } from '@/lib/rate-limit';
 
-// Lightweight session check for Edge Runtime
+// Lightweight session check using internal API
 async function getSession(request: NextRequest) {
   try {
-    const sessionToken = request.cookies.get('better-auth.session_token')?.value;
-    if (!sessionToken) return null;
+    // Don't check for session token cookie here - let the endpoint handle it
+    // The endpoint has access to all cookies via headers
 
-    // Make an internal API call to check session
+    // Use the same origin as the request to ensure cookie domain matches
+    // This is critical for session cookies to be accessible
     const baseUrl = request.nextUrl.origin;
-    const response = await fetch(`${baseUrl}/api/auth/get-session`, {
+    const sessionUrl = `${baseUrl}/api/auth/get-session`;
+
+    console.log('[Middleware getSession] Fetching:', sessionUrl);
+    console.log('[Middleware getSession] Cookies:', request.headers.get('cookie') ? 'present' : 'missing');
+
+    const response = await fetch(sessionUrl, {
+      method: 'GET',
       headers: {
         cookie: request.headers.get('cookie') || '',
+        'x-internal-call': 'true', // Mark as internal call to bypass HTTPS redirect
       },
       cache: 'no-store',
     });
 
-    if (!response.ok) return null;
+    console.log('[Middleware getSession] Response status:', response.status);
+
+    if (!response.ok) {
+      console.error('[Middleware getSession] Session check failed:', response.status, response.statusText);
+      return null;
+    }
+
     const data = await response.json();
+    console.log('[Middleware getSession] Data received:', data);
     return data.session || null;
-  } catch {
+  } catch (error) {
+    console.error('[Middleware getSession] Session check error:', error);
     return null;
   }
 }
@@ -81,8 +97,11 @@ const superAdminRoutes = [
 export async function middleware(request: NextRequest) {
   const { pathname, protocol, host } = request.nextUrl;
 
-  // 0. Force HTTPS in production
-  if (process.env.NODE_ENV === 'production' && protocol === 'http:') {
+  // 0. Force HTTPS in production (but skip for internal calls and auth endpoints)
+  const isInternalCall = request.headers.get('x-internal-call') === 'true';
+  const isAuthEndpoint = pathname.startsWith('/api/auth/');
+
+  if (process.env.NODE_ENV === 'production' && protocol === 'http:' && !isInternalCall && !isAuthEndpoint) {
     const httpsUrl = `https://${host}${pathname}${request.nextUrl.search}`;
     return NextResponse.redirect(httpsUrl, 301);
   }
@@ -141,10 +160,8 @@ export async function middleware(request: NextRequest) {
 
   // 3b. Apply rate limiting to auth routes (stricter limits)
   // Exempt session endpoints from strict rate limiting as they're polled frequently
-  // BetterAuth uses /api/auth/get-session as the session endpoint
-  const isSessionEndpoint = 
-    pathname === '/api/auth/get-session' || 
-    pathname === '/api/auth/session' ||
+  const isSessionEndpoint =
+    pathname === '/api/auth/get-session' ||
     pathname.startsWith('/api/auth/get-session');
   if (authRoutes.some(route => pathname.startsWith(route)) && !isSessionEndpoint) {
     const rateLimitResult = rateLimitMiddleware(request, rateLimitConfigs.auth);
@@ -185,8 +202,12 @@ export async function middleware(request: NextRequest) {
 
     const user = session?.user;
 
+    // Debug logging for authentication issues
+    console.log(`[Middleware] Path: ${pathname}, Session: ${session ? 'exists' : 'null'}, User: ${user ? user.email : 'none'}`);
+
     // 5. Redirect unauthenticated users to sign-in
     if (!user) {
+      console.log(`[Middleware] No user found, redirecting to sign-in from ${pathname}`);
       const signInUrl = new URL('/auth/sign-in', request.url);
       signInUrl.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(signInUrl);

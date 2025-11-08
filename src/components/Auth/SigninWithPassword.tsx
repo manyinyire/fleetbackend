@@ -70,18 +70,29 @@ export default function SigninWithPassword() {
 
       toast.success('Login successful!');
 
-      // Give time for the session cookie to be set
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Give more time for the session cookie to be set and propagate
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Verify session is set before redirecting
+      try {
+        const sessionCheck = await fetch('/api/auth/get-session', {
+          credentials: 'include',
+        });
+
+        if (!sessionCheck.ok) {
+          console.warn('Session not immediately available, waiting...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
+      }
 
       // Check user role and redirect accordingly
       if ((result.data?.user as any)?.role === 'SUPER_ADMIN') {
-        router.push('/superadmin/dashboard');
+        window.location.href = '/superadmin/dashboard';
       } else {
-        router.push('/dashboard');
+        window.location.href = '/dashboard';
       }
-
-      // Refresh after redirect
-      router.refresh();
     } catch (error) {
       console.error('Login error:', error);
       toast.error('An unexpected error occurred');
