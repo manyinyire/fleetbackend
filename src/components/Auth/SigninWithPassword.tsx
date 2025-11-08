@@ -85,6 +85,8 @@ export default function SigninWithPassword() {
     } catch (error) {
       console.error('Login error:', error);
       toast.error('An unexpected error occurred');
+    } finally {
+      // Always stop loading after completion or error
       setLoading(false);
     }
   };
