@@ -64,6 +64,11 @@ const publicRoutes = [
   '/maintenance', // Maintenance mode page
 ];
 
+// Routes that require authentication but don't require tenant
+const noTenantRequiredRoutes = [
+  '/auth/setup-tenant',
+];
+
 // Auth-related routes that should be accessible without full auth
 const authRoutes = [
   '/api/auth',
@@ -211,6 +216,12 @@ export async function middleware(request: NextRequest) {
       const signInUrl = new URL('/auth/sign-in', request.url);
       signInUrl.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(signInUrl);
+    }
+
+    // 5b. Allow authenticated users to access routes that don't require tenant
+    if (noTenantRequiredRoutes.some(route => pathname.startsWith(route))) {
+      console.log(`[Middleware] Allowing access to no-tenant-required route: ${pathname}`);
+      return NextResponse.next();
     }
 
     // 6. Check email verification (except for super admin)

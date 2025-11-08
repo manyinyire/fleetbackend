@@ -72,8 +72,9 @@ export async function requireTenant() {
     return { user, tenantId: null };
   }
 
+  // If user doesn't have a tenant, redirect to tenant setup
   if (!(user as any).tenantId) {
-    throw new Error('No tenant context');
+    redirect('/auth/setup-tenant');
   }
 
   // Check if tenant is suspended or cancelled
@@ -83,7 +84,8 @@ export async function requireTenant() {
   });
 
   if (!tenant) {
-    throw new Error('Tenant not found');
+    // Tenant was deleted but user still has reference - redirect to setup
+    redirect('/auth/setup-tenant');
   }
 
   if (tenant.status === 'SUSPENDED') {
