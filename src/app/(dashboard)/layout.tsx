@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function DashboardLayout({ children }: PropsWithChildren) {
   // Ensure user is authenticated and has tenant access
-  // This will automatically redirect SUPER_ADMIN to /admin/dashboard
+  // This will automatically redirect SUPER_ADMIN to /superadmin/dashboard
   await requireTenantForDashboard();
 
   return (

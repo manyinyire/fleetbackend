@@ -9,7 +9,7 @@ export default async function RootPage() {
   // If user is logged in, redirect based on role
   if (user) {
     if ((user as any).role === 'SUPER_ADMIN') {
-      redirect('/admin/dashboard');
+      redirect('/superadmin/dashboard');
     } else {
       redirect('/dashboard');
     }

@@ -100,17 +100,17 @@ export async function requireTenant() {
 // Server-side: Require tenant context and redirect SUPER_ADMIN to admin dashboard
 export async function requireTenantForDashboard() {
   const { user, tenantId } = await requireTenant();
-  
-  // SUPER_ADMIN users should be redirected to admin dashboard
+
+  // SUPER_ADMIN users should be redirected to superadmin dashboard
   if ((user as any).role === 'SUPER_ADMIN') {
-    redirect('/admin/dashboard');
+    redirect('/superadmin/dashboard');
   }
-  
+
   // Regular tenant users must have a tenantId
   if (!tenantId) {
     throw new Error('No tenant context available');
   }
-  
+
   return { user, tenantId };
 }
 

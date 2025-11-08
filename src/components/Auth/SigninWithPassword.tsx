@@ -75,7 +75,7 @@ export default function SigninWithPassword() {
 
       // Check user role and redirect accordingly
       if ((result.data?.user as any)?.role === 'SUPER_ADMIN') {
-        router.push('/admin/dashboard');
+        router.push('/superadmin/dashboard');
       } else {
         router.push('/dashboard');
       }
