@@ -202,29 +202,62 @@ export const auth = betterAuth({
     enabled: true,
   },
 
-  // Hooks to check tenant status - temporarily disabled due to API changes
-  // hooks: {
-  //   after: async (ctx) => {
-  //     if (ctx.path === '/sign-in/email') {
-  //       const session = ctx.context.session;
-  //       if (session?.user?.tenantId) {
-  //         // Check if tenant is suspended
-  //         const tenant = await prisma.tenant.findUnique({
-  //           where: { id: (session.user as any).tenantId },
-  //           select: { status: true }
-  //         });
+  // Hooks for validation and tenant checks
+  hooks: {
+    after: async (ctx) => {
+      // Validate tenant requirement during user creation
+      if (ctx.path === '/sign-up/email') {
+        const user = ctx.context.user;
 
-  //         if (tenant?.status === 'SUSPENDED') {
-  //           throw new Error('Your account has been suspended. Please contact support.');
-  //         }
+        if (user) {
+          const role = (user as any).role;
+          const tenantId = (user as any).tenantId;
 
-  //         if (tenant?.status === 'CANCELED') {
-  //           throw new Error('Your account has been cancelled. Please contact support to reactivate.');
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
+          // CRITICAL: Enforce that all users except SUPER_ADMIN must have a tenantId
+          // This is a data integrity requirement for the multi-tenant architecture
+          if (role !== 'SUPER_ADMIN' && !tenantId) {
+            // This should never happen if the signup flow is correct
+            // But we check to prevent silent failures
+            console.error('[AUTH HOOK] CRITICAL: User created without tenantId', {
+              userId: user.id,
+              email: user.email,
+              role,
+            });
+
+            // Delete the invalid user immediately
+            await prisma.user.delete({
+              where: { id: user.id },
+            });
+
+            throw new Error(
+              'User creation failed: All users except SUPER_ADMIN must have a tenant assigned. ' +
+              'This is a system requirement. Please use the proper signup flow.'
+            );
+          }
+        }
+      }
+
+      // Check tenant status on sign-in
+      if (ctx.path === '/sign-in/email') {
+        const session = ctx.context.session;
+        if (session?.user?.tenantId) {
+          // Check if tenant is suspended or cancelled
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: (session.user as any).tenantId },
+            select: { status: true }
+          });
+
+          if (tenant?.status === 'SUSPENDED') {
+            throw new Error('Your account has been suspended. Please contact support.');
+          }
+
+          if (tenant?.status === 'CANCELED') {
+            throw new Error('Your account has been cancelled. Please contact support to reactivate.');
+          }
+        }
+      }
+    }
+  }
 });
 
 export type Auth = typeof auth;
