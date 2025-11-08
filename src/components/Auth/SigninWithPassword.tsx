@@ -4,7 +4,7 @@ import Link from "next/link";
 import React, { useState } from "react";
 import InputGroup from "../FormElements/InputGroup";
 import { Checkbox } from "../FormElements/checkbox";
-import { signIn } from "@/lib/auth-client";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 
@@ -30,74 +30,30 @@ export default function SigninWithPassword() {
     setLoading(true);
 
     try {
-      const result = await signIn.email({
+      const result = await signIn("credentials", {
         email: data.email,
         password: data.password,
+        redirect: false,
       });
 
-      if (result.error) {
-        toast.error(result.error.message || 'Login failed');
+      if (result?.error) {
+        toast.error(result.error);
         setLoading(false);
         return;
       }
 
-      // Check if email is verified
-      const user = result.data?.user;
-      if (user && !user.emailVerified && (user as any).role !== 'SUPER_ADMIN') {
-        // Send verification email
-        try {
-          const { authClient } = await import("@/lib/auth-client");
-          const verificationResult = await authClient.emailOtp.sendVerificationOtp({
-            email: user.email || data.email,
-            type: "email-verification",
-          });
+      if (result?.ok) {
+        toast.success('Login successful!');
 
-          if (verificationResult.error) {
-            toast.error('Failed to send verification email. Please try again.');
-          } else {
-            toast.success('Verification code sent to your email. Please check your inbox.');
-          }
-        } catch (error) {
-          console.error('Error sending verification email:', error);
-          toast.error('Failed to send verification email.');
-        }
+        // Give time for the session to be established
+        await new Promise(resolve => setTimeout(resolve, 500));
 
-        setLoading(false);
-        // Redirect to email verification page
-        router.push(`/auth/email-verified?unverified=true&email=${encodeURIComponent(user.email || data.email)}`);
-        return;
-      }
-
-      toast.success('Login successful!');
-
-      // Give more time for the session cookie to be set and propagate
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Verify session is set before redirecting
-      try {
-        const sessionCheck = await fetch('/api/auth/get-session', {
-          credentials: 'include',
-        });
-
-        if (!sessionCheck.ok) {
-          console.warn('Session not immediately available, waiting...');
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      } catch (error) {
-        console.error('Session check error:', error);
-      }
-
-      // Check user role and redirect accordingly
-      if ((result.data?.user as any)?.role === 'SUPER_ADMIN') {
-        window.location.href = '/superadmin/dashboard';
-      } else {
-        window.location.href = '/dashboard';
+        // Redirect based on role - the page will handle the redirect based on session
+        window.location.href = '/';
       }
     } catch (error) {
       console.error('Login error:', error);
       toast.error('An unexpected error occurred');
-    } finally {
-      // Always stop loading after completion or error
       setLoading(false);
     }
   };
@@ -152,11 +108,12 @@ export default function SigninWithPassword() {
       <div className="mb-4.5">
         <button
           type="submit"
-          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary p-4 font-medium text-white transition hover:bg-opacity-90"
+          disabled={loading}
+          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary p-4 font-medium text-white transition hover:bg-opacity-90 disabled:opacity-50"
         >
           Sign In
           {loading && (
-            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-t-transparent dark:border-primary dark:border-t-transparent" />
+            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-t-transparent" />
           )}
         </button>
       </div>

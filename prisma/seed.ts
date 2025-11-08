@@ -28,23 +28,14 @@ async function main() {
       // Hash the password
       const hashedPassword = await hash(superAdminPassword, 12);
 
-      // Create SUPER_ADMIN user
+      // Create SUPER_ADMIN user with password
       const superAdminUser = await prisma.user.create({
         data: {
           email: superAdminEmail,
           name: 'Super Admin',
           emailVerified: true, // Super admin is pre-verified
           role: 'SUPER_ADMIN',
-        },
-      });
-
-      // Create credential account for BetterAuth
-      await prisma.account.create({
-        data: {
-          userId: superAdminUser.id,
-          accountId: superAdminUser.id, // Use user ID as account ID
-          providerId: 'credential', // BetterAuth credential provider
-          password: hashedPassword,
+          password: hashedPassword, // Store password on User model for NextAuth
         },
       });
 
@@ -59,35 +50,26 @@ async function main() {
   } else {
     console.log('✅ SUPER_ADMIN user already exists');
 
-    // Check if account exists for existing super admin
-    const existingAccount = await prisma.account.findFirst({
-      where: {
-        userId: existingSuperAdmin.id,
-        providerId: 'credential',
-      },
-    });
-
-    if (!existingAccount) {
-      console.log('⚠️  Super admin exists but has no credential account. Creating one...');
+    // Check if password exists on user
+    if (!existingSuperAdmin.password) {
+      console.log('⚠️  Super admin exists but has no password. Setting password...');
       const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD;
 
       if (!superAdminPassword) {
         console.error('❌ SUPER_ADMIN_PASSWORD environment variable is not set');
-        throw new Error('SUPER_ADMIN_PASSWORD required to create credential account');
+        throw new Error('SUPER_ADMIN_PASSWORD required to set password');
       }
 
       const hashedPassword = await hash(superAdminPassword, 12);
 
-      await prisma.account.create({
+      await prisma.user.update({
+        where: { id: existingSuperAdmin.id },
         data: {
-          userId: existingSuperAdmin.id,
-          accountId: existingSuperAdmin.id,
-          providerId: 'credential',
           password: hashedPassword,
         },
       });
 
-      console.log('✅ Created credential account for existing super admin');
+      console.log('✅ Updated super admin password');
     }
   }
 

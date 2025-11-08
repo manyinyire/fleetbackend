@@ -1,57 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { rateLimitMiddleware, rateLimitConfigs } from '@/lib/rate-limit';
-
-// Lightweight session check using internal API
-async function getSession(request: NextRequest) {
-  try {
-    // Don't check for session token cookie here - let the endpoint handle it
-    // The endpoint has access to all cookies via headers
-
-    // Use the same origin as the request to ensure cookie domain matches
-    // This is critical for session cookies to be accessible
-    const baseUrl = request.nextUrl.origin;
-    const sessionUrl = `${baseUrl}/api/auth/get-session`;
-
-    console.log('[Middleware getSession] Fetching:', sessionUrl);
-    console.log('[Middleware getSession] Cookies:', request.headers.get('cookie') ? 'present' : 'missing');
-
-    const response = await fetch(sessionUrl, {
-      method: 'GET',
-      headers: {
-        cookie: request.headers.get('cookie') || '',
-        'x-internal-call': 'true', // Mark as internal call to bypass HTTPS redirect
-      },
-      cache: 'no-store',
-    });
-
-    console.log('[Middleware getSession] Response status:', response.status);
-
-    if (!response.ok) {
-      console.error('[Middleware getSession] Session check failed:', response.status, response.statusText);
-      return null;
-    }
-
-    const data = await response.json();
-    console.log('[Middleware getSession] Data received:', data);
-    return data.session || null;
-  } catch (error) {
-    console.error('[Middleware getSession] Session check error:', error);
-    return null;
-  }
-}
-
-/**
- * Next.js Middleware for Authentication, Authorization, and Rate Limiting
- *
- * This middleware:
- * - Implements rate limiting to prevent abuse
- * - Protects routes requiring authentication
- * - Enforces email verification for non-admin users
- * - Sets tenant context headers for API routes
- * - Handles super admin route protection
- * - Redirects unauthenticated users to sign-in
- */
+import { auth } from '@/lib/auth';
 
 // Public routes that don't require authentication
 const publicRoutes = [
@@ -60,24 +9,23 @@ const publicRoutes = [
   '/auth/sign-up',
   '/auth/verify-email',
   '/auth/email-verified',
-  '/auth/error', // Auth error page for data integrity issues
+  '/auth/error',
   '/landing',
-  '/maintenance', // Maintenance mode page
+  '/maintenance',
 ];
 
-// Auth-related routes that should be accessible without full auth
-const authRoutes = [
+// Auth-related API routes
+const authApiRoutes = [
   '/api/auth',
-  '/api/superadmin/auth/login',
 ];
 
-// Public API routes that don't require authentication
+// Public API routes
 const publicApiRoutes = [
-  '/api/platform/logo', // Platform logo should be publicly accessible
-  '/api/platform/maintenance', // Maintenance check endpoint
+  '/api/platform/logo',
+  '/api/platform/maintenance',
 ];
 
-// Static assets and Next.js internals
+// Static assets
 const staticRoutes = [
   '/_next',
   '/manifest.json',
@@ -95,195 +43,56 @@ const superAdminRoutes = [
   '/api/admin',
 ];
 
-export async function middleware(request: NextRequest) {
-  const { pathname, protocol, host } = request.nextUrl;
+export default auth(async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-  // 0. Force HTTPS in production (but skip for internal calls and auth endpoints)
-  const isInternalCall = request.headers.get('x-internal-call') === 'true';
-  const isAuthEndpoint = pathname.startsWith('/api/auth/');
-
-  if (process.env.NODE_ENV === 'production' && protocol === 'http:' && !isInternalCall && !isAuthEndpoint) {
-    const httpsUrl = `https://${host}${pathname}${request.nextUrl.search}`;
-    return NextResponse.redirect(httpsUrl, 301);
-  }
-
-  // 1. Allow static assets and Next.js internals
+  // Allow static assets
   if (staticRoutes.some(route => pathname.startsWith(route))) {
     return NextResponse.next();
   }
 
-  // 1b. Check maintenance mode (allow super admin and maintenance page)
-  try {
-    // Check maintenance mode via API route (can't use Prisma directly in Edge runtime)
-    // Use internal URL to avoid external fetch issues
-    const baseUrl = request.nextUrl.origin;
-    const maintenanceCheckUrl = `${baseUrl}/api/platform/maintenance`;
-    const maintenanceResponse = await fetch(maintenanceCheckUrl, {
-      headers: {
-        'x-forwarded-for': request.headers.get('x-forwarded-for') || '',
-        cookie: request.headers.get('cookie') || '',
-      },
-      cache: 'no-store', // Always check fresh
-    });
-    
-    if (maintenanceResponse.ok) {
-      const { maintenanceMode } = await maintenanceResponse.json();
-      
-      if (maintenanceMode) {
-        const session = await getSession(request);
-        const userRole = session?.user?.role;
-        const isSuperAdmin = (userRole as any) === 'SUPER_ADMIN';
-        const isMaintenancePage = pathname === '/maintenance';
-        
-        // Allow super admin and maintenance page access
-        if (!isSuperAdmin && !isMaintenancePage) {
-          return NextResponse.redirect(new URL('/maintenance', request.url));
-        }
-      }
-    }
-  } catch (error) {
-    // If there's an error checking maintenance mode, continue normally
-    // This ensures the site remains accessible even if maintenance check fails
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error checking maintenance mode:', error);
-    }
-  }
-
-  // 2. Allow public routes
-  if (publicRoutes.some(route => pathname === route)) {
-    return NextResponse.next();
-  }
-
-  // 3. Allow public API routes (no auth required)
+  // Allow public API routes
   if (publicApiRoutes.some(route => pathname.startsWith(route))) {
     return NextResponse.next();
   }
 
-  // 3b. Apply rate limiting to auth routes (stricter limits)
-  // Exempt session endpoints from strict rate limiting as they're polled frequently
-  const isSessionEndpoint =
-    pathname === '/api/auth/get-session' ||
-    pathname.startsWith('/api/auth/get-session');
-  if (authRoutes.some(route => pathname.startsWith(route)) && !isSessionEndpoint) {
-    const rateLimitResult = rateLimitMiddleware(request, rateLimitConfigs.auth);
-    if (rateLimitResult.limited) {
-      return rateLimitResult.response;
-    }
-    return NextResponse.next();
-  }
-  
-  // Apply more lenient rate limiting to session endpoints
-  if (isSessionEndpoint) {
-    const rateLimitResult = rateLimitMiddleware(request, rateLimitConfigs.session); // Use session rate limit
-    if (rateLimitResult.limited) {
-      return rateLimitResult.response;
-    }
+  // Allow auth API routes
+  if (authApiRoutes.some(route => pathname.startsWith(route))) {
     return NextResponse.next();
   }
 
-  // 3b. Apply rate limiting to super admin routes
-  if (superAdminRoutes.some(route => pathname.startsWith(route))) {
-    const rateLimitResult = rateLimitMiddleware(request, rateLimitConfigs.superAdmin);
-    if (rateLimitResult.limited) {
-      return rateLimitResult.response;
-    }
+  // Allow public routes
+  if (publicRoutes.includes(pathname)) {
+    return NextResponse.next();
   }
 
-  // 3c. Apply rate limiting to API routes
-  if (pathname.startsWith('/api/')) {
-    const rateLimitResult = rateLimitMiddleware(request, rateLimitConfigs.api);
-    if (rateLimitResult.limited) {
-      return rateLimitResult.response;
-    }
-  }
+  // Get session from Auth.js
+  const session = await auth();
+  const user = session?.user;
 
-  try {
-    // 4. Get user session
-    const session = await getSession(request);
-
-    const user = session?.user;
-
-    // Debug logging for authentication issues
-    console.log(`[Middleware] Path: ${pathname}, Session: ${session ? 'exists' : 'null'}, User: ${user ? user.email : 'none'}`);
-
-    // 5. Redirect unauthenticated users to sign-in
-    if (!user) {
-      console.log(`[Middleware] No user found, redirecting to sign-in from ${pathname}`);
-      const signInUrl = new URL('/auth/sign-in', request.url);
-      signInUrl.searchParams.set('callbackUrl', pathname);
-      return NextResponse.redirect(signInUrl);
-    }
-
-    // 6. Check email verification (except for super admin)
-    const userRole = (user as any).role as string;
-    const isEmailVerified = user.emailVerified;
-
-    if (userRole !== 'SUPER_ADMIN' && !isEmailVerified) {
-      // Allow access to email verification page
-      if (!pathname.startsWith('/auth/email-verified') &&
-          !pathname.startsWith('/auth/verify-email') &&
-          !pathname.startsWith('/api/auth/verify-email') &&
-          !pathname.startsWith('/api/auth/resend-verification')) {
-        // Redirect with email parameter to ensure verification form can be displayed
-        const redirectUrl = new URL('/auth/email-verified', request.url);
-        redirectUrl.searchParams.set('unverified', 'true');
-        if (user.email) {
-          redirectUrl.searchParams.set('email', user.email);
-        }
-        return NextResponse.redirect(redirectUrl);
-      }
-    }
-
-    // 7. Protect super admin routes
-    const isSuperAdminRoute = superAdminRoutes.some(route => pathname.startsWith(route));
-    if (isSuperAdminRoute && userRole !== 'SUPER_ADMIN') {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-
-    // 8. Redirect super admin to admin dashboard if accessing tenant routes
-    if (userRole === 'SUPER_ADMIN' &&
-        (pathname.startsWith('/dashboard') ||
-         pathname.startsWith('/vehicles') ||
-         pathname.startsWith('/drivers'))) {
-      return NextResponse.redirect(new URL('/superadmin/dashboard', request.url));
-    }
-
-    // 9. Set tenant context headers for API routes
-    const response = NextResponse.next();
-
-    if (pathname.startsWith('/api/') && (user as any).tenantId) {
-      response.headers.set('x-tenant-id', (user as any).tenantId);
-      response.headers.set('x-user-id', user.id);
-      response.headers.set('x-user-role', userRole || 'USER');
-    }
-
-    // 10. Set user context for all authenticated routes
-    response.headers.set('x-user-id', user.id);
-    response.headers.set('x-user-role', userRole || 'USER');
-
-    // 11. Set security headers
-    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    response.headers.set('X-Content-Type-Options', 'nosniff');
-    response.headers.set('X-Frame-Options', 'DENY');
-    response.headers.set('X-XSS-Protection', '1; mode=block');
-    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-    response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-
-    return response;
-  } catch (error) {
-    // Log error (use simple console in middleware due to Edge runtime limitations)
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Middleware error:', error);
-    }
-
-    // On error, redirect to sign-in
+  // If no user and not a public route, redirect to sign-in
+  if (!user && !publicRoutes.includes(pathname)) {
     const signInUrl = new URL('/auth/sign-in', request.url);
-    signInUrl.searchParams.set('error', 'auth_error');
+    signInUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(signInUrl);
   }
-}
 
-export const runtime = 'nodejs';
+  // Check super admin access
+  if (superAdminRoutes.some(route => pathname.startsWith(route))) {
+    if (user?.role !== 'SUPER_ADMIN') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+  }
+
+  // Add tenant context header for API routes
+  if (pathname.startsWith('/api/') && user?.tenantId) {
+    const response = NextResponse.next();
+    response.headers.set('x-tenant-id', user.tenantId);
+    return response;
+  }
+
+  return NextResponse.next();
+});
 
 export const config = {
   matcher: [
@@ -292,8 +101,7 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
