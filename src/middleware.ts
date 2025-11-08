@@ -60,6 +60,7 @@ const publicRoutes = [
   '/auth/sign-up',
   '/auth/verify-email',
   '/auth/email-verified',
+  '/auth/error', // Auth error page for data integrity issues
   '/landing',
   '/maintenance', // Maintenance mode page
 ];

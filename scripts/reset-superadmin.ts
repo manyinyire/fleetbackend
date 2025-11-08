@@ -101,6 +101,7 @@ async function resetSuperAdmin() {
       where: { id: createdUser.id },
       data: {
         role: 'SUPER_ADMIN',
+        tenantId: null, // SUPER_ADMIN users don't have a tenant
         emailVerified: true,
       },
     });

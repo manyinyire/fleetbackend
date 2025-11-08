@@ -145,21 +145,58 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { tenantId, role, email, name } = body;
 
-    // Check if tenant can add more users (premium feature check)
-    const isAdmin = role === 'TENANT_ADMIN' || role === 'admin';
-    const featureCheck = await PremiumFeatureService.canAddUser(tenantId, isAdmin);
-
-    if (!featureCheck.allowed) {
+    // CRITICAL VALIDATION: All users except SUPER_ADMIN must have a tenantId
+    // This enforces the multi-tenant architecture requirement
+    const userRole = role || 'USER';
+    if (userRole !== 'SUPER_ADMIN' && !tenantId) {
       return NextResponse.json(
         {
-          error: featureCheck.reason,
-          currentUsage: featureCheck.currentUsage,
-          limit: featureCheck.limit,
-          suggestedPlan: featureCheck.suggestedPlan,
-          upgradeMessage: featureCheck.upgradeMessage,
+          error: 'Tenant ID is required for all users except SUPER_ADMIN',
+          details: 'In this system, every user must belong to a tenant organization. ' +
+                   'Only SUPER_ADMIN users can exist without a tenant. ' +
+                   'Please provide a tenantId or set role to SUPER_ADMIN.',
         },
-        { status: 403 }
+        { status: 400 }
       );
+    }
+
+    // Validate email and name are provided
+    if (!email || !name) {
+      return NextResponse.json(
+        { error: 'Email and name are required' },
+        { status: 400 }
+      );
+    }
+
+    // If tenantId is provided, verify tenant exists
+    if (tenantId) {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+      });
+
+      if (!tenant) {
+        return NextResponse.json(
+          { error: `Tenant with ID ${tenantId} not found` },
+          { status: 404 }
+        );
+      }
+
+      // Check if tenant can add more users (premium feature check)
+      const isAdmin = userRole === 'TENANT_ADMIN' || userRole === 'admin';
+      const featureCheck = await PremiumFeatureService.canAddUser(tenantId, isAdmin);
+
+      if (!featureCheck.allowed) {
+        return NextResponse.json(
+          {
+            error: featureCheck.reason,
+            currentUsage: featureCheck.currentUsage,
+            limit: featureCheck.limit,
+            suggestedPlan: featureCheck.suggestedPlan,
+            upgradeMessage: featureCheck.upgradeMessage,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Create user through better-auth would be ideal, but for now create directly
@@ -167,13 +204,18 @@ export async function POST(request: NextRequest) {
       data: {
         email,
         name,
-        role: role || 'USER',
+        role: userRole,
         tenantId: tenantId || null,
         emailVerified: false,
       },
     });
 
-    console.log('User created by super admin:', { userId: user.id, email: user.email });
+    console.log('User created by super admin:', {
+      userId: user.id,
+      email: user.email,
+      role: userRole,
+      tenantId: tenantId || 'none (SUPER_ADMIN)',
+    });
 
     return NextResponse.json(user, { status: 201 });
   } catch (error) {
