@@ -1,9 +1,10 @@
 'use server';
 
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { hash } from 'bcryptjs';
+import crypto from 'crypto';
 
 async function generateUniqueSlug(baseName: string): Promise<string> {
   const baseSlug = baseName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -75,69 +76,72 @@ export async function signUp(formData: FormData) {
       },
     });
 
-    // Create admin user with BetterAuth
-    const userResult = await auth.api.signUpEmail({
-      body: {
+    // Hash the password
+    const hashedPassword = await hash(password, 12);
+
+    // Create admin user with NextAuth/Prisma
+    const user = await prisma.user.create({
+      data: {
         email,
-        password,
+        password: hashedPassword,
         name,
         tenantId: tenant.id,
         role: 'TENANT_ADMIN',
+        emailVerified: false, // User must verify email
       },
     });
-
-    // User created successfully
-    // Note: BetterAuth with requireEmailVerification: true should NOT create a session
-    // The user will need to verify their email before they can log in
 
     // Mark that we shouldn't cleanup if we reach here
     shouldCleanup = false;
 
-    // Ensure the user has the tenant ID and role set (if needed)
-    if (userResult.user?.id) {
-      await prisma.user.update({
-        where: { id: userResult.user.id },
+    // Create email verification token
+    try {
+      const verificationToken = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiry
+
+      await prisma.emailVerification.create({
         data: {
-          tenantId: tenant.id,
-          role: 'TENANT_ADMIN',
-          emailVerified: false, // Explicitly set to false
+          userId: user.id,
+          token: verificationToken,
+          type: 'EMAIL_VERIFICATION',
+          expiresAt,
+          used: false,
         },
       });
 
-      // Send email verification OTP using BetterAuth's emailOTP plugin
-      try {
-        // Use BetterAuth's emailOTP to send verification OTP
-        await auth.api.sendVerificationOTP({
-          body: {
-            email,
-            type: 'email-verification',
-          },
-        });
-      } catch (emailError) {
-        console.error('Failed to send verification email:', emailError);
-        // Don't fail the signup process if email fails
-      }
+      // Send verification email
+      const { emailService } = await import('@/lib/email');
+      const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/verify-email?token=${verificationToken}`;
 
-      // Generate and send free plan invoice
-      try {
-        const { invoiceGenerator } = await import('@/lib/invoice-generator');
-        const { emailService } = await import('@/lib/email');
-        
-        const { invoice, pdf } = await invoiceGenerator.createFreePlanInvoice(tenant.id);
-        
-        const invoiceData = {
-          invoiceNumber: invoice.invoiceNumber,
-          amount: Number(invoice.amount),
-          dueDate: invoice.dueDate.toLocaleDateString(),
-          companyName: tenant.name,
-          userName: name
-        };
+      await emailService.sendVerificationEmail(email, {
+        name,
+        verificationUrl,
+      });
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      // Don't fail the signup process if email fails
+    }
 
-        await emailService.sendInvoiceEmail(email, invoiceData, pdf);
-      } catch (invoiceError) {
-        console.error('Failed to generate invoice:', invoiceError);
-        // Don't fail the signup process if invoice generation fails
-      }
+    // Generate and send free plan invoice
+    try {
+      const { invoiceGenerator } = await import('@/lib/invoice-generator');
+      const { emailService } = await import('@/lib/email');
+
+      const { invoice, pdf } = await invoiceGenerator.createFreePlanInvoice(tenant.id);
+
+      const invoiceData = {
+        invoiceNumber: invoice.invoiceNumber,
+        amount: Number(invoice.amount),
+        dueDate: invoice.dueDate.toLocaleDateString(),
+        companyName: tenant.name,
+        userName: name
+      };
+
+      await emailService.sendInvoiceEmail(email, invoiceData, pdf);
+    } catch (invoiceError) {
+      console.error('Failed to generate invoice:', invoiceError);
+      // Don't fail the signup process if invoice generation fails
     }
 
     revalidatePath('/');

@@ -1,59 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
+import { requireRole } from '@/lib/auth-helpers';
+import { prisma } from '@/lib/prisma';
 
 // GET /api/admin/notifications - Get system notifications
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
+    // Require super admin role
+    await requireRole('SUPER_ADMIN');
 
-    if (!session?.user || (session.user as any).role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Get system alerts from database
+    const systemAlerts = await prisma.systemAlert.findMany({
+      where: {
+        resolved: false, // Only show unresolved alerts
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 50, // Limit to 50 most recent
+    });
 
-    // Mock notifications data - in a real system, this would come from a notifications service
-    const notifications = [
-      {
-        id: '1',
-        type: 'system',
-        title: 'System Maintenance Scheduled',
-        message: 'Scheduled maintenance will occur on Sunday at 2:00 AM UTC',
-        priority: 'info',
-        status: 'unread',
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        expiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
-      },
-      {
-        id: '2',
-        type: 'security',
-        title: 'Multiple Failed Login Attempts',
-        message: 'User john@example.com has 5 failed login attempts in the last hour',
-        priority: 'warning',
-        status: 'unread',
-        createdAt: new Date(Date.now() - 30 * 60 * 1000),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
-      },
-      {
-        id: '3',
-        type: 'billing',
-        title: 'Payment Processing Issue',
-        message: 'Payment gateway is experiencing delays. Some payments may be delayed.',
-        priority: 'critical',
-        status: 'read',
-        createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
-        expiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
-      },
-      {
-        id: '4',
-        type: 'feature',
-        title: 'New Feature Available',
-        message: 'Advanced reporting features are now available for Premium users',
-        priority: 'info',
-        status: 'read',
-        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      }
-    ];
+    // Transform to notification format
+    const notifications = systemAlerts.map(alert => ({
+      id: alert.id,
+      type: alert.type.toLowerCase(),
+      title: alert.title,
+      message: alert.message,
+      priority: alert.severity.toLowerCase(),
+      status: alert.acknowledged ? 'read' : 'unread',
+      createdAt: alert.createdAt,
+      acknowledgedAt: alert.acknowledgedAt,
+      acknowledgedBy: alert.acknowledgedBy,
+    }));
 
     const unreadCount = notifications.filter(n => n.status === 'unread').length;
 
@@ -75,11 +52,8 @@ export async function GET(request: NextRequest) {
 // PATCH /api/admin/notifications - Mark notifications as read
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-
-    if (!session?.user || (session.user as any).role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Require super admin role
+    const session = await requireRole('SUPER_ADMIN');
 
     const body = await request.json();
     const { notificationIds, action } = body;
@@ -91,15 +65,46 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    if (!['read', 'unread', 'delete'].includes(action)) {
+    if (!['read', 'unread', 'resolve', 'delete'].includes(action)) {
       return NextResponse.json(
-        { error: 'Invalid action. Must be read, unread, or delete' },
+        { error: 'Invalid action. Must be read, unread, resolve, or delete' },
         { status: 400 }
       );
     }
 
-    // In a real implementation, this would update the database
-    // For now, we'll return a success response
+    // Handle different actions
+    if (action === 'read') {
+      await prisma.systemAlert.updateMany({
+        where: { id: { in: notificationIds } },
+        data: {
+          acknowledged: true,
+          acknowledgedAt: new Date(),
+          acknowledgedBy: session.user?.id,
+        },
+      });
+    } else if (action === 'unread') {
+      await prisma.systemAlert.updateMany({
+        where: { id: { in: notificationIds } },
+        data: {
+          acknowledged: false,
+          acknowledgedAt: null,
+          acknowledgedBy: null,
+        },
+      });
+    } else if (action === 'resolve') {
+      await prisma.systemAlert.updateMany({
+        where: { id: { in: notificationIds } },
+        data: {
+          resolved: true,
+          resolvedAt: new Date(),
+        },
+      });
+    } else if (action === 'delete') {
+      await prisma.systemAlert.deleteMany({
+        where: { id: { in: notificationIds } },
+      });
+    }
+
     return NextResponse.json({
       success: true,
       message: `Notifications ${action} successfully`,
