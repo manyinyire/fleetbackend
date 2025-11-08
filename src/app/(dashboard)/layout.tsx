@@ -1,10 +1,15 @@
 import { Sidebar } from "@/components/Layouts/sidebar";
 import { Header } from "@/components/Layouts/header";
 import type { PropsWithChildren } from "react";
+import { requireTenantForDashboard } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
-export default function DashboardLayout({ children }: PropsWithChildren) {
+export default async function DashboardLayout({ children }: PropsWithChildren) {
+  // Ensure user is authenticated and has tenant access
+  // This will automatically redirect SUPER_ADMIN to /admin/dashboard
+  await requireTenantForDashboard();
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
