@@ -72,20 +72,32 @@ export async function requireTenant() {
     return { user, tenantId: null };
   }
 
-  // If user doesn't have a tenant, redirect to tenant setup
+  // CRITICAL: Every non-SUPER_ADMIN user MUST have a tenantId
+  // If they don't, this is a data integrity issue that needs admin intervention
   if (!(user as any).tenantId) {
-    redirect('/auth/setup-tenant');
+    authLogger.error({
+      userId: user.id,
+      email: user.email,
+      role: (user as any).role,
+    }, 'User without tenant attempted to access tenant-required resource');
+
+    // Redirect to an error page explaining the issue
+    redirect('/auth/error?type=no_tenant');
   }
 
-  // Check if tenant is suspended or cancelled
+  // Check if tenant exists and is valid
   const tenant = await prisma.tenant.findUnique({
     where: { id: (user as any).tenantId as string },
     select: { status: true, name: true }
   });
 
   if (!tenant) {
-    // Tenant was deleted but user still has reference - redirect to setup
-    redirect('/auth/setup-tenant');
+    authLogger.error({
+      userId: user.id,
+      tenantId: (user as any).tenantId,
+    }, 'User has tenantId but tenant not found in database');
+
+    redirect('/auth/error?type=tenant_not_found');
   }
 
   if (tenant.status === 'SUSPENDED') {
