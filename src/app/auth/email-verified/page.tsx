@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import { CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth-helpers';
-import { EmailVerificationForm } from '@/components/Auth/EmailVerificationForm';
+import { EmailVerificationPending } from '@/components/Auth/EmailVerificationPending';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,12 +28,12 @@ export default async function EmailVerifiedPage({
         <div className="text-center">
           {isUnverified ? (
             <>
-              <ExclamationCircleIcon className="mx-auto h-16 w-16 text-yellow-500" />
+              <EnvelopeIcon className="mx-auto h-16 w-16 text-blue-500" />
               <h2 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
-                Email Verification Required
+                Check Your Email
               </h2>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                We&apos;ve sent a 6-digit verification code to <strong>{email}</strong>. Please enter it below to verify your email address.
+                We&apos;ve sent a verification link to <strong>{email}</strong>. Please check your inbox and click the link to verify your email address.
               </p>
             </>
           ) : (
@@ -48,9 +48,9 @@ export default async function EmailVerifiedPage({
             </>
           )}
         </div>
-        
+
         {isUnverified && email ? (
-          <EmailVerificationForm email={email} />
+          <EmailVerificationPending email={email} />
         ) : (
           <div className="mt-8 space-y-6">
             {isUnverified ? (

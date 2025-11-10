@@ -6,9 +6,7 @@ import * as speakeasy from 'speakeasy';
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers
-    });
+    const session = await auth();
 
     if (!session?.user?.id) {
       return NextResponse.json(

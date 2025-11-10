@@ -196,6 +196,7 @@ model Vehicle {
   maintenanceRecords MaintenanceRecord[]
   expenses           Expense[]
   incomes            Income[]
+  weeklyTargets      WeeklyTarget[]
 
   @@unique([tenantId, registrationNumber]) // Unique per tenant
   @@index([tenantId, type])
@@ -241,6 +242,7 @@ model Driver {
   vehicles    DriverVehicleAssignment[]
   remittances Remittance[]
   contracts   Contract[]
+  weeklyTargets WeeklyTarget[]
 
   @@unique([tenantId, nationalId])
   @@index([tenantId, status])
@@ -312,6 +314,36 @@ enum RemittanceStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+model WeeklyTarget {
+  id           String   @id @default(cuid())
+  tenantId     String // MANDATORY for RLS
+  driverId     String
+  vehicleId    String
+  weekStart    DateTime // Sunday
+  weekEnd      DateTime // Saturday
+  baseTarget   Decimal  @db.Decimal(10, 2) // Base weekly target from payment config
+  carriedDebt  Decimal  @default(0) @db.Decimal(10, 2) // Debt from previous week
+  totalTarget  Decimal  @db.Decimal(10, 2) // baseTarget + carriedDebt
+  totalRemitted Decimal @default(0) @db.Decimal(10, 2) // Sum of remittances for this week
+  shortfall    Decimal  @default(0) @db.Decimal(10, 2) // Uncleared balance (totalTarget - totalRemitted)
+  status       String   @default("ACTIVE") // ACTIVE or CLOSED
+  closedAt     DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relationships
+  driver  Driver  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@unique([driverId, weekStart])
+  @@index([tenantId])
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([weekStart])
+  @@index([status])
+  @@map("weekly_targets")
 }
 
 model MaintenanceRecord {

@@ -23,7 +23,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Email and password required")
+          throw new Error("Please enter both email and password")
         }
 
         const user = await prisma.user.findUnique({
@@ -32,7 +32,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         })
 
         if (!user || !user.password) {
-          throw new Error("Invalid credentials")
+          throw new Error("No account found with this email address. Please check your email or sign up.")
         }
 
         const isValid = await bcrypt.compare(
@@ -41,27 +41,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         )
 
         if (!isValid) {
-          throw new Error("Invalid credentials")
+          throw new Error("Incorrect password. Please try again or use 'Forgot Password' to reset it.")
         }
 
         // Check if user is banned
         if (user.banned) {
-          throw new Error(user.banReason || "Your account has been banned")
+          throw new Error(user.banReason || "Your account has been banned. Please contact support for more information.")
         }
 
         // Check tenant status
         if (user.tenantId && user.tenant) {
           if (user.tenant.status === "SUSPENDED") {
-            throw new Error("Your account has been suspended")
+            throw new Error("Your account has been suspended. Please contact support to resolve this issue.")
           }
           if (user.tenant.status === "CANCELED") {
-            throw new Error("Your account has been cancelled")
+            throw new Error("Your account has been cancelled. Please contact support to reactivate.")
           }
         }
 
         // Check if user has tenantId (except for SUPER_ADMIN)
         if (user.role !== "SUPER_ADMIN" && !user.tenantId) {
-          throw new Error("Account configuration error. Please contact support.")
+          throw new Error("Account setup incomplete. Please contact support for assistance.")
         }
 
         return {

@@ -54,34 +54,49 @@ async function initiatePayment(
     throw new Error("There is already a pending payment for this invoice");
   }
 
-  // Create payment in PayNow
-  // Note: In test mode, Paynow requires authemail to match merchant's registered email
-  // Set PAYNOW_MERCHANT_EMAIL environment variable to your Paynow merchant email for test mode
-  const paynowResponse = await createPayment(
-    invoice.invoiceNumber,
-    Number(invoice.amount),
-    invoice.tenant.email, // Customer email (used in production, overridden by merchant email in test mode)
-    invoice.description || `Invoice ${invoice.invoiceNumber}`
-  );
-
-  if (!paynowResponse.success) {
-    throw new Error(paynowResponse.error || "Payment initiation failed");
-  }
-
-  // Create payment record in database
-  const payment = await prisma.payment.create({
+  // First, create a payment record to get the payment ID
+  const tempPayment = await prisma.payment.create({
     data: {
       tenantId: invoice.tenantId,
       invoiceId: invoice.id,
       amount: invoice.amount,
       currency: invoice.currency || "USD",
       paymentMethod: "paynow",
-      paymentProvider: "paynow",
-      pollUrl: paynowResponse.pollUrl,
-      redirectUrl: paynowResponse.redirectUrl,
       status: "PENDING",
       verified: false,
-      metadata: {
+      paymentMetadata: {
+        initiatedBy: user.id,
+      },
+    },
+  });
+
+  // Create payment in PayNow with custom return URL including payment and invoice IDs
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
+  const customReturnUrl = `${baseUrl}/payments/success?paymentId=${tempPayment.id}&invoiceId=${invoice.id}`;
+
+  // Note: In test mode, Paynow requires authemail to match merchant's registered email
+  // Set PAYNOW_MERCHANT_EMAIL environment variable to your Paynow merchant email for test mode
+  const paynowResponse = await createPayment(
+    invoice.invoiceNumber,
+    Number(invoice.amount),
+    invoice.tenant.email, // Customer email (used in production, overridden by merchant email in test mode)
+    invoice.description || `Invoice ${invoice.invoiceNumber}`,
+    customReturnUrl
+  );
+
+  if (!paynowResponse.success) {
+    // Delete the temp payment if PayNow initiation failed
+    await prisma.payment.delete({ where: { id: tempPayment.id } });
+    throw new Error(paynowResponse.error || "Payment initiation failed");
+  }
+
+  // Update payment record with PayNow response data
+  const payment = await prisma.payment.update({
+    where: { id: tempPayment.id },
+    data: {
+      pollUrl: paynowResponse.pollUrl,
+      redirectUrl: paynowResponse.redirectUrl,
+      paymentMetadata: {
         hash: paynowResponse.hash,
         initiatedBy: user.id,
       },

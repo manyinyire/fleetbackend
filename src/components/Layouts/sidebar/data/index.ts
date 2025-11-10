@@ -48,6 +48,12 @@ export const NAV_DATA = [
           },
         ],
       },
+      {
+        title: "Billing",
+        icon: Icons.CurrencyDollarIcon,
+        url: "/billing",
+        items: [],
+      },
     ],
   },
 ];

@@ -1,20 +1,8 @@
 import { NextRequest } from 'next/server';
 import { withTenantAuth, ApiContext, successResponse, validateBody, getPaginationFromRequest, getDateRangeFromRequest } from '@/lib/api-middleware';
 import { serializePrismaResults } from '@/lib/serialize-prisma';
-import { z } from 'zod';
 import { MaintenanceType } from '@prisma/client';
-
-// Validation schema for creating a maintenance record
-const createMaintenanceSchema = z.object({
-  vehicleId: z.string().uuid('Invalid vehicle ID'),
-  date: z.string().refine((date) => !isNaN(Date.parse(date)), 'Invalid date'),
-  mileage: z.number().int().nonnegative('Mileage must be non-negative'),
-  type: z.enum(['ROUTINE_SERVICE', 'REPAIR', 'TIRE_REPLACEMENT', 'BRAKE_SERVICE', 'ENGINE_REPAIR', 'BODY_WORK', 'OTHER']),
-  description: z.string().min(1, 'Description is required'),
-  cost: z.number().nonnegative('Cost must be non-negative'),
-  provider: z.string().min(1, 'Provider is required'),
-  invoice: z.string().url().optional().nullable(),
-});
+import { createMaintenanceSchema } from '@/lib/validations/maintenance';
 
 /**
  * GET /api/maintenance
@@ -56,11 +44,11 @@ export const POST = withTenantAuth(async ({ services, user, request }: ApiContex
   // Transform data for service
   const maintenanceData = {
     vehicleId: data.vehicleId,
-    date: new Date(data.date),
+    date: data.date instanceof Date ? data.date : new Date(data.date),
     mileage: data.mileage,
     type: data.type as MaintenanceType,
     description: data.description,
-    cost: data.cost,
+    cost: typeof data.cost === 'string' ? parseFloat(data.cost) : data.cost,
     provider: data.provider,
     invoice: data.invoice || undefined,
   };

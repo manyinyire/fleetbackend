@@ -102,9 +102,29 @@ export function VehicleForm() {
       await createVehicle(vehicleData as CreateVehicleInput);
       toast.success('Vehicle created successfully!');
       router.push('/vehicles');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Vehicle creation error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create vehicle');
+
+      // Check if it's a limit exceeded error
+      if (error.code === 'LIMIT_EXCEEDED') {
+        toast.error(
+          <div>
+            <p className="font-semibold">{error.message}</p>
+            {error.upgradeMessage && (
+              <p className="mt-1 text-sm">{error.upgradeMessage}</p>
+            )}
+            <button
+              onClick={() => router.push('/billing')}
+              className="mt-2 text-sm underline hover:no-underline"
+            >
+              Upgrade Now
+            </button>
+          </div>,
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Failed to create vehicle');
+      }
     } finally {
       setLoading(false);
     }

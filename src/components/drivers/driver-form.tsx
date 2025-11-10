@@ -77,9 +77,29 @@ export function DriverForm() {
       await createDriver(driverData as CreateDriverInput);
       toast.success('Driver created successfully!');
       router.push('/drivers');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Driver creation error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create driver');
+
+      // Check if it's a limit exceeded error
+      if (error.code === 'LIMIT_EXCEEDED') {
+        toast.error(
+          <div>
+            <p className="font-semibold">{error.message}</p>
+            {error.upgradeMessage && (
+              <p className="mt-1 text-sm">{error.upgradeMessage}</p>
+            )}
+            <button
+              onClick={() => router.push('/billing')}
+              className="mt-2 text-sm underline hover:no-underline"
+            >
+              Upgrade Now
+            </button>
+          </div>,
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Failed to create driver');
+      }
     } finally {
       setLoading(false);
     }

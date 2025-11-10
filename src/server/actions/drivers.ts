@@ -3,6 +3,7 @@
 import { requireTenant } from '@/lib/auth-helpers';
 import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
+import { PremiumFeatureService } from '@/lib/premium-features';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
@@ -31,6 +32,18 @@ export async function createDriver(data: CreateDriverInput) {
 
   // Validate input
   const validated = createDriverSchema.parse(data);
+
+  // Check subscription limit
+  const featureCheck = await PremiumFeatureService.canAddDriver(tenantId);
+  if (!featureCheck.allowed) {
+    const error: any = new Error(featureCheck.reason || 'Driver limit reached');
+    error.code = 'LIMIT_EXCEEDED';
+    error.currentUsage = featureCheck.currentUsage;
+    error.limit = featureCheck.limit;
+    error.suggestedPlan = featureCheck.suggestedPlan;
+    error.upgradeMessage = featureCheck.upgradeMessage;
+    throw error;
+  }
 
   // Set RLS context
   if (tenantId) {

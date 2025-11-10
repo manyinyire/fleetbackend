@@ -94,8 +94,10 @@ export async function signUp(formData: FormData) {
     // Mark that we shouldn't cleanup if we reach here
     shouldCleanup = false;
 
-    // Create email verification token
+    // Create email verification token and send email
+    let emailSent = false;
     try {
+      console.log(`[SIGNUP] Creating verification token for user: ${email}`);
       const verificationToken = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiry
@@ -109,18 +111,21 @@ export async function signUp(formData: FormData) {
           used: false,
         },
       });
+      console.log(`[SIGNUP] Verification token created for: ${email}`);
 
       // Send verification email
+      console.log(`[SIGNUP] Attempting to send verification email to: ${email}`);
       const { emailService } = await import('@/lib/email');
-      const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/verify-email?token=${verificationToken}`;
+      emailSent = await emailService.sendVerificationEmail(email, verificationToken, name);
 
-      await emailService.sendVerificationEmail(email, {
-        name,
-        verificationUrl,
-      });
+      if (!emailSent) {
+        console.error(`[SIGNUP] Failed to send verification email to: ${email}`);
+      } else {
+        console.log(`[SIGNUP] Verification email sent successfully to: ${email}`);
+      }
     } catch (emailError) {
-      console.error('Failed to send verification email:', emailError);
-      // Don't fail the signup process if email fails
+      console.error(`[SIGNUP] Exception while sending verification email to ${email}:`, emailError);
+      // Don't fail the signup process if email fails, but log it clearly
     }
 
     // Generate and send free plan invoice

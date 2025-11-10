@@ -9,20 +9,21 @@ interface Invoice {
   invoiceNumber: string;
   type: string;
   status: string;
-  amount: number;
+  amount: number | string; // Can be string from Prisma Decimal type
   dueDate: string;
   createdAt: string;
   pdfUrl?: string;
 }
 
 interface InvoiceManagerProps {
-  tenantId: string;
+  tenantId?: string; // Optional since it's not used (API handles it via auth)
 }
 
-export function InvoiceManager({ tenantId }: InvoiceManagerProps) {
+export function InvoiceManager({ tenantId }: InvoiceManagerProps = {}) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInvoices();
@@ -31,14 +32,16 @@ export function InvoiceManager({ tenantId }: InvoiceManagerProps) {
   const fetchInvoices = async () => {
     try {
       const response = await fetch('/api/invoices');
-      const data = await response.json();
-      
+      const result = await response.json();
+
       if (response.ok) {
-        setInvoices(data.invoices);
+        // API returns paginated response with data property
+        setInvoices(result.data || []);
       } else {
         toast.error('Failed to fetch invoices');
       }
     } catch (error) {
+      console.error('Error fetching invoices:', error);
       toast.error('Error fetching invoices');
     } finally {
       setLoading(false);
@@ -68,6 +71,38 @@ export function InvoiceManager({ tenantId }: InvoiceManagerProps) {
       toast.error('Error generating invoice');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handlePayNow = async (invoiceId: string) => {
+    setPayingInvoiceId(invoiceId);
+    try {
+      const response = await fetch('/api/payments/initiate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ invoiceId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.redirectUrl) {
+        // Store payment ID in localStorage for verification later
+        if (data.paymentId) {
+          localStorage.setItem('lastPaymentId', data.paymentId);
+        }
+
+        // Redirect to PayNow payment page
+        window.location.href = data.redirectUrl;
+      } else {
+        toast.error(data.error || 'Failed to initiate payment');
+        setPayingInvoiceId(null);
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Error initiating payment');
+      setPayingInvoiceId(null);
     }
   };
 
@@ -189,7 +224,7 @@ export function InvoiceManager({ tenantId }: InvoiceManagerProps) {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${invoice.amount.toFixed(2)}
+                      ${Number(invoice.amount).toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
@@ -200,13 +235,30 @@ export function InvoiceManager({ tenantId }: InvoiceManagerProps) {
                       {new Date(invoice.dueDate).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-2 items-center">
+                        {invoice.status === 'PENDING' && (
+                          <button
+                            onClick={() => handlePayNow(invoice.id)}
+                            disabled={payingInvoiceId === invoice.id}
+                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {payingInvoiceId === invoice.id ? (
+                              <>
+                                <span className="inline-block h-3 w-3 mr-1.5 animate-spin rounded-full border-2 border-solid border-white border-t-transparent" />
+                                Processing...
+                              </>
+                            ) : (
+                              'Pay Now'
+                            )}
+                          </button>
+                        )}
                         {invoice.pdfUrl && (
                           <a
                             href={invoice.pdfUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-indigo-600 hover:text-indigo-900"
+                            title="View Invoice PDF"
                           >
                             <EyeIcon className="h-4 w-4" />
                           </a>

@@ -16,6 +16,7 @@ import { FinancialService } from '@/services/financial.service';
 import { SubscriptionService } from '@/services/subscription.service';
 import { RemittanceService } from '@/services/remittance.service';
 import { AdminService } from '@/services/admin.service';
+import { WeeklyTargetService } from '@/services/weekly-target.service';
 
 /**
  * Service Container
@@ -41,6 +42,7 @@ export class ServiceContainer {
   private _subscriptionService?: SubscriptionService;
   private _remittanceService?: RemittanceService;
   private _adminService?: AdminService;
+  private _weeklyTargetService?: WeeklyTargetService;
 
   constructor(tenantId: string | null) {
     this.tenantId = tenantId;
@@ -121,6 +123,17 @@ export class ServiceContainer {
       this._adminService = new AdminService(this.tenantId);
     }
     return this._adminService;
+  }
+
+  /**
+   * Weekly Target Service
+   * Handles weekly remittance targets and debt carry-over
+   */
+  get weeklyTargets(): WeeklyTargetService {
+    if (!this._weeklyTargetService) {
+      this._weeklyTargetService = new WeeklyTargetService(this.tenantId);
+    }
+    return this._weeklyTargetService;
   }
 
   /**

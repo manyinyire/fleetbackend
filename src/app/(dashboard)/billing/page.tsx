@@ -22,7 +22,7 @@ export default async function BillingPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Invoice Management */}
         <div className="lg:col-span-2">
-          <InvoiceManager tenantId="" />
+          <InvoiceManager />
         </div>
 
         {/* Two-Factor Authentication */}

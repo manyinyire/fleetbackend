@@ -45,6 +45,34 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
     );
   }
 
+  // Check if there's already a pending upgrade invoice
+  const pendingInvoice = await prisma.invoice.findFirst({
+    where: {
+      tenantId,
+      type: 'UPGRADE',
+      status: 'PENDING',
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  if (pendingInvoice) {
+    return successResponse(
+      {
+        error: `You already have a pending upgrade invoice (${pendingInvoice.invoiceNumber}). Please pay or cancel it before creating a new upgrade request.`,
+        existingInvoice: {
+          id: pendingInvoice.id,
+          invoiceNumber: pendingInvoice.invoiceNumber,
+          amount: Number(pendingInvoice.amount),
+          plan: pendingInvoice.plan,
+          dueDate: pendingInvoice.dueDate,
+        },
+      },
+      400
+    );
+  }
+
   // Create upgrade invoice
   const { invoice, pdf } = await invoiceGenerator.createUpgradeInvoice(
     tenantId,
