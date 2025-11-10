@@ -250,11 +250,11 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
     payment: {
       status: 'PAID',
       verified: true,
-      paynowReference: statusCheck.paynowReference,
+      paynowReference: statusCheck.paynowReference || statusCheck.reference || payment.id,
     },
     invoice: {
       status: 'PAID',
-      paymentReference: statusCheck.paynowReference || statusCheck.reference,
+      paymentReference: statusCheck.paynowReference || statusCheck.reference || payment.id,
     }
   });
 });
