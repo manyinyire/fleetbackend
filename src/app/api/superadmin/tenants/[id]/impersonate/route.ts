@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { rateLimit } from '@/lib/rate-limit';
 
-const prisma = new PrismaClient();
 
 // Track active impersonation sessions per admin (adminId -> Set of tenantIds)
 const activeImpersonations = new Map<string, Set<string>>();
@@ -172,7 +171,6 @@ export async function POST(
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
   }
 }
 

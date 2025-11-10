@@ -25,6 +25,7 @@ export interface SMSResponse {
 export enum SMSTemplateType {
   WELCOME = 'welcome',
   REMITTANCE_RECEIVED = 'remittanceReceived',
+  WEEKLY_REMITTANCE_BALANCE = 'weeklyRemittanceBalance',
   MAINTENANCE_REMINDER = 'maintenanceReminder',
   PAYMENT_REMINDER = 'paymentReminder',
   CONTRACT_EXPIRY = 'contractExpiry',
@@ -158,8 +159,10 @@ export const SMSTemplates = {
   welcome: (driverName: string, companyName: string) =>
     `Welcome to ${companyName}! Your driver account has been created. You can now start managing your fleet.`,
 
-  remittanceReceived: (driverName: string, amount: number, vehicle: string) =>
-    `Hi ${driverName}, your remittance of $${amount} for ${vehicle} has been received and is being processed.`,
+  remittanceReceived: (driverName: string, amount: number, vehicle: string, weekEndingDate?: string) =>
+    weekEndingDate
+      ? `Hi ${driverName}, your remittance of $${amount} for ${vehicle} (Week Ending Sunday, ${weekEndingDate}) has been received and is being processed.`
+      : `Hi ${driverName}, your remittance of $${amount} for ${vehicle} has been received and is being processed.`,
 
   maintenanceReminder: (driverName: string, vehicle: string, serviceType: string) =>
     `Hi ${driverName}, ${vehicle} is due for ${serviceType}. Please schedule maintenance soon.`,
@@ -185,6 +188,9 @@ export const SMSTemplates = {
   driverAssignment: (driverName: string, vehicle: string, startDate: string) =>
     `Hi ${driverName}, you have been assigned to ${vehicle} starting ${startDate}. Good luck!`,
 
+  weeklyRemittanceBalance: (driverName: string, balance: number, weekEndingDate: string) =>
+    `Hi ${driverName}, your remittance balance for the Week Ending Sunday, ${weekEndingDate} is $${balance} uncleared. Please settle your balance to avoid penalties.`,
+
   custom: (message: string) => message
 };
 
@@ -199,7 +205,9 @@ export function getSMSTemplate(
     case SMSTemplateType.WELCOME:
       return SMSTemplates.welcome(params.driverName, params.companyName);
     case SMSTemplateType.REMITTANCE_RECEIVED:
-      return SMSTemplates.remittanceReceived(params.driverName, params.amount, params.vehicle);
+      return SMSTemplates.remittanceReceived(params.driverName, params.amount, params.vehicle, params.weekEndingDate);
+    case SMSTemplateType.WEEKLY_REMITTANCE_BALANCE:
+      return SMSTemplates.weeklyRemittanceBalance(params.driverName, params.balance, params.weekEndingDate);
     case SMSTemplateType.MAINTENANCE_REMINDER:
       return SMSTemplates.maintenanceReminder(params.driverName, params.vehicle, params.serviceType);
     case SMSTemplateType.PAYMENT_REMINDER:

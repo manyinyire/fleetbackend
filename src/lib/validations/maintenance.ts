@@ -17,10 +17,10 @@ export const maintenanceTypeEnum = z.enum([
 export const createMaintenanceSchema = z.object({
   vehicleId: z.string().cuid('Invalid vehicle ID'),
   date: dateSchema,
-  mileage: z.number().int().positive('Mileage must be a positive number'),
+  mileage: z.coerce.number().int().nonnegative('Mileage must be a non-negative number'),
   type: maintenanceTypeEnum,
   description: z.string().min(1, 'Description is required').max(1000),
-  cost: currencyAmountSchema,
+  cost: z.coerce.number().positive('Cost must be greater than 0'),
   provider: z.string().min(1, 'Provider is required').max(200),
   invoice: z.string().max(200).optional(),
 });

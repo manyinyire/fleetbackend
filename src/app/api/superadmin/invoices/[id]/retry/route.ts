@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
 
 export async function POST(
   request: NextRequest,
@@ -62,7 +61,6 @@ export async function POST(
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
   }
 }
 

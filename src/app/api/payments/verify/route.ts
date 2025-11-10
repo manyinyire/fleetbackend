@@ -157,6 +157,49 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
     console.log('[Payment Verification] Auto-upgraded tenant to:', payment.invoice.plan);
   }
 
+  // Auto-unsuspend if tenant is suspended and this clears their overdue invoices
+  if (payment.invoice.tenant.status === 'SUSPENDED') {
+    // Check if there are any remaining overdue invoices
+    const overdueCount = await prisma.invoice.count({
+      where: {
+        tenantId: payment.tenantId,
+        status: 'OVERDUE',
+        id: { not: payment.invoiceId }, // Exclude current invoice (now paid)
+      }
+    });
+
+    if (overdueCount === 0) {
+      await prisma.tenant.update({
+        where: { id: payment.tenantId },
+        data: {
+          status: 'ACTIVE',
+          suspendedAt: null,
+        }
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          tenantId: payment.tenantId,
+          action: 'AUTO_UNSUSPEND',
+          entityType: 'Tenant',
+          entityId: payment.tenantId,
+          oldValues: { status: 'SUSPENDED' },
+          newValues: { status: 'ACTIVE' },
+          details: {
+            reason: 'Overdue invoice paid',
+            invoiceId: payment.invoiceId,
+            invoiceNumber: payment.invoice.invoiceNumber,
+          },
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          userAgent: request.headers.get('user-agent') || 'unknown',
+        }
+      });
+
+      console.log('[Payment Verification] Auto-unsuspended tenant');
+    }
+  }
+
   console.log('[Payment Verification] Payment verification complete');
 
   return successResponse({

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
@@ -159,7 +157,5 @@ export async function GET(request: NextRequest) {
       { error: 'Failed to fetch dashboard statistics' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
