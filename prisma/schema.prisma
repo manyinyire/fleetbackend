@@ -762,21 +762,23 @@ enum VerificationType {
 // ============================================
 
 model Invoice {
-  id            String           @id @default(cuid())
-  tenantId      String
-  invoiceNumber String           @unique
-  type          InvoiceType
-  status        InvoiceStatus    @default(PENDING)
-  amount        Decimal          @db.Decimal(10, 2)
-  currency      String           @default("USD")
-  dueDate       DateTime
-  paidAt        DateTime?
-  plan          SubscriptionPlan
-  billingPeriod String? // e.g., "2024-01-01 to 2024-01-31"
-  description   String?
-  pdfUrl        String? // S3 URL for generated PDF
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  id               String           @id @default(cuid())
+  tenantId         String
+  invoiceNumber    String           @unique
+  type             InvoiceType
+  status           InvoiceStatus    @default(PENDING)
+  amount           Decimal          @db.Decimal(10, 2)
+  currency         String           @default("USD")
+  dueDate          DateTime
+  paidAt           DateTime?
+  paymentReference String? // Transaction reference from payment gateway
+  paymentMethod    String? // Payment method used (PAYNOW, CARD, etc.)
+  plan             SubscriptionPlan
+  billingPeriod    String? // e.g., "2024-01-01 to 2024-01-31"
+  description      String?
+  pdfUrl           String? // S3 URL for generated PDF
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   // Relationships
   tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)

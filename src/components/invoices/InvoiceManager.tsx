@@ -13,6 +13,9 @@ interface Invoice {
   dueDate: string;
   createdAt: string;
   pdfUrl?: string;
+  paymentReference?: string;
+  paymentMethod?: string;
+  paidAt?: string;
 }
 
 interface InvoiceManagerProps {
@@ -169,6 +172,11 @@ export function InvoiceManager({ tenantId }: InvoiceManagerProps = {}) {
                         <div className="text-sm text-gray-500">
                           {new Date(invoice.createdAt).toLocaleDateString()}
                         </div>
+                        {invoice.status === 'PAID' && invoice.paymentReference && (
+                          <div className="text-xs text-green-600 mt-0.5">
+                            Ref: {invoice.paymentReference}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -180,9 +188,16 @@ export function InvoiceManager({ tenantId }: InvoiceManagerProps = {}) {
                       ${Number(invoice.amount).toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
-                        {invoice.status}
-                      </span>
+                      <div>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
+                          {invoice.status}
+                        </span>
+                        {invoice.status === 'PAID' && invoice.paidAt && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Paid: {new Date(invoice.paidAt).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {new Date(invoice.dueDate).toLocaleDateString()}

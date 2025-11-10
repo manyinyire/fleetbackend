@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withTenantAuth, successResponse, validateBody } from "@/lib/api-middleware";
 import { createPayment } from "@/lib/paynow";
 import { paymentInitiateSchema } from "@/lib/validations";
+import { Errors, handleCommonError } from "@/lib/error-handler";
 
 // Shared payment initiation logic
 async function initiatePayment(
@@ -46,12 +47,33 @@ async function initiatePayment(
 
   // Check if invoice is already paid
   if (invoice.status === "PAID") {
-    throw new Error("Invoice is already paid");
+    throw Errors.invalidState("Invoice is already paid");
   }
 
-  // Check if there's already a pending payment for this invoice
+  // Check for existing pending payments
   if (invoice.payments.length > 0) {
-    throw new Error("There is already a pending payment for this invoice");
+    // Check if payment is stale (more than 30 minutes old)
+    const pendingPayment = invoice.payments[0];
+    const paymentAge = Date.now() - new Date(pendingPayment.createdAt).getTime();
+    const STALE_PAYMENT_THRESHOLD = 30 * 60 * 1000; // 30 minutes
+
+    if (paymentAge > STALE_PAYMENT_THRESHOLD) {
+      // Cancel stale payment
+      await prisma.payment.update({
+        where: { id: pendingPayment.id },
+        data: {
+          status: "CANCELLED",
+          paymentMetadata: {
+            ...pendingPayment.paymentMetadata,
+            cancelledReason: "Stale payment (timeout)",
+            cancelledAt: new Date().toISOString(),
+          },
+        },
+      });
+    } else {
+      // Payment is still fresh, reject new payment attempt
+      throw Errors.paymentPending(invoice.invoiceNumber);
+    }
   }
 
   // First, create a payment record to get the payment ID

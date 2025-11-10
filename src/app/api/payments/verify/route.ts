@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withTenantAuth, successResponse } from '@/lib/api-middleware';
 import { checkPaymentStatus } from '@/lib/paynow';
 import { prisma } from '@/lib/prisma';
+import { NotificationService } from '@/lib/notification-service';
+import { handleCommonError } from '@/lib/error-handler';
 
 /**
  * Manual payment verification endpoint
@@ -116,12 +118,14 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
     }
   });
 
-  // Update invoice
+  // Update invoice with payment details
   await prisma.invoice.update({
     where: { id: payment.invoiceId },
     data: {
       status: 'PAID',
       paidAt: now,
+      paymentReference: statusCheck.paynowReference || statusCheck.reference || payment.id,
+      paymentMethod: 'PAYNOW',
     }
   });
 
@@ -200,6 +204,38 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
     }
   }
 
+  // Send payment success notification
+  await NotificationService.notifyPaymentSuccess(
+    payment.tenantId,
+    user.id,
+    Number(payment.amount),
+    payment.invoice.invoiceNumber
+  ).catch((err) => {
+    console.error('[Payment Verification] Notification failed:', err);
+    // Don't fail the payment if notification fails
+  });
+
+  // Notify about upgrade if applicable
+  if (payment.invoice.type === 'UPGRADE' && payment.invoice.plan) {
+    await NotificationService.notifyUpgradeSuccess(
+      payment.tenantId,
+      user.id,
+      payment.invoice.plan
+    ).catch((err) => {
+      console.error('[Payment Verification] Upgrade notification failed:', err);
+    });
+  }
+
+  // Notify about account reactivation if applicable
+  if (payment.invoice.tenant.status === 'ACTIVE' && payment.invoice.tenant.suspendedAt === null) {
+    await NotificationService.notifyAccountReactivated(
+      payment.tenantId,
+      payment.invoice.tenant.name
+    ).catch((err) => {
+      console.error('[Payment Verification] Reactivation notification failed:', err);
+    });
+  }
+
   console.log('[Payment Verification] Payment verification complete');
 
   return successResponse({
@@ -211,6 +247,7 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
     },
     invoice: {
       status: 'PAID',
+      paymentReference: statusCheck.paynowReference || statusCheck.reference,
     }
   });
 });
