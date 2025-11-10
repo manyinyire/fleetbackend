@@ -76,21 +76,23 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
   });
 
   // If not paid, return current status
-  if (!statusCheck.paid || statusCheck.status !== 'Paid') {
+  if (!statusCheck.paid) {
+    console.log('[Payment Verification] Payment not yet paid, current status:', statusCheck.status);
     return successResponse({
       success: true,
       payment: {
         status: statusCheck.status || 'PENDING',
         verified: false,
-      }
+      },
+      message: 'Payment not yet completed. Current status: ' + (statusCheck.status || 'PENDING'),
     });
   }
 
-  // Verify amount matches
+  // Verify amount matches (skip if amount is not provided by PayNow)
   const expectedAmount = Number(payment.amount);
-  const paidAmount = Number(statusCheck.amount);
+  const paidAmount = statusCheck.amount ? Number(statusCheck.amount) : expectedAmount;
 
-  if (Math.abs(expectedAmount - paidAmount) > 0.01) {
+  if (statusCheck.amount && Math.abs(expectedAmount - paidAmount) > 0.01) {
     console.error('[Payment Verification] Amount mismatch:', {
       expected: expectedAmount,
       paid: paidAmount
@@ -99,6 +101,11 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
       success: false,
       error: 'Payment amount mismatch'
     }, 400);
+  }
+
+  // Log if amount verification was skipped
+  if (!statusCheck.amount) {
+    console.warn('[Payment Verification] Amount not provided by PayNow, skipping amount verification');
   }
 
   // Payment verified! Update records

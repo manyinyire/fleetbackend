@@ -197,9 +197,24 @@ export async function checkPaymentStatus(pollUrl: string) {
     const paynow = getPaynowInstance();
     const status = await paynow.pollTransaction(pollUrl);
 
+    console.log('[Paynow] Poll transaction raw response:', JSON.stringify(status, null, 2));
+    console.log('[Paynow] Status object keys:', Object.keys(status));
+    console.log('[Paynow] Status details:', {
+      paid: status.paid,
+      paidType: typeof status.paid,
+      status: status.status,
+      statusType: typeof status.status,
+      amount: status.amount,
+      amountType: typeof status.amount,
+    });
+
+    // PayNow returns status as lowercase string like 'paid', 'awaiting delivery', 'cancelled'
+    // We need to check if status is 'paid' or 'Paid' (case insensitive)
+    const isPaid = status.status?.toLowerCase() === 'paid' || status.paid === true;
+
     return {
       success: true,
-      paid: status.paid,
+      paid: isPaid,
       status: status.status,
       amount: status.amount,
       reference: status.reference,
