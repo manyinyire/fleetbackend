@@ -79,6 +79,42 @@ class SuperAdminAPI {
     return this.request(`/dashboard/activity?limit=${limit}`);
   }
 
+  async getAnalyticsSummary(range: string = '30d') {
+    const params = new URLSearchParams();
+    if (range) {
+      params.append('range', range);
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request(`/analytics/summary${query}`);
+  }
+
+  async getErrorLogs(params: {
+    search?: string;
+    level?: string;
+    source?: string;
+    range?: string;
+    page?: number;
+    limit?: number;
+  } = {}) {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        searchParams.append(key, value.toString());
+      }
+    });
+    const query = searchParams.toString();
+    return this.request(`/error-logs${query ? `?${query}` : ""}`);
+  }
+
+  async getPerformanceMetrics(range: string = '24h') {
+    const params = new URLSearchParams();
+    if (range) {
+      params.append('range', range);
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request(`/performance/metrics${query}`);
+  }
+
   // Tenants
   async getTenants(params: {
     page?: number;
@@ -97,6 +133,23 @@ class SuperAdminAPI {
     });
     
     return this.request(`/tenants?${searchParams.toString()}`);
+  }
+
+  async getSubscriptions(params: {
+    search?: string;
+    status?: string;
+    plan?: string;
+    page?: number;
+    limit?: number;
+  } = {}) {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        searchParams.append(key, value.toString());
+      }
+    });
+    const query = searchParams.toString();
+    return this.request(`/subscriptions${query ? `?${query}` : ""}`);
   }
 
   async getTenant(id: string) {

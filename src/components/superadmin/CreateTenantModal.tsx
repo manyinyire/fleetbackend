@@ -35,6 +35,14 @@ export function CreateTenantModal({ isOpen, onClose, onSuccess }: CreateTenantMo
   const [discountCode, setDiscountCode] = useState("");
   const [paymentCollection, setPaymentCollection] = useState("later");
 
+  const generateSlug = (name: string) => {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  };
+
   const handleNext = () => {
     if (step === 1) {
       if (!companyName || !contactEmail) {
@@ -67,24 +75,47 @@ export function CreateTenantModal({ isOpen, onClose, onSuccess }: CreateTenantMo
       setLoading(true);
       setError(null);
 
+      const slug = generateSlug(companyName);
+      if (!slug) {
+        setError("Unable to generate tenant slug. Please adjust the company name.");
+        return;
+      }
+
       const tenantData = {
         name: companyName,
         email: contactEmail,
         phone: phoneNumber || undefined,
+        slug,
         plan: selectedPlan,
         status: trialEnabled ? "ACTIVE" : "ACTIVE"
       };
 
-      const response = await superAdminAPI.createTenant(tenantData) as { success: boolean; error?: string };
+      const createdTenant = await superAdminAPI.createTenant(tenantData) as { id: string };
 
-      if (response.success) {
-        // TODO: Create admin user (need API endpoint for this)
-        onSuccess();
-        onClose();
-        resetForm();
-      } else {
+      if (!createdTenant?.id) {
         setError("Failed to create tenant");
+        return;
       }
+
+      const createdUser = await superAdminAPI.createUser({
+        name: adminName,
+        email: adminEmail,
+        role: "TENANT_ADMIN",
+        tenantId: createdTenant.id
+      }) as { id: string };
+
+      if (!createdUser?.id) {
+        setError("Tenant created, but failed to create admin user");
+        return;
+      }
+
+      await superAdminAPI.setUserPassword(createdUser.id, adminPassword);
+
+      // TODO: integrate welcome email sender once endpoint is available
+
+      onSuccess();
+      onClose();
+      resetForm();
     } catch (err: any) {
       setError(err.message || "Failed to create tenant");
     } finally {
