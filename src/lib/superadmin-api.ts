@@ -352,6 +352,143 @@ class SuperAdminAPI {
       body: JSON.stringify(data)
     });
   }
+
+  // Security
+  async getSecuritySettings() {
+    return this.request('/security');
+  }
+
+  async updateSecuritySettings(data: any) {
+    return this.request('/security', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  // Admin Users
+  async getAdminUsers(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  } = {}) {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+
+    return this.request(`/admin-users?${searchParams.toString()}`);
+  }
+
+  async createAdminUser(data: {
+    name: string;
+    email: string;
+    password: string;
+    role: string;
+    tenantId?: string;
+  }) {
+    return this.request('/admin-users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAdminUser(userId: string) {
+    return this.request(`/admin-users?userId=${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Email Templates
+  async getEmailTemplates(params: {
+    category?: string;
+    search?: string;
+  } = {}) {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+
+    return this.request(`/email-templates?${searchParams.toString()}`);
+  }
+
+  async saveEmailTemplate(data: any) {
+    return this.request('/email-templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async seedEmailTemplates() {
+    return this.request('/email-templates', {
+      method: 'PUT',
+    });
+  }
+
+  async deleteEmailTemplate(templateId: string) {
+    return this.request(`/email-templates?id=${templateId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Notifications
+  async getNotifications(params: {
+    page?: number;
+    limit?: number;
+    type?: string;
+    status?: string;
+  } = {}) {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+
+    return this.request(`/notifications?${searchParams.toString()}`);
+  }
+
+  async sendNotification(data: {
+    title: string;
+    message: string;
+    recipients: string;
+    type?: string;
+    userIds?: string[];
+    tenantIds?: string[];
+    link?: string;
+    metadata?: any;
+  }) {
+    return this.request('/notifications', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteNotification(notificationId: string) {
+    return this.request(`/notifications?id=${notificationId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async deleteOldNotifications() {
+    return this.request('/notifications?bulk=deleteOld', {
+      method: 'DELETE',
+    });
+  }
+
+  // Search
+  async search(query: string, type: string = 'all', limit: number = 10) {
+    const searchParams = new URLSearchParams({
+      q: query,
+      type,
+      limit: limit.toString(),
+    });
+
+    return this.request(`/search?${searchParams.toString()}`);
+  }
 }
 
 export const superAdminAPI = new SuperAdminAPI();

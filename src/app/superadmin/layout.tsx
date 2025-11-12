@@ -2,6 +2,7 @@ import { SuperAdminSidebar } from "@/components/superadmin/Layouts/sidebar";
 import { SuperAdminHeader } from "@/components/superadmin/Layouts/header";
 import { SidebarProvider } from "@/components/superadmin/Layouts/sidebar/sidebar-context";
 import { ImpersonationBanner } from "@/components/superadmin/ImpersonationBanner";
+import { ToastProvider } from "@/components/ui/toast";
 
 import type { Metadata } from "next";
 import NextTopLoader from "nextjs-toploader";
@@ -60,20 +61,22 @@ export default function SuperAdminLayout({ children }: PropsWithChildren) {
       <NextTopLoader color="#1e3a8a" showSpinner={false} />
       <AnalyticsTracker />
 
-      <SidebarProvider>
-        <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
-          <SuperAdminSidebar />
+      <ToastProvider>
+        <SidebarProvider>
+          <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+            <SuperAdminSidebar />
 
-          <div className="w-full bg-white dark:bg-gray-800">
-            <ImpersonationBanner />
-            <SuperAdminHeader />
+            <div className="w-full bg-white dark:bg-gray-800">
+              <ImpersonationBanner />
+              <SuperAdminHeader />
 
-            <main className="isolate mx-auto w-full max-w-screen-2xl overflow-hidden p-4 md:p-6 2xl:p-10">
-              {children}
-            </main>
+              <main className="isolate mx-auto w-full max-w-screen-2xl overflow-hidden p-4 md:p-6 2xl:p-10">
+                {children}
+              </main>
+            </div>
           </div>
-        </div>
-      </SidebarProvider>
+        </SidebarProvider>
+      </ToastProvider>
     </>
   );
 }

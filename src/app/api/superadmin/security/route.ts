@@ -1,0 +1,228 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/auth-helpers';
+import { prisma } from '@/lib/prisma';
+
+interface SecuritySettings {
+  require2FA: boolean;
+  sessionTimeout: number;
+  maxConcurrentSessions: number;
+  ipWhitelist: string[];
+  passwordMinLength: number;
+  passwordRequireUppercase: boolean;
+  passwordRequireLowercase: boolean;
+  passwordRequireNumbers: boolean;
+  passwordRequireSpecialChars: boolean;
+  accountLockoutThreshold: number;
+  accountLockoutDuration: number;
+  allowedDomains: string[];
+  maintenance: {
+    enabled: boolean;
+    message: string;
+    allowedIPs: string[];
+  };
+}
+
+// Default security settings
+const DEFAULT_SETTINGS: SecuritySettings = {
+  require2FA: false,
+  sessionTimeout: 3600000, // 1 hour in ms
+  maxConcurrentSessions: 3,
+  ipWhitelist: [],
+  passwordMinLength: 8,
+  passwordRequireUppercase: true,
+  passwordRequireLowercase: true,
+  passwordRequireNumbers: true,
+  passwordRequireSpecialChars: true,
+  accountLockoutThreshold: 5,
+  accountLockoutDuration: 900000, // 15 minutes in ms
+  allowedDomains: [],
+  maintenance: {
+    enabled: false,
+    message: 'System is under maintenance. Please check back later.',
+    allowedIPs: [],
+  },
+};
+
+export async function GET(request: NextRequest) {
+  try {
+    await requireRole('SUPER_ADMIN');
+
+    // Get security settings from database
+    const settings = await prisma.platformSettings.findFirst({
+      where: {
+        category: 'SECURITY',
+      },
+    });
+
+    let securitySettings = DEFAULT_SETTINGS;
+    if (settings?.settings) {
+      securitySettings = { ...DEFAULT_SETTINGS, ...(settings.settings as any) };
+    }
+
+    // Get security statistics
+    const now = new Date();
+    const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const [
+      failedLogins24h,
+      failedLogins7d,
+      activeSessions,
+      bannedUsers,
+      recentSecurityEvents,
+    ] = await Promise.all([
+      // Failed logins in last 24 hours
+      prisma.auditLog.count({
+        where: {
+          action: 'LOGIN_FAILED',
+          createdAt: { gte: last24h },
+        },
+      }),
+      // Failed logins in last 7 days
+      prisma.auditLog.count({
+        where: {
+          action: 'LOGIN_FAILED',
+          createdAt: { gte: last7d },
+        },
+      }),
+      // Active sessions
+      prisma.session.count({
+        where: {
+          expiresAt: { gt: now },
+        },
+      }),
+      // Banned users
+      prisma.user.count({
+        where: {
+          banned: true,
+        },
+      }),
+      // Recent security events
+      prisma.auditLog.findMany({
+        where: {
+          action: {
+            in: [
+              'LOGIN_FAILED',
+              'ACCOUNT_LOCKED',
+              'PASSWORD_CHANGED',
+              'ADMIN_IMPERSONATION_START',
+              'USER_BANNED',
+            ],
+          },
+          createdAt: { gte: last24h },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 10,
+      }),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        settings: securitySettings,
+        statistics: {
+          failedLogins24h,
+          failedLogins7d,
+          activeSessions,
+          bannedUsers,
+        },
+        recentEvents: recentSecurityEvents,
+      },
+    });
+  } catch (error) {
+    console.error('Security settings error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch security settings' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const user = await requireRole('SUPER_ADMIN');
+    const data = await request.json();
+
+    // Validate settings
+    if (data.sessionTimeout && (data.sessionTimeout < 300000 || data.sessionTimeout > 86400000)) {
+      return NextResponse.json(
+        { success: false, error: 'Session timeout must be between 5 minutes and 24 hours' },
+        { status: 400 }
+      );
+    }
+
+    if (data.passwordMinLength && (data.passwordMinLength < 6 || data.passwordMinLength > 32)) {
+      return NextResponse.json(
+        { success: false, error: 'Password minimum length must be between 6 and 32 characters' },
+        { status: 400 }
+      );
+    }
+
+    // Get current settings
+    let currentSettings = await prisma.platformSettings.findFirst({
+      where: {
+        category: 'SECURITY',
+      },
+    });
+
+    const newSettings = {
+      ...DEFAULT_SETTINGS,
+      ...(currentSettings?.settings as any || {}),
+      ...data,
+    };
+
+    // Upsert settings
+    const updated = await prisma.platformSettings.upsert({
+      where: {
+        id: currentSettings?.id || 'new-security-settings',
+      },
+      update: {
+        settings: newSettings,
+        updatedAt: new Date(),
+      },
+      create: {
+        category: 'SECURITY',
+        settings: newSettings,
+      },
+    });
+
+    // Log the change
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'SECURITY_SETTINGS_UPDATED',
+        entityType: 'PlatformSettings',
+        entityId: updated.id,
+        oldValues: currentSettings?.settings || {},
+        newValues: newSettings,
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent') || 'unknown',
+        severity: 'HIGH',
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        settings: newSettings,
+      },
+    });
+  } catch (error) {
+    console.error('Security settings update error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to update security settings' },
+      { status: 500 }
+    );
+  }
+}
