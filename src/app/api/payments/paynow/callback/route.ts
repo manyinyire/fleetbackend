@@ -248,55 +248,64 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const now = new Date();
 
   // ALL CHECKS PASSED - Now we can safely process the payment
-  const updatedPayment = await prisma.payment.update({
-    where: { id: payment.id },
-    data: {
-      status: "PAID",
-      verified: true,
-      verifiedAt: new Date(),
-      paynowReference: paynowReference,
-      verificationHash,
-      paymentMetadata: statusCheck as any
-    }
-  });
-
-  // Update invoice status
-  await prisma.invoice.update({
-    where: { id: invoice.id },
-    data: {
-      status: 'PAID',
-      paidAt: now,
-    }
-  });
-
-  // Log to audit trail
-  await prisma.auditLog.create({
-    data: {
-      userId: invoice.tenant.users[0]?.id || 'system',
-      tenantId: invoice.tenantId,
-      action: "PAYMENT_CONFIRMED",
-      entityType: "Payment",
-      entityId: payment.id,
-      details: {
-        invoiceId: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        paymentId: payment.id,
-        amount: amount,
-        paynowReference: paynowReference,
+  // Wrap all critical database operations in a transaction to ensure atomicity
+  const result = await prisma.$transaction(async (tx) => {
+    // Update payment status
+    const updatedPayment = await tx.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: "PAID",
         verified: true,
-        analytics: {
-          event: "purchase",
-          value: Number(amount),
-          currency: invoice.currency,
+        verifiedAt: new Date(),
+        paynowReference: paynowReference,
+        verificationHash,
+        paymentMetadata: statusCheck as any
+      }
+    });
+
+    // Update invoice status
+    await tx.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        status: 'PAID',
+        paidAt: now,
+      }
+    });
+
+    // Log to audit trail
+    await tx.auditLog.create({
+      data: {
+        userId: invoice.tenant.users[0]?.id || 'system',
+        tenantId: invoice.tenantId,
+        action: "PAYMENT_CONFIRMED",
+        entityType: "Payment",
+        entityId: payment.id,
+        details: {
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          paymentId: payment.id,
+          amount: amount,
+          paynowReference: paynowReference,
+          verified: true,
+          analytics: {
+            event: "purchase",
+            value: Number(amount),
+            currency: invoice.currency,
+          },
         },
-      },
-      ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-      userAgent: request.headers.get('user-agent') || 'unknown',
-    }
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent') || 'unknown',
+      }
+    });
+
+    // Perform auto-actions within the transaction
+    await performAutoActionsInTransaction(tx, invoice, updatedPayment);
+
+    return { updatedPayment };
   });
 
-  // Perform auto-actions (includes analytics tracking)
-  await performAutoActions(invoice, updatedPayment);
+  // Send emails outside transaction (so email failures don't rollback payment)
+  await sendPaymentEmails(invoice, result.updatedPayment);
 
   // SECURITY: Mark webhook as processed to prevent replay attacks
   processedWebhooks.set(reference, startTime);
@@ -308,130 +317,56 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 });
 
 /**
- * Perform automatic actions after payment confirmation
+ * Perform automatic database actions within a transaction
+ * This ensures atomicity - all actions succeed or all fail together
  */
-async function performAutoActions(invoice: any, payment: any) {
-  try {
-    const actionsPerformed = {
-      upgraded: false,
-      unsuspended: false,
-      emailSent: false,
-      adminNotified: false,
-    };
+async function performAutoActionsInTransaction(tx: any, invoice: any, payment: any) {
+  const actionsPerformed = {
+    upgraded: false,
+    unsuspended: false,
+    oldPlan: null as string | null,
+  };
 
-    // Auto-upgrade if this is an upgrade invoice
-    if (
-      invoice.type === "UPGRADE" &&
-      invoice.plan &&
-      !payment.upgradeActioned
-    ) {
-      const tenant = await prisma.tenant.findUnique({
+  // Auto-upgrade if this is an upgrade invoice
+  if (
+    invoice.type === "UPGRADE" &&
+    invoice.plan &&
+    !payment.upgradeActioned
+  ) {
+    const tenant = await tx.tenant.findUnique({
+      where: { id: invoice.tenantId },
+    });
+
+    if (tenant) {
+      const oldPlan = tenant.plan;
+      actionsPerformed.oldPlan = oldPlan;
+
+      await tx.tenant.update({
         where: { id: invoice.tenantId },
         data: {
-          plan: newPlan,
-          subscriptionStartDate: now,
-          subscriptionEndDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        }
-      });
-
-      if (tenant) {
-        const oldPlan = tenant.plan;
-
-        await prisma.tenant.update({
-          where: { id: invoice.tenantId },
-          data: {
-            plan: invoice.plan,
-            monthlyRevenue:
-              invoice.plan === 'FREE' ? 0 : invoice.plan === 'BASIC' ? 29.99 : 99.99,
-          },
-        });
-
-        await prisma.auditLog.create({
-          data: {
-            userId: 'system',
-            tenantId: invoice.tenantId,
-            action: 'AUTO_UPGRADE',
-            entityType: 'Tenant',
-            entityId: invoice.tenantId,
-            oldValues: { plan: tenant.plan },
-            newValues: { plan: invoice.plan },
-            details: {
-              paymentId: payment?.id || invoice.id,
-              invoiceId: invoice.id,
-              invoiceNumber: invoice.invoiceNumber,
-              analytics: {
-                event: 'subscription_upgrade',
-                from: tenant.plan,
-                to: invoice.plan,
-              },
-            },
-            ipAddress: 'system',
-            userAgent: 'auto-action',
-          },
-        });
-
-        actionsPerformed.upgraded = true;
-        apiLogger.info(
-          {
-            tenantId: invoice.tenantId,
-            fromPlan: tenant.plan,
-            toPlan: invoice.plan,
-          },
-          'Auto-upgraded tenant'
-        );
-
-        // Send admin notification about upgrade
-        try {
-          const { emailService } = await import('@/lib/email');
-          const tenantAdmin = await prisma.user.findFirst({
-            where: {
-              tenantId: invoice.tenantId,
-              role: 'TENANT_ADMIN'
-            }
-          });
-
-          if (tenantAdmin) {
-            await emailService.sendAdminUpgradeAlert(
-              invoice.tenant.name,
-              tenantAdmin.name,
-              tenantAdmin.email,
-              oldPlan,
-              invoice.plan,
-              Number(invoice.amount).toFixed(2)
-            );
-          }
-        } catch (emailError) {
-          console.error('[PayNow Callback] Failed to send admin upgrade alert:', emailError);
-          // Don't fail the upgrade if admin email fails
-        }
-      }
-    }
-
-    // Auto-unsuspend if account was suspended
-    if (
-      invoice.tenant.status === "SUSPENDED" &&
-      !payment.unsuspendActioned
-    ) {
-      await prisma.tenant.update({
-        where: { id: invoice.tenantId },
-        data: {
-          status: 'ACTIVE',
-          suspendedAt: null,
+          plan: invoice.plan,
+          monthlyRevenue:
+            invoice.plan === 'FREE' ? 0 : invoice.plan === 'BASIC' ? 29.99 : 99.99,
         },
       });
 
-      await prisma.auditLog.create({
+      await tx.auditLog.create({
         data: {
           userId: 'system',
           tenantId: invoice.tenantId,
-          action: 'AUTO_UNSUSPEND',
+          action: 'AUTO_UPGRADE',
           entityType: 'Tenant',
           entityId: invoice.tenantId,
+          oldValues: { plan: tenant.plan },
+          newValues: { plan: invoice.plan },
           details: {
             paymentId: payment?.id || invoice.id,
-            reason: 'Payment confirmed',
+            invoiceId: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
             analytics: {
-              event: 'account_unsuspended',
+              event: 'subscription_upgrade',
+              from: tenant.plan,
+              to: invoice.plan,
             },
           },
           ipAddress: 'system',
@@ -439,10 +374,72 @@ async function performAutoActions(invoice: any, payment: any) {
         },
       });
 
-      actionsPerformed.unsuspended = true;
-      apiLogger.info({ tenantId: invoice.tenantId }, 'Auto-unsuspended tenant');
+      actionsPerformed.upgraded = true;
+      apiLogger.info(
+        {
+          tenantId: invoice.tenantId,
+          fromPlan: tenant.plan,
+          toPlan: invoice.plan,
+        },
+        'Auto-upgraded tenant'
+      );
     }
+  }
 
+  // Auto-unsuspend if account was suspended
+  if (
+    invoice.tenant.status === "SUSPENDED" &&
+    !payment.unsuspendActioned
+  ) {
+    await tx.tenant.update({
+      where: { id: invoice.tenantId },
+      data: {
+        status: 'ACTIVE',
+        suspendedAt: null,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        userId: 'system',
+        tenantId: invoice.tenantId,
+        action: 'AUTO_UNSUSPEND',
+        entityType: 'Tenant',
+        entityId: invoice.tenantId,
+        details: {
+          paymentId: payment?.id || invoice.id,
+          reason: 'Payment confirmed',
+          analytics: {
+            event: 'account_unsuspended',
+          },
+        },
+        ipAddress: 'system',
+        userAgent: 'auto-action',
+      },
+    });
+
+    actionsPerformed.unsuspended = true;
+    apiLogger.info({ tenantId: invoice.tenantId }, 'Auto-unsuspended tenant');
+  }
+
+  // Mark which actions were performed
+  await tx.payment.update({
+    where: { id: payment.id },
+    data: {
+      upgradeActioned: actionsPerformed.upgraded || payment.upgradeActioned,
+      unsuspendActioned: actionsPerformed.unsuspended || payment.unsuspendActioned,
+    }
+  });
+
+  return actionsPerformed;
+}
+
+/**
+ * Send payment-related emails outside the transaction
+ * Email failures should not rollback payment confirmation
+ */
+async function sendPaymentEmails(invoice: any, payment: any) {
+  try {
     // Send payment confirmation email with invoice
     if (!payment.emailSent) {
       const invoicePdf = await generateInvoicePdf(invoice.id);
@@ -456,11 +453,15 @@ async function performAutoActions(invoice: any, payment: any) {
       );
 
       if (emailResult) {
-        actionsPerformed.emailSent = true;
         apiLogger.info(
           { email: invoice.tenant.email },
           'Payment confirmation email sent'
         );
+        // Update payment record to mark email as sent
+        await prisma.payment.update({
+          where: { id: payment.id },
+          data: { emailSent: true }
+        });
       } else {
         apiLogger.error('Failed to send payment confirmation email');
       }
@@ -476,29 +477,52 @@ async function performAutoActions(invoice: any, payment: any) {
       );
 
       if (adminAlertResult) {
-        actionsPerformed.adminNotified = true;
         apiLogger.info('Admin payment alert sent');
+        // Update payment record to mark admin as notified
+        await prisma.payment.update({
+          where: { id: payment.id },
+          data: { adminNotified: true }
+        });
       } else {
         apiLogger.error('Failed to send admin payment alert');
       }
     }
 
-    // Update payment record with action statuses
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        upgradeActioned: actionsPerformed.upgraded || payment.upgradeActioned,
-        unsuspendActioned: actionsPerformed.unsuspended || payment.unsuspendActioned,
-        emailSent: actionsPerformed.emailSent || payment.emailSent,
-        adminNotified: actionsPerformed.adminNotified || payment.adminNotified
-      }
-    });
+    // Send upgrade notification email if tenant was upgraded
+    if (invoice.type === "UPGRADE" && invoice.plan) {
+      try {
+        const { emailService } = await import('@/lib/email');
+        const tenantAdmin = await prisma.user.findFirst({
+          where: {
+            tenantId: invoice.tenantId,
+            role: 'TENANT_ADMIN'
+          }
+        });
 
-    return actionsPerformed;
+        if (tenantAdmin) {
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: invoice.tenantId }
+          });
+
+          if (tenant) {
+            await emailService.sendAdminUpgradeAlert(
+              invoice.tenant.name,
+              tenantAdmin.name,
+              tenantAdmin.email,
+              tenant.plan, // Current plan after upgrade
+              invoice.plan,
+              Number(invoice.amount).toFixed(2)
+            );
+          }
+        }
+      } catch (emailError) {
+        apiLogger.error({ error: emailError }, 'Failed to send admin upgrade alert');
+        // Don't fail if email sending fails
+      }
+    }
   } catch (error) {
-    apiLogger.error({ err: error }, 'Auto-actions error');
+    apiLogger.error({ error }, 'Error sending payment emails');
     // Don't throw - payment is already confirmed, just log the error
-    return null;
   }
 }
 
@@ -538,7 +562,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       amount: invoice.amount
     });
   } catch (error) {
-    console.error("Payment status check error:", error);
+    apiLogger.error({ error }, 'Payment status check error');
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

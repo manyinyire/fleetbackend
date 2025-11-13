@@ -1,5 +1,6 @@
 import { Paynow } from "paynow";
 import crypto from "crypto";
+import { apiLogger } from "./logger";
 
 // Initialize PayNow with credentials from environment
 export function getPaynowInstance() {
@@ -43,7 +44,7 @@ export function verifyInitiationHash(
   try {
     const integrationKey = process.env.PAYNOW_INTEGRATION_KEY;
     if (!integrationKey) {
-      console.error("PayNow integration key not configured");
+      apiLogger.error('PayNow integration key not configured');
       return false;
     }
 
@@ -61,14 +62,12 @@ export function verifyInitiationHash(
     const isValid = calculatedHash === receivedHash.toUpperCase();
 
     if (!isValid) {
-      console.error("PayNow initiation hash verification failed");
-      console.error("Expected hash:", calculatedHash);
-      console.error("Received hash:", receivedHash);
+      apiLogger.error({ calculatedHash, receivedHash }, 'PayNow initiation hash verification failed');
     }
 
     return isValid;
   } catch (error) {
-    console.error("Hash verification error:", error);
+    apiLogger.error({ error }, 'Hash verification error');
     return false;
   }
 }
@@ -100,19 +99,18 @@ export async function createPayment(
   const authEmail = merchantEmail || email;
 
   // Log which email is being used for debugging
-  console.log('[Paynow] Payment initiation:', {
+  apiLogger.info({
     invoiceId,
     merchantEmail: merchantEmail || 'NOT SET - using customer email',
     customerEmail: email,
     authEmailUsed: authEmail,
     integrationId: process.env.PAYNOW_INTEGRATION_ID,
     envVarLoaded: !!merchantEmail,
-  });
+  }, 'PayNow payment initiation');
 
   // Warn if merchant email is not set in test mode
   if (!merchantEmail) {
-    console.warn('[Paynow] WARNING: PAYNOW_MERCHANT_EMAIL is not set. In test mode, authemail must match merchant email.');
-    console.warn('[Paynow] Set PAYNOW_MERCHANT_EMAIL environment variable to your Paynow merchant email (e.g., hello@azaire.co.zw)');
+    apiLogger.warn('PAYNOW_MERCHANT_EMAIL is not set. In test mode, authemail must match merchant email. Set PAYNOW_MERCHANT_EMAIL environment variable to your Paynow merchant email');
   }
 
   // Create a new payment with authEmail
@@ -125,8 +123,8 @@ export async function createPayment(
     // Send payment to PayNow
     const response = await paynow.send(payment);
 
-    console.log('[Paynow] Raw Response from PayNow:', response);
-    console.log('[Paynow] Response analysis:', {
+    apiLogger.info({ response }, 'PayNow raw response');
+    apiLogger.debug({
       success: response.success,
       successType: typeof response.success,
       error: response.error,
@@ -136,7 +134,7 @@ export async function createPayment(
       redirectUrlType: typeof response.redirectUrl,
       hash: response.hash,
       allKeys: Object.keys(response),
-    });
+    }, 'PayNow response analysis');
 
     if (response.success && response.pollUrl && response.redirectUrl) {
       // Hash verification - in test mode, PayNow might not return a hash
@@ -153,18 +151,18 @@ export async function createPayment(
         );
 
         if (!isValidHash) {
-          console.error("PayNow initiation hash verification failed - security risk");
+          apiLogger.error('PayNow initiation hash verification failed - security risk');
           return {
             success: false,
             error: "Payment initiation hash verification failed",
           };
         }
-        console.log('[Paynow] Hash verified successfully');
+        apiLogger.info('PayNow hash verified successfully');
       } else {
-        console.warn('[Paynow] WARNING: No hash returned by PayNow. This may be expected in test mode.');
+        apiLogger.warn('No hash returned by PayNow. This may be expected in test mode');
       }
 
-      console.log('[Paynow] Payment initiated successfully, redirectUrl:', response.redirectUrl);
+      apiLogger.info({ redirectUrl: response.redirectUrl }, 'PayNow payment initiated successfully');
       return {
         success: true,
         pollUrl: response.pollUrl,
@@ -172,15 +170,14 @@ export async function createPayment(
         hash: response.hash || 'NO_HASH_PROVIDED',
       };
     } else {
-      console.error('[Paynow] Payment initiation failed:', response.error || 'Unknown error');
-      console.error('[Paynow] Missing required fields. Response:', response);
+      apiLogger.error({ error: response.error, response }, 'PayNow payment initiation failed - missing required fields');
       return {
         success: false,
         error: response.error || "Payment initiation failed - missing required response fields",
       };
     }
   } catch (error) {
-    console.error("PayNow payment error:", error);
+    apiLogger.error({ error }, 'PayNow payment error');
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -197,16 +194,16 @@ export async function checkPaymentStatus(pollUrl: string) {
     const paynow = getPaynowInstance();
     const status = await paynow.pollTransaction(pollUrl);
 
-    console.log('[Paynow] Poll transaction raw response:', JSON.stringify(status, null, 2));
-    console.log('[Paynow] Status object keys:', Object.keys(status));
-    console.log('[Paynow] Status details:', {
+    apiLogger.debug({ status }, 'PayNow poll transaction raw response');
+    apiLogger.debug({
+      keys: Object.keys(status),
       paid: status.paid,
       paidType: typeof status.paid,
       status: status.status,
       statusType: typeof status.status,
       amount: status.amount,
       amountType: typeof status.amount,
-    });
+    }, 'PayNow status details');
 
     // PayNow returns status as lowercase string like 'paid', 'awaiting delivery', 'cancelled'
     // We need to check if status is 'paid' or 'Paid' (case insensitive)
@@ -223,7 +220,7 @@ export async function checkPaymentStatus(pollUrl: string) {
       hash: status.hash,
     };
   } catch (error) {
-    console.error("PayNow status check error:", error);
+    apiLogger.error({ error }, 'PayNow status check error');
     return {
       success: false,
       error: error instanceof Error ? error.message : "Status check failed",
@@ -242,9 +239,9 @@ export function verifyWebhookSignature(data: any): boolean {
     // PayNow sends a hash with the webhook data
     // We need to verify this hash matches what we expect
     const receivedHash = data.hash;
-    
+
     if (!receivedHash) {
-      console.error("No hash provided in webhook data");
+      apiLogger.error('No hash provided in webhook data');
       return false;
     }
 
@@ -263,16 +260,14 @@ export function verifyWebhookSignature(data: any): boolean {
       .toUpperCase();
 
     const isValid = calculatedHash === receivedHash.toUpperCase();
-    
+
     if (!isValid) {
-      console.error("Webhook signature verification failed");
-      console.error("Received hash:", receivedHash);
-      console.error("Calculated hash:", calculatedHash);
+      apiLogger.error({ receivedHash, calculatedHash }, 'Webhook signature verification failed');
     }
 
     return isValid;
   } catch (error) {
-    console.error("Webhook verification error:", error);
+    apiLogger.error({ error }, 'Webhook verification error');
     return false;
   }
 }

@@ -3,11 +3,13 @@
  *
  * Implements a sliding window rate limiter to prevent API abuse.
  * Supports plan-based rate limiting for FREE, BASIC, and PREMIUM tiers.
- * Uses in-memory storage for development, can be extended to use Redis for production.
+ * Uses Redis for production (distributed systems) or in-memory storage for development.
  */
 
 import { NextRequest } from 'next/server';
 import { SubscriptionPlan } from '@prisma/client';
+import { getRedisClient, isRedisAvailable } from './redis';
+import { apiLogger } from './logger';
 
 interface RateLimitConfig {
   interval: number; // Time window in milliseconds
@@ -19,10 +21,10 @@ interface RateLimitRecord {
   resetTime: number;
 }
 
-// In-memory store (use Redis in production for distributed systems)
+// In-memory store (fallback when Redis is not available)
 const rateLimitStore = new Map<string, RateLimitRecord>();
 
-// Cleanup old entries every 5 minutes
+// Cleanup old entries every 5 minutes (only for in-memory store)
 setInterval(() => {
   const now = Date.now();
   for (const [key, record] of rateLimitStore.entries()) {
@@ -130,24 +132,79 @@ function getClientIdentifier(request: NextRequest): string {
 }
 
 /**
- * Check if request is rate limited
- *
- * @param request - Next.js request object
- * @param config - Rate limit configuration
- * @returns Object with limited status and remaining requests
+ * Redis-based rate limiting (for production/distributed systems)
  */
-export function checkRateLimit(
-  request: NextRequest,
-  config: RateLimitConfig = rateLimitConfigs.api
+async function checkRateLimitRedis(
+  key: string,
+  config: RateLimitConfig
+): Promise<{
+  limited: boolean;
+  remaining: number;
+  resetTime: number;
+} | null> {
+  const redis = getRedisClient();
+
+  if (!redis || !isRedisAvailable()) {
+    return null; // Fall back to in-memory
+  }
+
+  try {
+    const now = Date.now();
+    const resetTime = now + config.interval;
+
+    // Use Redis MULTI for atomic operations
+    const multi = redis.multi();
+
+    // Increment counter
+    multi.incr(key);
+    // Set expiry if key is new
+    multi.pexpire(key, config.interval);
+    // Get TTL
+    multi.pttl(key);
+
+    const results = await multi.exec();
+
+    if (!results) {
+      apiLogger.error('Redis MULTI command failed');
+      return null;
+    }
+
+    const count = results[0]?.[1] as number;
+    const ttl = results[2]?.[1] as number;
+
+    const actualResetTime = ttl > 0 ? now + ttl : resetTime;
+
+    if (count > config.maxRequests) {
+      return {
+        limited: true,
+        remaining: 0,
+        resetTime: actualResetTime,
+      };
+    }
+
+    return {
+      limited: false,
+      remaining: config.maxRequests - count,
+      resetTime: actualResetTime,
+    };
+  } catch (error) {
+    apiLogger.error({ error }, 'Redis rate limit check failed, falling back to in-memory');
+    return null; // Fall back to in-memory
+  }
+}
+
+/**
+ * In-memory rate limiting (fallback or development)
+ */
+function checkRateLimitMemory(
+  key: string,
+  config: RateLimitConfig
 ): {
   limited: boolean;
   remaining: number;
   resetTime: number;
 } {
-  const identifier = getClientIdentifier(request);
-  const key = `${request.nextUrl.pathname}:${identifier}`;
   const now = Date.now();
-
   const record = rateLimitStore.get(key);
 
   // No existing record, create new one
@@ -184,14 +241,43 @@ export function checkRateLimit(
 }
 
 /**
+ * Check if request is rate limited
+ * Uses Redis when available, falls back to in-memory storage
+ *
+ * @param request - Next.js request object
+ * @param config - Rate limit configuration
+ * @returns Object with limited status and remaining requests
+ */
+export async function checkRateLimit(
+  request: NextRequest,
+  config: RateLimitConfig = rateLimitConfigs.api
+): Promise<{
+  limited: boolean;
+  remaining: number;
+  resetTime: number;
+}> {
+  const identifier = getClientIdentifier(request);
+  const key = `ratelimit:${request.nextUrl.pathname}:${identifier}`;
+
+  // Try Redis first
+  const redisResult = await checkRateLimitRedis(key, config);
+  if (redisResult !== null) {
+    return redisResult;
+  }
+
+  // Fall back to in-memory storage
+  return checkRateLimitMemory(key, config);
+}
+
+/**
  * Rate limit middleware helper
  * Returns NextResponse with 429 if rate limited
  */
-export function rateLimitMiddleware(
+export async function rateLimitMiddleware(
   request: NextRequest,
   config: RateLimitConfig = rateLimitConfigs.api
 ) {
-  const result = checkRateLimit(request, config);
+  const result = await checkRateLimit(request, config);
 
   if (result.limited) {
     const resetDate = new Date(result.resetTime);

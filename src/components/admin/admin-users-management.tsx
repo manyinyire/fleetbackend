@@ -43,6 +43,7 @@ export function AdminUsersManagement({ users: initialUsers, stats }: AdminUsersM
   const [createForm, setCreateForm] = useState({
     name: '',
     email: '',
+    password: '',
     role: 'USER',
     tenantId: ''
   });
@@ -70,17 +71,14 @@ export function AdminUsersManagement({ users: initialUsers, stats }: AdminUsersM
       const response = await fetch('/api/superadmin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...createForm,
-          password: 'TempPassword123!' // TODO: Get password from form
-        })
+        body: JSON.stringify(createForm)
       });
 
       const data = await response.json();
       if (response.ok && data.success) {
         setUsers([data.data, ...users]);
         setShowCreateModal(false);
-        setCreateForm({ name: '', email: '', role: 'USER', tenantId: '' });
+        setCreateForm({ name: '', email: '', password: '', role: 'USER', tenantId: '' });
         toast.success('User created successfully');
         router.refresh();
       } else {
@@ -431,6 +429,20 @@ export function AdminUsersManagement({ users: initialUsers, stats }: AdminUsersM
                   value={createForm.email}
                   onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
                   className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Password *
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="Minimum 8 characters"
                 />
               </div>
               <div>

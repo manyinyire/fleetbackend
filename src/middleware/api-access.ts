@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PremiumFeatureService } from '@/lib/premium-features';
 import { requireTenantForDashboard } from '@/lib/auth-helpers';
+import { checkRateLimit, rateLimitConfigs } from '@/lib/rate-limit';
+import { apiLogger } from '@/lib/logger';
+import { prisma } from '@/lib/prisma';
 
 /**
  * API Access Middleware
@@ -25,16 +28,51 @@ export async function checkApiAccess(request: NextRequest): Promise<NextResponse
       );
     }
 
-    // Add rate limit headers
+    // Get tenant plan for rate limiting
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { plan: true },
+    });
+
+    // Apply rate limiting based on tenant plan
+    const rateLimitResult = await checkRateLimit(
+      request,
+      tenant?.plan === 'PREMIUM'
+        ? rateLimitConfigs.api
+        : tenant?.plan === 'BASIC'
+        ? { interval: 60 * 1000, maxRequests: 60 }
+        : { interval: 60 * 1000, maxRequests: 30 }
+    );
+
+    if (rateLimitResult.limited) {
+      apiLogger.warn({ tenantId, plan: tenant?.plan }, 'API rate limit exceeded');
+      return NextResponse.json(
+        {
+          error: 'Rate limit exceeded',
+          message: 'You have exceeded your API rate limit. Please try again later.',
+          resetTime: new Date(rateLimitResult.resetTime).toISOString(),
+        },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': String(featureCheck.limit || 'unlimited'),
+            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+            'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
+            'Retry-After': String(Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)),
+          },
+        }
+      );
+    }
+
+    // Add rate limit headers to successful response
     const response = NextResponse.next();
     response.headers.set('X-RateLimit-Limit', String(featureCheck.limit || 'unlimited'));
-    // TODO: Implement actual rate limit tracking with Redis
-    // response.headers.set('X-RateLimit-Remaining', String(remaining));
-    // response.headers.set('X-RateLimit-Reset', String(resetTime));
+    response.headers.set('X-RateLimit-Remaining', String(rateLimitResult.remaining));
+    response.headers.set('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
 
     return null; // No error, continue
   } catch (error) {
-    console.error('API access check error:', error);
+    apiLogger.error({ error }, 'API access check error');
     return NextResponse.json(
       { error: 'Failed to verify API access' },
       { status: 500 }
