@@ -67,6 +67,7 @@ export const POST = withTenantAuth(async ({ services, tenantId, user, request }:
   // Transform data for service
   const driverData = {
     ...data,
+    email: data.email || undefined, // Convert null to undefined
     defensiveLicenseExpiry: data.defensiveLicenseExpiry
       ? new Date(data.defensiveLicenseExpiry)
       : undefined,

@@ -28,13 +28,13 @@ export default async function AccountSettingsPage() {
             {user.image ? (
               <Image
                 src={user.image}
-                alt={user.name}
+                alt={user.name || 'User avatar'}
                 fill
                 className="object-cover"
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-primary text-xl font-bold text-white">
-                {getInitials(user.name)}
+                {getInitials(user.name || 'User')}
               </div>
             )}
           </div>

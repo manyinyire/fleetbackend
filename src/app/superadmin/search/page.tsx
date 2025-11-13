@@ -106,7 +106,7 @@ export default function SearchToolPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {results.totalResults} {results.totalResults === 1 ? "result" : "results"} for "{results.query}"
+              {results.totalResults} {results.totalResults === 1 ? "result" : "results"} for &quot;{results.query}&quot;
             </h2>
           </div>
 

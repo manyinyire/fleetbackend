@@ -63,7 +63,7 @@ export default function QueryBuilderPage() {
               Query Builder Coming Soon
             </h2>
             <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              We're developing a powerful visual query builder that lets you create complex database queries
+              We&apos;re developing a powerful visual query builder that lets you create complex database queries
               without writing SQL. Build queries with drag-and-drop, save them for later, and export results
               in multiple formats.
             </p>
@@ -104,7 +104,7 @@ export default function QueryBuilderPage() {
                     Where:
                   </span>
                   <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded px-3 py-2 text-sm">
-                    role = 'SUPER_ADMIN' AND status = 'ACTIVE'
+                    role = &apos;SUPER_ADMIN&apos; AND status = &apos;ACTIVE&apos;
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -122,7 +122,7 @@ export default function QueryBuilderPage() {
                 </div>
                 <div className="bg-gray-900 rounded p-3 font-mono text-xs text-green-400">
                   SELECT id, name, email, role, createdAt FROM users<br />
-                  WHERE role = 'SUPER_ADMIN' AND status = 'ACTIVE'<br />
+                  WHERE role = &apos;SUPER_ADMIN&apos; AND status = &apos;ACTIVE&apos;<br />
                   ORDER BY createdAt DESC;
                 </div>
               </div>

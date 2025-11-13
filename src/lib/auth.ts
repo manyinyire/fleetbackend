@@ -3,8 +3,9 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import Credentials from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
+import { authApi } from "./auth-api-compat"
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+const nextAuthResult = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
@@ -116,3 +117,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   debug: process.env.NODE_ENV === "development",
 })
+
+// Export NextAuth handlers and methods
+export const { handlers, signIn, signOut, auth: baseAuth } = nextAuthResult;
+
+// Create auth object with API compatibility layer
+// This allows existing routes to call auth.api.* methods
+export const auth = Object.assign(baseAuth, { api: authApi });

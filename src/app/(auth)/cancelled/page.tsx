@@ -1,14 +1,14 @@
 'use client';
 
 import { XCircleIcon } from '@heroicons/react/24/outline';
-import { authClient } from '@/lib/auth-client';
+import { signOut } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 
 export default function CancelledPage() {
   const router = useRouter();
 
   const handleSignOut = async () => {
-    await authClient.signOut();
+    await signOut();
     router.push('/login');
   };
 

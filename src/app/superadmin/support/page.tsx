@@ -159,7 +159,7 @@ export default function SupportPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Submit a Support Request</CardTitle>
-            <CardDescription>Describe your issue and we'll help you resolve it</CardDescription>
+            <CardDescription>Describe your issue and we&apos;ll help you resolve it</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">

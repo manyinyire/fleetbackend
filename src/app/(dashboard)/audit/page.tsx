@@ -94,9 +94,13 @@ export default async function AuditPage() {
         placeholder="Search audit logs..."
       />
 
-      <AuditTrailViewer 
+      <AuditTrailViewer
         auditLogs={auditLogs}
-        currentUser={user}
+        currentUser={{
+          id: user.id,
+          name: user.name || 'Unknown User',
+          email: user.email || '',
+        }}
       />
     </div>
   );

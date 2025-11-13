@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { EyeIcon, EyeSlashIcon, ShieldCheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { TwoFactorSetup } from '@/components/admin/two-factor-setup';
 import { TwoFactorVerification } from '@/components/admin/two-factor-verification';
-import { signIn } from '@/lib/auth-client';
+import { signIn, useSession } from '@/lib/auth-client';
 import { toast } from 'react-hot-toast';
 
 export default function AdminLoginPage() {
@@ -46,30 +46,24 @@ export default function AdminLoginPage() {
     setError('');
 
     try {
-      const result = await signIn.email({
+      // Use NextAuth v5 credentials provider
+      const result = await signIn('credentials', {
         email: formData.email,
         password: formData.password,
+        redirect: false,
       });
 
-      if (result.error) {
-        setError(result.error.message || 'Login failed');
+      if (result?.error) {
+        setError(result.error || 'Login failed');
         setIsLoading(false);
         return;
       }
 
-      // Check if user is SUPER_ADMIN
-      if ((result.data?.user as any)?.role !== 'SUPER_ADMIN') {
-        setError('Access denied. Super Admin privileges required.');
-        setIsLoading(false);
-        return;
-      }
-
+      // Sign in successful, session will be available on next request
+      // The middleware and auth helpers will check SUPER_ADMIN role
       toast.success('Login successful!');
 
-      // Give time for the session cookie to be set
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Redirect to admin dashboard
+      // Redirect to admin dashboard (role check happens server-side)
       router.push('/admin/dashboard');
       router.refresh();
     } catch (err) {

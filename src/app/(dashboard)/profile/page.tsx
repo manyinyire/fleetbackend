@@ -47,13 +47,13 @@ export default async function ProfilePage() {
               {user.image ? (
                 <Image
                   src={user.image}
-                  alt={user.name}
+                  alt={user.name || 'User avatar'}
                   fill
                   className="object-cover"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-primary text-4xl font-bold text-white">
-                  {getInitials(user.name)}
+                  {getInitials(user.name || 'User')}
                 </div>
               )}
             </div>
@@ -88,7 +88,7 @@ export default async function ProfilePage() {
                 Member Since
               </span>
               <span className="text-body-sm font-medium text-dark dark:text-white">
-                {new Date(user.createdAt).toLocaleDateString()}
+                {new Date((user as any).createdAt || Date.now()).toLocaleDateString()}
               </span>
             </div>
           </div>
@@ -110,7 +110,7 @@ export default async function ProfilePage() {
                 </label>
                 <input
                   type="text"
-                  value={user.name}
+                  value={user.name || ''}
                   disabled
                   className="w-full rounded-[7px] border-[1.5px] border-stroke bg-gray px-5.5 py-3 text-dark outline-none dark:border-dark-3 dark:bg-dark-2 dark:text-white"
                 />
@@ -122,7 +122,7 @@ export default async function ProfilePage() {
                 </label>
                 <input
                   type="email"
-                  value={user.email}
+                  value={user.email || ''}
                   disabled
                   className="w-full rounded-[7px] border-[1.5px] border-stroke bg-gray px-5.5 py-3 text-dark outline-none dark:border-dark-3 dark:bg-dark-2 dark:text-white"
                 />

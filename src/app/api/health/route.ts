@@ -1,20 +1,21 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { apiLogger } from '@/lib/logger';
 
 /**
  * Health check endpoint
  * GET /api/health
- * 
+ *
  * This endpoint is used by PM2, Nginx, and monitoring tools
  * to check if the application is running and healthy.
+ *
+ * Uses the shared Prisma client to avoid connection pool exhaustion.
  */
 export async function GET() {
   try {
-    // Check database connection
+    // Check database connection using shared client
     await prisma.$queryRaw`SELECT 1`;
-    
+
     return NextResponse.json(
       {
         status: 'healthy',
@@ -25,8 +26,8 @@ export async function GET() {
       { status: 200 }
     );
   } catch (error) {
-    console.error('Health check failed:', error);
-    
+    apiLogger.error({ error }, 'Health check failed');
+
     return NextResponse.json(
       {
         status: 'unhealthy',
@@ -37,8 +38,6 @@ export async function GET() {
       },
       { status: 503 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 

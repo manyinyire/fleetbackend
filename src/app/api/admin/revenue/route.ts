@@ -7,9 +7,9 @@ import { subscriptionAnalyticsService } from '@/services/subscription-analytics.
 // GET /api/admin/revenue - Get revenue analytics data
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
+    const session = await auth.api.getSession({ headers: await headers() }) as any;
 
-    if (!session?.user || (session.user as any).role !== 'SUPER_ADMIN') {
+    if (!session?.user || session.user?.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

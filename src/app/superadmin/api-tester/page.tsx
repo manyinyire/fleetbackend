@@ -63,7 +63,7 @@ export default function APITesterPage() {
               API Tester Coming Soon
             </h2>
             <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              We're building an integrated API testing tool similar to Postman, but built right into your
+              We&apos;re building an integrated API testing tool similar to Postman, but built right into your
               admin panel. Test endpoints, save collections, and debug issues without leaving the platform.
             </p>
             <div className="mt-6">

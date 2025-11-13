@@ -1,6 +1,6 @@
 /**
  * PM2 Ecosystem Configuration
- * 
+ *
  * Usage:
  *   pm2 start ecosystem.config.js
  *   pm2 start ecosystem.config.js --env production
@@ -8,6 +8,12 @@
  *   pm2 restart ecosystem.config.js
  *   pm2 delete ecosystem.config.js
  *   pm2 logs ecosystem.config.js
+ *
+ * Environment Variables:
+ *   APP_DIR - Application directory (default: /var/www/fleetbackend)
+ *   LOG_DIR - Log directory (default: /var/log/pm2)
+ *   PORT - Application port (default: 3000)
+ *   PM2_INSTANCES - Number of instances (default: 2)
  */
 
 module.exports = {
@@ -16,21 +22,21 @@ module.exports = {
       name: 'fleetbackend',
       script: 'node_modules/next/dist/bin/next',
       args: 'start',
-      cwd: '/var/www/fleetbackend',
-      instances: 2, // Use 2 instances for better performance (or 'max' for all CPU cores)
+      cwd: process.env.APP_DIR || '/var/www/fleetbackend',
+      instances: process.env.PM2_INSTANCES || 2, // Use PM2_INSTANCES env var or default to 2
       exec_mode: 'cluster',
       env: {
         NODE_ENV: 'development',
-        PORT: 3000,
+        PORT: process.env.PORT || 3000,
       },
       env_production: {
         NODE_ENV: 'production',
-        PORT: 3000,
+        PORT: process.env.PORT || 3000,
       },
       // Logging
-      error_file: '/var/log/pm2/fleetbackend-error.log',
-      out_file: '/var/log/pm2/fleetbackend-out.log',
-      log_file: '/var/log/pm2/fleetbackend.log',
+      error_file: `${process.env.LOG_DIR || '/var/log/pm2'}/fleetbackend-error.log`,
+      out_file: `${process.env.LOG_DIR || '/var/log/pm2'}/fleetbackend-out.log`,
+      log_file: `${process.env.LOG_DIR || '/var/log/pm2'}/fleetbackend.log`,
       time: true,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,

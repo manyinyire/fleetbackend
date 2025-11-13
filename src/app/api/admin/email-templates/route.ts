@@ -6,9 +6,9 @@ import { prisma } from '@/lib/prisma';
 // GET /api/admin/email-templates - Get all email templates
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
+    const session = await auth.api.getSession({ headers: await headers() }) as any;
 
-    if (!session?.user || (session.user as any).role !== 'SUPER_ADMIN') {
+    if (!session?.user || session.user?.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -54,9 +54,9 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/email-templates - Create new email template
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
+    const session = await auth.api.getSession({ headers: await headers() }) as any;
 
-    if (!session?.user || (session.user as any).role !== 'SUPER_ADMIN') {
+    if (!session?.user || session.user?.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

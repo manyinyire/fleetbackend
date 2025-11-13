@@ -63,7 +63,7 @@ export default function ContentCMSPage() {
               Content CMS Coming Soon
             </h2>
             <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              We're building a powerful content management system to help you create and manage content
+              We&apos;re building a powerful content management system to help you create and manage content
               across your platform. This feature will include page management, media library, SEO tools,
               and more.
             </p>
@@ -115,7 +115,7 @@ export default function ContentCMSPage() {
                 Get Notified When Available
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Want to be the first to know when Content CMS is ready? We'll send you an update.
+                Want to be the first to know when Content CMS is ready? We&apos;ll send you an update.
               </p>
             </div>
             <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors whitespace-nowrap">

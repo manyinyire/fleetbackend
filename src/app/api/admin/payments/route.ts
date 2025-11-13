@@ -5,9 +5,9 @@ import { auth } from "@/lib/auth-server";
 export async function GET(request: NextRequest) {
   try {
     // Authenticate user
-    const session = await auth.api.getSession({ headers: request.headers });
+    const session = await auth.api.getSession({ headers: request.headers }) as any;
 
-    if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+    if (!session?.user || session.user?.role !== "SUPER_ADMIN") {
       return NextResponse.json(
         { error: "Unauthorized - Super Admin access required" },
         { status: 403 }
@@ -74,9 +74,9 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     // Authenticate user
-    const session = await auth.api.getSession({ headers: request.headers });
+    const session = await auth.api.getSession({ headers: request.headers }) as any;
 
-    if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+    if (!session?.user || session.user?.role !== "SUPER_ADMIN") {
       return NextResponse.json(
         { error: "Unauthorized - Super Admin access required" },
         { status: 403 }

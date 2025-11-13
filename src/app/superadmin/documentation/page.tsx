@@ -230,7 +230,7 @@ export default function DocumentationPage() {
       <Card>
         <CardHeader>
           <CardTitle>Need More Help?</CardTitle>
-          <CardDescription>Can't find what you're looking for?</CardDescription>
+          <CardDescription>Can&apos;t find what you&apos;re looking for?</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4">

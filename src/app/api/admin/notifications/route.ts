@@ -79,7 +79,7 @@ export async function PATCH(request: NextRequest) {
         data: {
           acknowledged: true,
           acknowledgedAt: new Date(),
-          acknowledgedBy: session.user?.id,
+          acknowledgedBy: (session as any).user?.id,
         },
       });
     } else if (action === 'unread') {

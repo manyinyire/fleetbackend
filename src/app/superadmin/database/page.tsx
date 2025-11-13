@@ -82,7 +82,7 @@ export default function DatabaseBrowserPage() {
               Database Browser Coming Soon
             </h2>
             <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              We're developing a secure and powerful database browser with comprehensive audit logging,
+              We&apos;re developing a secure and powerful database browser with comprehensive audit logging,
               role-based permissions, and safety features to help you manage your data with confidence.
             </p>
             <div className="mt-6 flex items-center justify-center gap-3">

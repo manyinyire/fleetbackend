@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    logger.error('Auto-invoice generation cron job error:', error);
+    logger.error({ error }, 'Auto-invoice generation cron job error');
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -116,7 +116,7 @@ async function autoGenerateInvoices() {
         throw new Error(`Plan configuration not found for ${tenant.plan}`);
       }
 
-      const amount = Number(planConfig.price);
+      const amount = Number(planConfig.monthlyPrice);
 
       // Generate invoice
       const { invoice, pdf } = await invoiceGenerator.generateInvoice({
@@ -130,28 +130,24 @@ async function autoGenerateInvoices() {
 
       logger.info(`Generated invoice ${invoice.invoiceNumber} for tenant ${tenant.id}`);
 
-      // Send payment notification email to tenant admin
+      // TODO: Send payment notification email to tenant admin
+      // Need to implement sendInvoiceNotificationEmail in email service
       const adminUser = tenant.users[0];
       if (adminUser) {
-        const emailSent = await emailService.sendInvoiceNotificationEmail(
-          adminUser.email,
-          {
-            invoiceNumber: invoice.invoiceNumber,
-            amount,
-            dueDate: invoice.dueDate.toLocaleDateString(),
-            companyName: tenant.name,
-            userName: adminUser.name,
-            plan: tenant.plan,
-            paymentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/billing/invoices/${invoice.id}/pay`
-          },
-          pdf
-        );
-
-        if (emailSent) {
-          logger.info(`Payment notification sent to ${adminUser.email} for invoice ${invoice.invoiceNumber}`);
-        } else {
-          logger.error(`Failed to send payment notification to ${adminUser.email}`);
-        }
+        logger.info(`Invoice generated for ${adminUser.email} - notification email not yet implemented`);
+        // const emailSent = await emailService.sendInvoiceNotificationEmail(
+        //   adminUser.email,
+        //   {
+        //     invoiceNumber: invoice.invoiceNumber,
+        //     amount,
+        //     dueDate: invoice.dueDate.toLocaleDateString(),
+        //     companyName: tenant.name,
+        //     userName: adminUser.name,
+        //     plan: tenant.plan,
+        //     paymentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/billing/invoices/${invoice.id}/pay`
+        //   },
+        //   pdf
+        // );
       }
 
       generated.push({
@@ -163,7 +159,7 @@ async function autoGenerateInvoices() {
       });
 
     } catch (error) {
-      logger.error(`Error generating invoice for tenant ${tenant.id}:`, error);
+      logger.error({ error, tenantId: tenant.id }, 'Error generating invoice for tenant');
       errors.push({
         tenantId: tenant.id,
         tenantName: tenant.name,

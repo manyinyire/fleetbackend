@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Passwords do not match' }, { status: 400 });
     }
 
-    // Use BetterAuth's changePassword method
+    // Use auth API's changePassword method
     const headersList = await headers();
     const result = await auth.api.changePassword({
       body: {

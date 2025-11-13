@@ -20,7 +20,7 @@ export class AuditLogger {
    */
   static async log(data: AuditLogData): Promise<void> {
     try {
-      const session = await auth.api.getSession({ headers: await headers() });
+      const session = await auth.api.getSession({ headers: await headers() }) as any;
       
       if (!session) {
         console.warn('No session available for audit logging');
