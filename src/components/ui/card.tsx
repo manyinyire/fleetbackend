@@ -8,7 +8,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-lg border border-neutral-200 bg-white text-neutral-950 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-50",
+        "rounded-xl border border-neutral-200 bg-white text-neutral-950 shadow-card transition-all duration-300 hover:shadow-card-2 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-50",
         className
       )}
       {...props}
@@ -35,7 +35,7 @@ export function CardTitle({
   return (
     <h3
       className={cn(
-        "text-2xl font-semibold leading-none tracking-tight",
+        "text-2xl font-display font-bold leading-none tracking-tight text-dark dark:text-white",
         className
       )}
       {...props}

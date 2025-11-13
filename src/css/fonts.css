@@ -1,0 +1,32 @@
+/**
+ * Distinctive Typography System
+ *
+ * Fraunces - Expressive variable serif for headings and display text
+ * Designed by: Undercase Type, Flavia Zimbardi, Google Fonts
+ * A super-variable font with optical sizing for maximum expressiveness
+ *
+ * Manrope - Modern geometric sans-serif for body text
+ * Designed by: Mikhail Sharanda
+ * Warm and friendly with excellent readability
+ */
+
+/* Fraunces - Variable serif for display/headings */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&display=swap');
+
+/* Manrope - Variable sans for body text */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap');
+
+/**
+ * Typography scale with distinctive character
+ */
+.font-display {
+  font-family: 'Fraunces', serif;
+  font-optical-sizing: auto;
+  font-variation-settings: 'SOFT' 0, 'WONK' 1;
+}
+
+.font-display-soft {
+  font-family: 'Fraunces', serif;
+  font-optical-sizing: auto;
+  font-variation-settings: 'SOFT' 100, 'WONK' 0;
+}

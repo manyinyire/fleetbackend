@@ -9,9 +9,9 @@ import { useToast } from "@/components/ui/toast";
 export default function ThemesPage() {
   const toast = useToast();
   const [settings, setSettings] = useState({
-    primaryColor: "#4F46E5",
-    secondaryColor: "#9333EA",
-    accentColor: "#06B6D4",
+    primaryColor: "#047857",
+    secondaryColor: "#F59E0B",
+    accentColor: "#D97706",
     mode: "system",
     borderRadius: "medium",
     fontSize: "medium",
@@ -22,67 +22,74 @@ export default function ThemesPage() {
   };
 
   const colorPresets = [
-    { name: "Indigo", primary: "#4F46E5", secondary: "#9333EA" },
-    { name: "Blue", primary: "#2563EB", secondary: "#0EA5E9" },
-    { name: "Purple", primary: "#9333EA", secondary: "#C026D3" },
-    { name: "Green", primary: "#16A34A", secondary: "#0D9488" },
-    { name: "Orange", primary: "#EA580C", secondary: "#F97316" },
-    { name: "Red", primary: "#DC2626", secondary: "#EF4444" },
+    { name: "Forest & Amber", primary: "#047857", secondary: "#F59E0B", description: "Organic, grounded" },
+    { name: "Ocean Depths", primary: "#0E7490", secondary: "#0891B2", description: "Deep, calm" },
+    { name: "Sunset Coral", primary: "#DC2626", secondary: "#F97316", description: "Warm, energetic" },
+    { name: "Midnight Slate", primary: "#334155", secondary: "#64748B", description: "Professional, modern" },
+    { name: "Royal Berry", primary: "#7C2D12", secondary: "#BE123C", description: "Rich, bold" },
+    { name: "Tropical Teal", primary: "#115E59", secondary: "#14B8A6", description: "Fresh, vibrant" },
   ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Theme Settings</h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Customize the look and feel of the admin portal
+          <h1 className="text-3xl font-display font-bold text-gradient-forest dark:text-white mb-1">
+            Theme Customization
+          </h1>
+          <p className="text-base text-dark-5 dark:text-dark-6 font-medium">
+            Craft a distinctive aesthetic that reflects your brand
           </p>
         </div>
-        <Button onClick={handleSave}>Save Changes</Button>
+        <Button onClick={handleSave} className="hover-lift">
+          Save Changes
+        </Button>
       </div>
 
       {/* Preview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Theme Preview</CardTitle>
-          <CardDescription>See how your theme looks in action</CardDescription>
+      <Card className="overflow-hidden hover-lift animate-fade-in-scale" style={{ animationDelay: '0.1s' }}>
+        <CardHeader className="bg-geometric-pattern">
+          <CardTitle className="font-display">Live Theme Preview</CardTitle>
+          <CardDescription>See your palette come to life</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div
-            className="p-6 rounded-lg border-2 border-gray-200 dark:border-gray-700"
+            className="p-8 rounded-xl border-2 border-gray-200 dark:border-gray-700 transition-all"
             style={{
-              background: `linear-gradient(135deg, ${settings.primaryColor}15 0%, ${settings.secondaryColor}15 100%)`,
+              background: `linear-gradient(135deg, ${settings.primaryColor}18 0%, ${settings.secondaryColor}18 100%)`,
             }}
           >
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
-                  className="px-4 py-2 rounded text-white transition-colors"
+                  className="px-6 py-3 rounded-lg text-white font-medium transition-all hover:scale-105 hover:shadow-lg"
                   style={{ backgroundColor: settings.primaryColor }}
                 >
-                  Primary Button
+                  Primary Action
                 </button>
                 <button
-                  className="px-4 py-2 rounded text-white transition-colors"
+                  className="px-6 py-3 rounded-lg text-white font-medium transition-all hover:scale-105 hover:shadow-lg"
                   style={{ backgroundColor: settings.secondaryColor }}
                 >
-                  Secondary Button
+                  Secondary Action
                 </button>
                 <button
-                  className="px-4 py-2 rounded text-white transition-colors"
+                  className="px-6 py-3 rounded-lg text-white font-medium transition-all hover:scale-105 hover:shadow-lg"
                   style={{ backgroundColor: settings.accentColor }}
                 >
-                  Accent Button
+                  Accent Action
                 </button>
               </div>
               <div
-                className="p-4 rounded"
-                style={{ backgroundColor: `${settings.primaryColor}20` }}
+                className="p-5 rounded-xl backdrop-blur-sm border border-opacity-20"
+                style={{
+                  backgroundColor: `${settings.primaryColor}25`,
+                  borderColor: settings.primaryColor
+                }}
               >
-                <p className="text-sm" style={{ color: settings.primaryColor }}>
-                  This is an example of a colored section with your primary color
+                <p className="text-sm font-medium leading-relaxed" style={{ color: settings.primaryColor }}>
+                  Your brand colors create atmosphere and depth across every interface element
                 </p>
               </div>
             </div>
@@ -159,11 +166,11 @@ export default function ThemesPage() {
             </div>
 
             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Color Presets
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                Distinctive Color Palettes
               </label>
-              <div className="grid grid-cols-3 gap-2">
-                {colorPresets.map((preset) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {colorPresets.map((preset, idx) => (
                   <button
                     key={preset.name}
                     onClick={() =>
@@ -173,21 +180,27 @@ export default function ThemesPage() {
                         secondaryColor: preset.secondary,
                       })
                     }
-                    className="flex items-center gap-2 p-2 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors"
+                    className="group relative flex items-center gap-3 p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all hover:shadow-md"
+                    style={{ animationDelay: `${0.1 + idx * 0.05}s` }}
                   >
-                    <div className="flex gap-1">
+                    <div className="flex gap-1.5">
                       <div
-                        className="w-4 h-4 rounded"
+                        className="w-8 h-8 rounded-lg shadow-sm group-hover:scale-110 transition-transform"
                         style={{ backgroundColor: preset.primary }}
                       />
                       <div
-                        className="w-4 h-4 rounded"
+                        className="w-8 h-8 rounded-lg shadow-sm group-hover:scale-110 transition-transform"
                         style={{ backgroundColor: preset.secondary }}
                       />
                     </div>
-                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      {preset.name}
-                    </span>
+                    <div className="flex-1 text-left">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {preset.name}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {preset.description}
+                      </div>
+                    </div>
                   </button>
                 ))}
               </div>
