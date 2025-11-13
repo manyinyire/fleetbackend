@@ -99,6 +99,9 @@ class InvoiceGenerator {
     const tax = subtotal * 0.15; // 15% tax (adjust as needed)
     const total = subtotal + tax;
 
+    // Auto-mark $0 invoices as PAID
+    const isPaidInvoice = total === 0;
+
     // Create invoice in database
     const invoice = await prisma.invoice.create({
       data: {
@@ -110,6 +113,9 @@ class InvoiceGenerator {
         plan: data.plan,
         billingPeriod: data.billingPeriod,
         description: data.description,
+        status: isPaidInvoice ? 'PAID' : 'PENDING',
+        paidAt: isPaidInvoice ? new Date() : null,
+        paymentMethod: isPaidInvoice ? 'FREE' : null,
       }
     });
 

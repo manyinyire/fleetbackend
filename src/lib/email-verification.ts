@@ -65,16 +65,42 @@ class EmailVerificationService {
 
   async verifyEmail(token: string): Promise<{ success: boolean; message: string }> {
     const result = await this.verifyToken(token, 'EMAIL_VERIFICATION');
-    
+
     if (!result.valid) {
       return { success: false, message: 'Invalid or expired verification token' };
     }
 
     // Update user's email verification status
-    await prisma.user.update({
+    const user = await prisma.user.update({
       where: { id: result.userId! },
-      data: { emailVerified: true }
+      data: { emailVerified: true },
+      include: { tenant: true }
     });
+
+    // Send welcome email after successful verification
+    try {
+      await emailService.sendWelcomeEmail(
+        user.email,
+        user.name,
+        user.tenant?.plan || 'FREE'
+      );
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+      // Don't fail the verification if email fails
+    }
+
+    // Send admin notification about new registration
+    try {
+      await emailService.sendAdminNewRegistrationAlert(
+        user.tenant?.name || 'Unknown Company',
+        user.name,
+        user.email,
+        user.tenant?.plan || 'FREE'
+      );
+    } catch (error) {
+      console.error('Failed to send admin registration alert:', error);
+      // Don't fail the verification if admin email fails
+    }
 
     return { success: true, message: 'Email verified successfully' };
   }
