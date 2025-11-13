@@ -153,26 +153,42 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     filters: { search, status, plan }
   }, 'Fetched tenants list');
 
+  // Calculate stats for frontend compatibility
+  const stats = {
+    total,
+    active: statusStats.find(s => s.status === 'ACTIVE')?._count.status || 0,
+    trial: tenants.filter(t => t.isInTrial).length,
+    suspended: statusStats.find(s => s.status === 'SUSPENDED')?._count.status || 0,
+    cancelled: statusStats.find(s => s.status === 'CANCELED')?._count.status || 0,
+    free: planStats.find(p => p.plan === 'FREE')?._count.plan || 0,
+    basic: planStats.find(p => p.plan === 'BASIC')?._count.plan || 0,
+    premium: planStats.find(p => p.plan === 'PREMIUM')?._count.plan || 0,
+  };
+
   return NextResponse.json({
-    tenants: tenantsWithMetrics,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-      hasMore: page < Math.ceil(total / limit),
-    },
-    summary: {
-      total,
-      byStatus: statusStats.map(stat => ({
-        status: stat.status,
-        count: stat._count.status
-      })),
-      byPlan: planStats.map(stat => ({
-        plan: stat.plan,
-        count: stat._count.plan
-      })),
-      totalRevenue: Number(totalRevenue._sum.monthlyRevenue || 0),
+    success: true,
+    data: {
+      tenants: tenantsWithMetrics,
+      stats,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasMore: page < Math.ceil(total / limit),
+      },
+      summary: {
+        total,
+        byStatus: statusStats.map(stat => ({
+          status: stat.status,
+          count: stat._count.status
+        })),
+        byPlan: planStats.map(stat => ({
+          plan: stat.plan,
+          count: stat._count.plan
+        })),
+        totalRevenue: Number(totalRevenue._sum.monthlyRevenue || 0),
+      }
     }
   });
 }, 'superadmin-tenants:GET');

@@ -119,7 +119,7 @@ export function TenantGrowthChart({ data }: TenantGrowthChartProps) {
     xaxis: {
       categories: data.map(d => {
         const date = new Date(d.date);
-        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        return date.toLocaleDateString('en-US', { month: 'short' });
       }),
       labels: {
         style: {

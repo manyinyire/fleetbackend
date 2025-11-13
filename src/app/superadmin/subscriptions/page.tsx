@@ -12,6 +12,7 @@ interface SubscriptionItem {
   status: string;
   isInTrial: boolean;
   trialEndsAt: string | null;
+  subscriptionStart: string | null;
   nextBilling: string | null;
   autoRenew: boolean;
   monthlyRevenue: number;
@@ -232,6 +233,7 @@ export default function SubscriptionsPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tenant</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Plan</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Start Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Next Billing</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Trial Ends</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">MRR</th>
@@ -252,7 +254,10 @@ export default function SubscriptionsPage() {
                       ) : null}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                      {sub.nextBilling ? new Date(sub.nextBilling).toLocaleDateString() : "—"}
+                      {sub.subscriptionStart ? new Date(sub.subscriptionStart).toLocaleDateString() : "—"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                      {sub.plan !== 'FREE' && sub.nextBilling ? new Date(sub.nextBilling).toLocaleDateString() : "—"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                       {sub.trialEndsAt ? new Date(sub.trialEndsAt).toLocaleDateString() : "—"}

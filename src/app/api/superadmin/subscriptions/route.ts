@@ -102,9 +102,22 @@ export async function GET(request: NextRequest) {
     ]);
 
     const subscriptionItems = tenants.map((tenant) => {
-      const nextBilling = tenant.subscriptionEndDate
-        ? tenant.subscriptionEndDate.toISOString()
-        : null;
+      // Free subscriptions: Show only Start Date, no Next Billing
+      // Paid subscriptions: Calculate Next Billing as one month from Start Date
+      let nextBilling = null;
+
+      if (tenant.plan !== 'FREE' && tenant.subscriptionStartDate) {
+        // For paid subscriptions, calculate next billing as one month from start date
+        const startDate = new Date(tenant.subscriptionStartDate);
+        const nextBillingDate = new Date(startDate);
+        nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+        nextBilling = nextBillingDate.toISOString();
+
+        // If subscriptionEndDate exists and is set, use it instead
+        if (tenant.subscriptionEndDate) {
+          nextBilling = tenant.subscriptionEndDate.toISOString();
+        }
+      }
 
       return {
         id: tenant.id,

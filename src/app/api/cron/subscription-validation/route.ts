@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { successResponse } from '@/lib/api-middleware';
 import { prisma } from '@/lib/prisma';
 import { apiLogger } from '@/lib/logger';
+import { emailService } from '@/lib/email';
 
 /**
  * POST /api/cron/subscription-validation
@@ -105,8 +106,32 @@ export async function POST(request: NextRequest) {
           'Tenant suspended due to expired subscription'
         );
 
-        // TODO: Send email notification to tenant about suspension
-        // await sendSuspensionNotification(tenant.email, tenant.name);
+        // Send email notification to tenant about suspension
+        if (tenant.users.length > 0) {
+          const adminUser = tenant.users[0];
+          try {
+            await emailService.sendAccountSuspendedEmail(
+              adminUser.email,
+              {
+                tenantName: tenant.name,
+                userName: adminUser.name,
+                reason: tenant.isInTrial ? 'Trial period expired' : 'Subscription expired',
+                suspendedDate: now.toLocaleDateString(),
+                renewalUrl: `${process.env.NEXT_PUBLIC_APP_URL}/billing/plans`,
+                supportEmail: process.env.SUPPORT_EMAIL || 'support@example.com'
+              }
+            );
+            apiLogger.info(
+              { email: adminUser.email, tenantId: tenant.id },
+              'Suspension notification email sent'
+            );
+          } catch (emailError) {
+            apiLogger.error(
+              { err: emailError, email: adminUser.email, tenantId: tenant.id },
+              'Failed to send suspension notification email'
+            );
+          }
+        }
       } catch (error) {
         apiLogger.error(
           { err: error, tenantId: tenant.id },
@@ -158,6 +183,14 @@ export async function POST(request: NextRequest) {
 
     for (const tenant of tenantsWithOverdueInvoices) {
       try {
+        // Get admin user for email notification
+        const adminUser = await prisma.user.findFirst({
+          where: {
+            tenantId: tenant.id,
+            role: 'TENANT_ADMIN'
+          }
+        });
+
         await prisma.tenant.update({
           where: { id: tenant.id },
           data: {
@@ -199,6 +232,43 @@ export async function POST(request: NextRequest) {
           },
           'Tenant suspended due to overdue invoices'
         );
+
+        // Send email notification to tenant admin about suspension due to failed payment
+        if (adminUser) {
+          try {
+            const totalOverdueAmount = tenant.invoices.reduce(
+              (sum, invoice) => sum + Number(invoice.amount),
+              0
+            );
+
+            await emailService.sendAccountSuspendedEmail(
+              adminUser.email,
+              {
+                tenantName: tenant.name,
+                userName: adminUser.name,
+                reason: `Failed/missed payment - ${tenant.invoices.length} overdue invoice(s)`,
+                suspendedDate: now.toLocaleDateString(),
+                overdueAmount: totalOverdueAmount,
+                overdueInvoices: tenant.invoices.map(inv => ({
+                  invoiceNumber: inv.invoiceNumber,
+                  amount: Number(inv.amount),
+                  dueDate: inv.dueDate.toLocaleDateString()
+                })),
+                paymentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/billing/invoices`,
+                supportEmail: process.env.SUPPORT_EMAIL || 'support@example.com'
+              }
+            );
+            apiLogger.info(
+              { email: adminUser.email, tenantId: tenant.id },
+              'Suspension notification email sent for overdue payment'
+            );
+          } catch (emailError) {
+            apiLogger.error(
+              { err: emailError, email: adminUser.email, tenantId: tenant.id },
+              'Failed to send suspension notification email for overdue payment'
+            );
+          }
+        }
       } catch (error) {
         apiLogger.error(
           { err: error, tenantId: tenant.id },
