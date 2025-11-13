@@ -586,3 +586,43 @@ input[type="search"]::-webkit-search-cancel-button {
   transform: translateY(-4px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
 }
+
+/* Mobile Responsiveness Enhancements */
+@media (max-width: 640px) {
+  /* Ensure touch-friendly button sizes */
+  button,
+  a[role="button"],
+  input[type="button"],
+  input[type="submit"] {
+    min-height: 44px;
+  }
+
+  /* Better mobile padding for cards */
+  .card-mobile-padding {
+    padding: 1rem;
+  }
+
+  /* Prevent animations on mobile to improve performance */
+  .stagger-fade-in > * {
+    animation: none;
+    opacity: 1;
+  }
+
+  /* Disable hover effects on mobile */
+  .hover-lift:hover {
+    transform: none;
+  }
+
+  /* Better mobile typography */
+  h1, h2, h3 {
+    word-wrap: break-word;
+  }
+}
+
+/* Tablet-specific adjustments */
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* Ensure readable text on tablets */
+  body {
+    font-size: 15px;
+  }
+}

@@ -58,7 +58,7 @@ export default async function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-24 pb-16 px-4 sm:px-6">
+      <section className="pt-20 sm:pt-24 pb-12 sm:pb-16 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           <div className="max-w-3xl mx-auto text-center mb-12">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/5 dark:bg-primary/10 text-primary-dark dark:text-primary-light text-sm rounded-full mb-6">
@@ -68,23 +68,23 @@ export default async function LandingPage() {
               Trusted by 500+ fleet managers
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-bold text-gradient-forest dark:text-white mb-6 leading-tight animate-fade-in">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-bold text-gradient-forest dark:text-white mb-4 sm:mb-6 leading-tight animate-fade-in">
               Fleet management made simple
             </h1>
 
-            <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 mb-8 leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-6 sm:mb-8 leading-relaxed">
               Everything you need to run your fleet efficiently. Track vehicles, manage drivers, and monitor finances—all in one place.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center mb-6 sm:mb-8 max-w-md mx-auto sm:max-w-none">
               <Link
                 href="/auth/sign-up"
-                className="w-full sm:w-auto px-6 py-3 bg-primary dark:bg-primary-light text-white rounded hover:bg-primary-dark dark:hover:bg-primary text-center"
+                className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-3.5 bg-primary dark:bg-primary-light text-white text-base font-semibold rounded-lg hover:bg-primary-dark dark:hover:bg-primary text-center transition-all hover:shadow-lg active:scale-[0.98]"
               >
                 Start for free
               </Link>
 
-              <button className="w-full sm:w-auto px-6 py-3 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-800">
+              <button className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-3.5 border-2 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-base font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all active:scale-[0.98]">
                 Watch demo
               </button>
             </div>
@@ -173,18 +173,18 @@ export default async function LandingPage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-16 px-4 sm:px-6 bg-gray-50 dark:bg-gray-800">
+      <section className="py-12 sm:py-16 px-4 sm:px-6 bg-gray-50 dark:bg-gray-800">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
               Built for efficiency
             </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
+            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300">
               Real results from fleet managers using our platform
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
             {[
               {
                 metric: "20+ hours",
@@ -202,12 +202,12 @@ export default async function LandingPage() {
                 description: "Reduce waste and optimize operations",
               },
             ].map((item, i) => (
-              <div key={i} className="bg-white dark:bg-gray-900 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-                <div className="text-3xl font-bold text-primary dark:text-primary-light mb-2">
+              <div key={i} className="bg-white dark:bg-gray-900 rounded-xl p-5 sm:p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+                <div className="text-2xl sm:text-3xl font-display font-bold text-primary dark:text-primary-light mb-2">
                   {item.metric}
                 </div>
-                <div className="text-lg font-medium text-gray-900 dark:text-white mb-2">{item.label}</div>
-                <p className="text-gray-600 dark:text-gray-400">{item.description}</p>
+                <div className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1 sm:mb-2">{item.label}</div>
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">{item.description}</p>
               </div>
             ))}
           </div>
@@ -215,18 +215,18 @@ export default async function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-16 px-4 sm:px-6">
+      <section id="features" className="py-12 sm:py-16 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
               Everything you need
             </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
+            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300">
               Powerful features designed for fleet operations
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
             {[
               {
                 title: "Vehicle Management",
@@ -285,14 +285,14 @@ export default async function LandingPage() {
             ].map((feature, i) => (
               <div
                 key={i}
-                className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+                className="bg-white dark:bg-gray-800 rounded-xl p-5 sm:p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all hover:-translate-y-1"
               >
-                <div className="text-primary dark:text-primary-light mb-4">
+                <div className="text-primary dark:text-primary-light mb-3 sm:mb-4">
                   {feature.icon}
                 </div>
 
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{feature.title}</h3>
-                <p className="text-gray-600 dark:text-gray-400">{feature.description}</p>
+                <h3 className="text-base sm:text-lg font-display font-bold text-gray-900 dark:text-white mb-2">{feature.title}</h3>
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 leading-relaxed">{feature.description}</p>
               </div>
             ))}
           </div>

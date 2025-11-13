@@ -31,18 +31,18 @@ export default function ThemesPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 animate-fade-in">
         <div>
-          <h1 className="text-3xl font-display font-bold text-gradient-forest dark:text-white mb-1">
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-gradient-forest dark:text-white mb-1">
             Theme Customization
           </h1>
-          <p className="text-base text-dark-5 dark:text-dark-6 font-medium">
+          <p className="text-sm sm:text-base text-dark-5 dark:text-dark-6 font-medium">
             Craft a distinctive aesthetic that reflects your brand
           </p>
         </div>
-        <Button onClick={handleSave} className="hover-lift">
+        <Button onClick={handleSave} className="hover-lift w-full sm:w-auto" size="lg">
           Save Changes
         </Button>
       </div>
@@ -97,7 +97,7 @@ export default function ThemesPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Color Settings */}
         <Card>
           <CardHeader>
