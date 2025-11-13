@@ -34,15 +34,15 @@ export function SuperAdminHeader() {
         </Link>
       )}
 
-      <div className="max-xl:hidden animate-slide-in-left">
-        <h1 className="mb-0.5 text-heading-5 font-display font-bold text-gradient-forest dark:text-white">
-          Super Admin Dashboard
+      <div className="hidden md:block lg:flex-1 animate-slide-in-left">
+        <h1 className="mb-0.5 text-lg lg:text-heading-5 font-display font-bold text-gradient-forest dark:text-white">
+          Super Admin<span className="hidden lg:inline"> Dashboard</span>
         </h1>
-        <p className="font-medium text-dark-5 dark:text-dark-6">Platform Management & Monitoring</p>
+        <p className="hidden lg:block font-medium text-dark-5 dark:text-dark-6 text-sm">Platform Management & Monitoring</p>
       </div>
 
-      <div className="flex flex-1 items-center justify-end gap-2 min-[375px]:gap-4">
-        <div className="relative w-full max-w-[300px]">
+      <div className="flex flex-1 md:flex-initial items-center justify-end gap-2 min-[375px]:gap-3 sm:gap-4">
+        <div className="relative w-full max-w-[200px] sm:max-w-[250px] md:max-w-[300px]">
           <input
             type="search"
             placeholder="Search tenants, users, or system..."

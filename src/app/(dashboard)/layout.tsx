@@ -11,14 +11,16 @@ export default async function DashboardLayout({ children }: PropsWithChildren) {
   await requireTenantForDashboard();
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-atmospheric">
       <Sidebar />
 
-      <div className="w-full bg-gray-2 dark:bg-[#020d1a]">
+      <div className="w-full bg-white bg-organic-texture dark:bg-[#020d1a]">
         <Header />
 
         <main className="isolate mx-auto w-full max-w-screen-2xl overflow-hidden p-4 md:p-6 2xl:p-10">
-          {children}
+          <div className="stagger-fade-in">
+            {children}
+          </div>
         </main>
       </div>
     </div>
