@@ -7,7 +7,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Satoshi', ...defaultTheme.fontFamily.sans],
+        sans: ['Manrope', ...defaultTheme.fontFamily.sans],
+        serif: ['Fraunces', ...defaultTheme.fontFamily.serif],
+        display: ['Fraunces', ...defaultTheme.fontFamily.serif],
       },
       screens: {
         "2xsm": "375px",
@@ -18,7 +20,12 @@ const config: Config = {
         current: "currentColor",
         transparent: "transparent",
         white: "#FFFFFF",
-        primary: "#5750F1",
+        primary: "#047857", // Forest emerald
+        "primary-dark": "#065F46", // Deep forest
+        "primary-light": "#059669", // Light emerald
+        accent: "#F59E0B", // Warm amber
+        "accent-dark": "#D97706", // Deep amber/terracotta
+        "accent-light": "#FBBF24", // Light amber
         stroke: "#E6EBF1",
         "stroke-dark": "#27303E",
         dark: {
@@ -268,6 +275,12 @@ const config: Config = {
       },
       backgroundImage: {
         video: "url('../images/video/video.png')",
+        'forest-gradient': 'linear-gradient(135deg, #064E3B 0%, #047857 50%, #059669 100%)',
+        'amber-gradient': 'linear-gradient(135deg, #D97706 0%, #F59E0B 50%, #FBBF24 100%)',
+        'forest-amber': 'linear-gradient(135deg, #064E3B 0%, #047857 40%, #F59E0B 100%)',
+        'organic-mesh': 'radial-gradient(at 0% 0%, rgba(6, 78, 59, 0.3) 0, transparent 50%), radial-gradient(at 100% 0%, rgba(245, 158, 11, 0.2) 0, transparent 50%), radial-gradient(at 100% 100%, rgba(4, 120, 87, 0.3) 0, transparent 50%), radial-gradient(at 0% 100%, rgba(217, 119, 6, 0.2) 0, transparent 50%)',
+        'subtle-pattern': 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(4, 120, 87, 0.03) 10px, rgba(4, 120, 87, 0.03) 20px)',
+        'depth-layers': 'linear-gradient(180deg, rgba(6, 95, 70, 0.05) 0%, transparent 100%), linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(4, 120, 87, 0.05) 100%)',
       },
       content: {
         "icon-copy": 'url("../images/icon/icon-copy-alt.svg")',
@@ -356,6 +369,30 @@ const config: Config = {
           "0%, 100%": { transform: "translateY(100%)" },
           "50%": { transform: "translateY(0)" },
         },
+        "fade-in": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-in-scale": {
+          "0%": { opacity: "0", transform: "scale(0.95)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "slide-in-right": {
+          "0%": { opacity: "0", transform: "translateX(20px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        "slide-in-left": {
+          "0%": { opacity: "0", transform: "translateX(-20px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        "pulse-subtle": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.8" },
+        },
       },
       animation: {
         linspin: "linspin 1568.2353ms linear infinite",
@@ -374,6 +411,12 @@ const config: Config = {
         line1: "line 10s infinite linear",
         line2: "line-revert 8s infinite linear",
         line3: "line 7s infinite linear",
+        "fade-in": "fade-in 0.6s ease-out forwards",
+        "fade-in-scale": "fade-in-scale 0.5s ease-out forwards",
+        "slide-in-right": "slide-in-right 0.5s ease-out forwards",
+        "slide-in-left": "slide-in-left 0.5s ease-out forwards",
+        "float": "float 3s ease-in-out infinite",
+        "pulse-subtle": "pulse-subtle 2s ease-in-out infinite",
       },
     },
   },

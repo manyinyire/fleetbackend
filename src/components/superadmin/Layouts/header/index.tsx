@@ -13,17 +13,17 @@ export function SuperAdminHeader() {
   const { toggleSidebar, isMobile } = useSidebarContext();
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-stroke bg-white px-4 py-5 shadow-1 dark:border-stroke-dark dark:bg-gray-dark md:px-5 2xl:px-10">
+    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-stroke bg-white/80 backdrop-blur-lg px-4 py-5 shadow-1 dark:border-stroke-dark dark:bg-gray-dark/80 md:px-5 2xl:px-10 transition-smooth">
       <button
         onClick={toggleSidebar}
-        className="rounded-lg border px-1.5 py-1 dark:border-stroke-dark dark:bg-[#020D1A] hover:dark:bg-[#FFFFFF1A] lg:hidden"
+        className="rounded-lg border px-1.5 py-1 dark:border-stroke-dark dark:bg-[#020D1A] hover:dark:bg-[#FFFFFF1A] hover:border-primary transition-smooth lg:hidden"
       >
         <MenuIcon />
         <span className="sr-only">Toggle Sidebar</span>
       </button>
 
       {isMobile && (
-        <Link href={"/superadmin/dashboard"} className="ml-2 max-[430px]:hidden min-[375px]:ml-4">
+        <Link href={"/superadmin/dashboard"} className="ml-2 max-[430px]:hidden min-[375px]:ml-4 hover-lift">
           <Image
             src={"/images/logo/logo-icon.svg"}
             width={32}
@@ -34,11 +34,11 @@ export function SuperAdminHeader() {
         </Link>
       )}
 
-      <div className="max-xl:hidden">
-        <h1 className="mb-0.5 text-heading-5 font-bold text-dark dark:text-white">
+      <div className="max-xl:hidden animate-slide-in-left">
+        <h1 className="mb-0.5 text-heading-5 font-display font-bold text-gradient-forest dark:text-white">
           Super Admin Dashboard
         </h1>
-        <p className="font-medium">Platform Management & Monitoring</p>
+        <p className="font-medium text-dark-5 dark:text-dark-6">Platform Management & Monitoring</p>
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-2 min-[375px]:gap-4">

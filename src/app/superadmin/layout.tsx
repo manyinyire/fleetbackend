@@ -58,20 +58,22 @@ export default function SuperAdminLayout({ children }: PropsWithChildren) {
         </>
       )}
 
-      <NextTopLoader color="#1e3a8a" showSpinner={false} />
+      <NextTopLoader color="#047857" showSpinner={false} />
       <AnalyticsTracker />
 
       <ToastProvider>
         <SidebarProvider>
-          <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+          <div className="flex min-h-screen bg-atmospheric bg-gray-50 dark:bg-gray-900">
             <SuperAdminSidebar />
 
-            <div className="w-full bg-white dark:bg-gray-800">
+            <div className="w-full bg-white bg-organic-texture dark:bg-gray-800">
               <ImpersonationBanner />
               <SuperAdminHeader />
 
               <main className="isolate mx-auto w-full max-w-screen-2xl overflow-hidden p-4 md:p-6 2xl:p-10">
-                {children}
+                <div className="stagger-fade-in">
+                  {children}
+                </div>
               </main>
             </div>
           </div>
