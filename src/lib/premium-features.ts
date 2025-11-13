@@ -252,8 +252,35 @@ export interface FeatureCheckResult {
 export class PremiumFeatureService {
   /**
    * Get plan limits for a specific plan
+   * First checks database for custom configuration, falls back to defaults
    */
-  static getPlanLimits(plan: SubscriptionPlan): PlanLimits {
+  static async getPlanLimits(plan: SubscriptionPlan): Promise<PlanLimits> {
+    try {
+      // Try to get configuration from database
+      const planConfig = await prisma.planConfiguration.findUnique({
+        where: { plan }
+      });
+
+      // If database config exists and has limits, merge with defaults
+      if (planConfig?.limits && typeof planConfig.limits === 'object') {
+        return {
+          ...PLAN_LIMITS[plan],
+          ...(planConfig.limits as Partial<PlanLimits>)
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching plan configuration from database:', error);
+    }
+
+    // Fall back to hardcoded defaults
+    return PLAN_LIMITS[plan];
+  }
+
+  /**
+   * Get plan limits synchronously (for backwards compatibility)
+   * Note: This only returns hardcoded limits and does not check database
+   */
+  static getPlanLimitsSync(plan: SubscriptionPlan): PlanLimits {
     return PLAN_LIMITS[plan];
   }
 
@@ -270,7 +297,7 @@ export class PremiumFeatureService {
       throw new Error("Tenant not found");
     }
 
-    return this.getPlanLimits(tenant.plan);
+    return await this.getPlanLimits(tenant.plan);
   }
 
   /**
@@ -291,7 +318,7 @@ export class PremiumFeatureService {
       return { allowed: false, reason: "Tenant not found" };
     }
 
-    const limits = this.getPlanLimits(tenant.plan);
+    const limits = await this.getPlanLimits(tenant.plan);
     const currentCount = tenant._count.vehicles;
 
     if (limits.vehicles === "unlimited") {
@@ -335,7 +362,7 @@ export class PremiumFeatureService {
       return { allowed: false, reason: "Tenant not found" };
     }
 
-    const limits = this.getPlanLimits(tenant.plan);
+    const limits = await this.getPlanLimits(tenant.plan);
     const currentCount = tenant._count.drivers;
 
     if (limits.drivers === "unlimited") {
@@ -381,7 +408,7 @@ export class PremiumFeatureService {
       return { allowed: false, reason: "Tenant not found" };
     }
 
-    const limits = this.getPlanLimits(tenant.plan);
+    const limits = await this.getPlanLimits(tenant.plan);
     const currentUserCount = tenant.users.length;
     const currentAdminCount = tenant.users.filter(u =>
       u.role?.includes('TENANT_ADMIN') || u.role?.includes('admin')
@@ -436,7 +463,7 @@ export class PremiumFeatureService {
       return { allowed: false, reason: "Tenant not found" };
     }
 
-    const limits = this.getPlanLimits(tenant.plan);
+    const limits = await this.getPlanLimits(tenant.plan);
     const hasAccess = limits[feature];
 
     if (typeof hasAccess === 'boolean' && !hasAccess) {
@@ -465,7 +492,7 @@ export class PremiumFeatureService {
       return { allowed: false, reason: "Tenant not found" };
     }
 
-    const limits = this.getPlanLimits(tenant.plan);
+    const limits = await this.getPlanLimits(tenant.plan);
 
     if (!limits.apiAccess) {
       const nextPlan = this.getNextPlan(tenant.plan);
@@ -538,7 +565,7 @@ export class PremiumFeatureService {
       throw new Error("Tenant not found");
     }
 
-    const limits = this.getPlanLimits(tenant.plan);
+    const limits = await this.getPlanLimits(tenant.plan);
     const adminCount = tenant.users.filter(u =>
       u.role?.includes('TENANT_ADMIN') || u.role?.includes('admin')
     ).length;

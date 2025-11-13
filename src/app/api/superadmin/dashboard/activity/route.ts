@@ -59,23 +59,39 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Get recent payment failures (mock data for now)
-    const paymentFailures = [
-      {
-        id: 'pf-1',
-        tenant: 'ABC Transport',
-        amount: 45.00,
-        reason: 'Card declined',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+    // Get recent payment failures from actual payment gateway data
+    const recentPaymentFailures = await prisma.payment.findMany({
+      where: {
+        status: 'FAILED',
+        createdAt: {
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
+        }
       },
-      {
-        id: 'pf-2',
-        tenant: 'XYZ Fleet',
-        amount: 15.00,
-        reason: 'Expired card',
-        timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      include: {
+        tenant: {
+          select: {
+            name: true,
+            email: true
+          }
+        },
+        invoice: {
+          select: {
+            invoiceNumber: true
+          }
+        }
       }
-    ];
+    });
+
+    const paymentFailures = recentPaymentFailures.map(payment => ({
+      id: payment.id,
+      tenant: payment.tenant.name,
+      amount: parseFloat(payment.amount.toString()),
+      reason: payment.errorMessage || 'Payment failed',
+      timestamp: payment.createdAt.toISOString(),
+      invoiceNumber: payment.invoice.invoiceNumber
+    }));
 
     // Get recent support tickets (mock data for now)
     const supportTickets = [
