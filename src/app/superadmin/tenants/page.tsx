@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
+import {
   MagnifyingGlassIcon,
   FunnelIcon,
   PlusIcon,
@@ -16,6 +16,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { superAdminAPI } from "@/lib/superadmin-api";
 import { CreateTenantModal } from "@/components/superadmin/CreateTenantModal";
+import { useToast } from "@/components/ui/toast";
 
 interface Tenant {
   id: string;
@@ -47,6 +48,7 @@ const planColors = {
 };
 
 export default function TenantsPage() {
+  const toast = useToast();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,31 +98,26 @@ export default function TenantsPage() {
 
   const handleBulkAction = (action: string) => {
     if (selectedTenants.length === 0) {
-      alert('Please select tenants first');
+      toast.warning('Please select tenants first');
       return;
     }
 
     switch (action) {
       case 'change-plan':
-        // Implement change plan logic
-        console.log('Change plan for:', selectedTenants);
+        toast.info('Bulk change plan feature coming soon');
         break;
       case 'suspend':
-        // Implement suspend logic
-        console.log('Suspend:', selectedTenants);
+        toast.info('Bulk suspend feature coming soon');
         break;
       case 'email':
-        // Implement email logic
-        console.log('Email:', selectedTenants);
+        toast.info('Bulk email feature coming soon');
         break;
       case 'export':
-        // Implement export logic
-        console.log('Export:', selectedTenants);
+        toast.info('Export feature coming soon');
         break;
       case 'delete':
         if (confirm('Are you sure you want to delete the selected tenants?')) {
-          // Implement delete logic
-          console.log('Delete:', selectedTenants);
+          toast.info('Bulk delete feature coming soon');
         }
         break;
     }
@@ -138,9 +135,10 @@ export default function TenantsPage() {
         if (confirm('Are you sure you want to delete this tenant? This action cannot be undone.')) {
           try {
             await superAdminAPI.deleteTenant(tenantId);
+            toast.success('Tenant deleted successfully');
             loadTenants();
           } catch (err) {
-            alert('Failed to delete tenant');
+            toast.error('Failed to delete tenant');
           }
         }
         break;

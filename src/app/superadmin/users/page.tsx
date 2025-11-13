@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
+import {
   MagnifyingGlassIcon,
   FunnelIcon,
   PlusIcon,
@@ -16,6 +16,8 @@ import {
   ShieldCheckIcon
 } from "@heroicons/react/24/outline";
 import { superAdminAPI } from "@/lib/superadmin-api";
+import { useToast } from "@/components/ui/toast";
+import { BanUserModal, ChangeRoleModal, ConfirmDialog } from "@/components/superadmin/UserActionModals";
 
 interface User {
   id: string;
@@ -77,6 +79,7 @@ const formatLastLogin = (lastLogin?: string) => {
 };
 
 export default function UsersPage() {
+  const toast = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +95,13 @@ export default function UsersPage() {
   });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Modal states
+  const [showBanModal, setShowBanModal] = useState(false);
+  const [showChangeRoleModal, setShowChangeRoleModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showUnbanConfirm, setShowUnbanConfirm] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -143,76 +153,80 @@ export default function UsersPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+
     try {
-      const response = await superAdminAPI.deleteUser(userId) as { success: boolean; error?: string };
+      const response = await superAdminAPI.deleteUser(selectedUser.id) as { success: boolean; error?: string };
       if (response.success) {
+        toast.success('User deleted successfully');
         loadUsers();
-        alert('User deleted successfully');
       } else {
-        alert(response.error || 'Failed to delete user');
+        toast.error(response.error || 'Failed to delete user');
       }
     } catch (err: any) {
       console.error('Error deleting user:', err);
-      alert('Failed to delete user');
+      toast.error('Failed to delete user');
     }
+    setShowDeleteConfirm(false);
+    setSelectedUser(null);
   };
 
-  const handleBanUser = async (userId: string) => {
-    const reason = prompt('Enter ban reason (optional):');
-    if (reason === null) return; // User cancelled
-    
+  const handleBanUser = async (reason: string, duration?: number) => {
+    if (!selectedUser) return;
+
     try {
-      const response = await superAdminAPI.banUser(userId, reason || undefined) as { success: boolean; error?: string };
+      const response = await superAdminAPI.banUser(selectedUser.id, reason, duration) as { success: boolean; error?: string };
       if (response.success) {
+        toast.success('User banned successfully');
         loadUsers();
-        alert('User banned successfully');
       } else {
-        alert(response.error || 'Failed to ban user');
+        toast.error(response.error || 'Failed to ban user');
       }
     } catch (err: any) {
       console.error('Error banning user:', err);
-      alert('Failed to ban user');
+      toast.error('Failed to ban user');
     }
+    setShowBanModal(false);
+    setSelectedUser(null);
   };
 
-  const handleUnbanUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to unban this user?')) {
-      return;
-    }
+  const handleUnbanUser = async () => {
+    if (!selectedUser) return;
+
     try {
-      const response = await superAdminAPI.unbanUser(userId) as { success: boolean; error?: string };
+      const response = await superAdminAPI.unbanUser(selectedUser.id) as { success: boolean; error?: string };
       if (response.success) {
+        toast.success('User unbanned successfully');
         loadUsers();
-        alert('User unbanned successfully');
       } else {
-        alert(response.error || 'Failed to unban user');
+        toast.error(response.error || 'Failed to unban user');
       }
     } catch (err: any) {
       console.error('Error unbanning user:', err);
-      alert('Failed to unban user');
+      toast.error('Failed to unban user');
     }
+    setShowUnbanConfirm(false);
+    setSelectedUser(null);
   };
 
-  const handleChangeRole = async (userId: string) => {
-    const newRole = prompt('Enter new role (SUPER_ADMIN, TENANT_ADMIN, FLEET_MANAGER, ACCOUNTANT, DRIVER, USER):');
-    if (!newRole) return;
-    
+  const handleChangeRole = async (newRole: string) => {
+    if (!selectedUser) return;
+
     try {
-      const response = await superAdminAPI.setUserRole(userId, newRole) as { success: boolean; error?: string };
+      const response = await superAdminAPI.setUserRole(selectedUser.id, newRole) as { success: boolean; error?: string };
       if (response.success) {
+        toast.success('User role updated successfully');
         loadUsers();
-        alert('User role updated successfully');
       } else {
-        alert(response.error || 'Failed to update user role');
+        toast.error(response.error || 'Failed to update user role');
       }
     } catch (err: any) {
       console.error('Error updating role:', err);
-      alert('Failed to update user role');
+      toast.error('Failed to update user role');
     }
+    setShowChangeRoleModal(false);
+    setSelectedUser(null);
   };
 
   const filteredUsers = users.filter(user => {
@@ -504,32 +518,44 @@ export default function UsersPage() {
                         >
                           <EyeIcon className="h-4 w-4" />
                         </button>
-                        <button 
-                          onClick={() => handleChangeRole(user.id)}
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setShowChangeRoleModal(true);
+                          }}
                           className="text-gray-600 hover:text-gray-900 dark:text-gray-400"
                           title="Change role"
                         >
                           <PencilIcon className="h-4 w-4" />
                         </button>
                         {user.banned ? (
-                          <button 
-                            onClick={() => handleUnbanUser(user.id)}
+                          <button
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowUnbanConfirm(true);
+                            }}
                             className="text-green-600 hover:text-green-900 dark:text-green-400"
                             title="Unban user"
                           >
                             <CheckCircleIcon className="h-4 w-4" />
                           </button>
                         ) : (
-                          <button 
-                            onClick={() => handleBanUser(user.id)}
+                          <button
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowBanModal(true);
+                            }}
                             className="text-yellow-600 hover:text-yellow-900 dark:text-yellow-400"
                             title="Ban user"
                           >
                             <XCircleIcon className="h-4 w-4" />
                           </button>
                         )}
-                        <button 
-                          onClick={() => handleDeleteUser(user.id)}
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setShowDeleteConfirm(true);
+                          }}
                           className="text-red-600 hover:text-red-900 dark:text-red-400"
                           title="Delete user"
                         >
@@ -609,6 +635,58 @@ export default function UsersPage() {
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      {selectedUser && (
+        <>
+          <BanUserModal
+            isOpen={showBanModal}
+            onClose={() => {
+              setShowBanModal(false);
+              setSelectedUser(null);
+            }}
+            onConfirm={handleBanUser}
+            userName={selectedUser.name}
+          />
+
+          <ChangeRoleModal
+            isOpen={showChangeRoleModal}
+            onClose={() => {
+              setShowChangeRoleModal(false);
+              setSelectedUser(null);
+            }}
+            onConfirm={handleChangeRole}
+            userName={selectedUser.name}
+            currentRole={selectedUser.role}
+          />
+
+          <ConfirmDialog
+            isOpen={showDeleteConfirm}
+            onClose={() => {
+              setShowDeleteConfirm(false);
+              setSelectedUser(null);
+            }}
+            onConfirm={handleDeleteUser}
+            title="Delete User"
+            message={`Are you sure you want to delete ${selectedUser.name}? This action cannot be undone.`}
+            confirmText="Delete User"
+            confirmColor="red"
+          />
+
+          <ConfirmDialog
+            isOpen={showUnbanConfirm}
+            onClose={() => {
+              setShowUnbanConfirm(false);
+              setSelectedUser(null);
+            }}
+            onConfirm={handleUnbanUser}
+            title="Unban User"
+            message={`Are you sure you want to unban ${selectedUser.name}?`}
+            confirmText="Unban User"
+            confirmColor="indigo"
+          />
+        </>
+      )}
     </div>
   );
 }
