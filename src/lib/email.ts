@@ -436,7 +436,7 @@ class EmailService {
     paynowReference: string
   ): Promise<boolean> {
     const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_USER || '';
-    
+
     if (!adminEmail) {
       console.warn('Admin email not configured. Skipping admin alert.');
       return false;
@@ -453,12 +453,12 @@ class EmailService {
           <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
             <h1 style="color: white; margin: 0; font-size: 24px;">New Payment Received</h1>
           </div>
-          
+
           <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
             <h2 style="color: #495057; margin-top: 0;">Payment Alert</h2>
-            
+
             <p>A new payment has been received:</p>
-            
+
             <div style="background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0;">
               <h3 style="color: #495057; margin-top: 0;">Payment Details</h3>
               <p><strong>Tenant:</strong> ${tenantName}</p>
@@ -466,9 +466,9 @@ class EmailService {
               <p><strong>Amount:</strong> $${amount}</p>
               <p><strong>Payment Reference:</strong> ${paynowReference}</p>
             </div>
-            
+
             <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
-            
+
             <p style="color: #6c757d; font-size: 14px; margin-bottom: 0;">
               This is an automated notification from Fleet Manager.
             </p>
@@ -480,6 +480,141 @@ class EmailService {
     return this.sendEmail({
       to: adminEmail,
       subject: `New Payment: ${invoiceNumber} - ${tenantName}`,
+      html,
+    });
+  }
+
+  async sendAdminNewRegistrationAlert(
+    tenantName: string,
+    userName: string,
+    userEmail: string,
+    plan: string = 'FREE'
+  ): Promise<boolean> {
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_USER || '';
+
+    if (!adminEmail) {
+      console.warn('Admin email not configured. Skipping admin registration alert.');
+      return false;
+    }
+
+    const { appConfig } = await import('@/config/app');
+    const superadminUrl = `${appConfig.baseUrl}/superadmin/tenants`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>New Registration - Fleet Manager</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">🎉 New Registration!</h1>
+          </div>
+
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">New User Verified</h2>
+
+            <p>A new user has successfully registered and verified their email:</p>
+
+            <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #155724; margin-top: 0;">Registration Details</h3>
+              <p><strong>Company/Tenant:</strong> ${tenantName}</p>
+              <p><strong>Admin User:</strong> ${userName}</p>
+              <p><strong>Email:</strong> ${userEmail}</p>
+              <p><strong>Plan:</strong> ${plan}</p>
+              <p><strong>Status:</strong> <span style="color: #28a745;">✓ Email Verified</span></p>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${superadminUrl}"
+                 style="background: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                View in Dashboard
+              </a>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+
+            <p style="color: #6c757d; font-size: 14px; margin-bottom: 0;">
+              This is an automated notification from Fleet Manager.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: adminEmail,
+      subject: `New Registration: ${tenantName} (${userName})`,
+      html,
+    });
+  }
+
+  async sendAdminUpgradeAlert(
+    tenantName: string,
+    userName: string,
+    userEmail: string,
+    oldPlan: string,
+    newPlan: string,
+    amount: string
+  ): Promise<boolean> {
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_USER || '';
+
+    if (!adminEmail) {
+      console.warn('Admin email not configured. Skipping admin upgrade alert.');
+      return false;
+    }
+
+    const { appConfig } = await import('@/config/app');
+    const superadminUrl = `${appConfig.baseUrl}/superadmin/tenants`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Plan Upgrade - Fleet Manager</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">⬆️ Plan Upgrade!</h1>
+          </div>
+
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">Plan Upgrade Alert</h2>
+
+            <p>A tenant has upgraded their subscription plan:</p>
+
+            <div style="background: #e7d6f5; border: 1px solid #d4b3e8; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #6f42c1; margin-top: 0;">Upgrade Details</h3>
+              <p><strong>Company/Tenant:</strong> ${tenantName}</p>
+              <p><strong>Admin User:</strong> ${userName}</p>
+              <p><strong>Email:</strong> ${userEmail}</p>
+              <p><strong>Previous Plan:</strong> <span style="color: #6c757d;">${oldPlan}</span></p>
+              <p><strong>New Plan:</strong> <span style="color: #6f42c1; font-weight: bold;">${newPlan}</span></p>
+              <p><strong>Upgrade Amount:</strong> $${amount}</p>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${superadminUrl}"
+                 style="background: #6f42c1; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                View in Dashboard
+              </a>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+
+            <p style="color: #6c757d; font-size: 14px; margin-bottom: 0;">
+              This is an automated notification from Fleet Manager.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: adminEmail,
+      subject: `Plan Upgrade: ${tenantName} upgraded to ${newPlan}`,
       html,
     });
   }

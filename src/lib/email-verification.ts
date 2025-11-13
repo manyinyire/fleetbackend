@@ -89,6 +89,19 @@ class EmailVerificationService {
       // Don't fail the verification if email fails
     }
 
+    // Send admin notification about new registration
+    try {
+      await emailService.sendAdminNewRegistrationAlert(
+        user.tenant?.name || 'Unknown Company',
+        user.name,
+        user.email,
+        user.tenant?.plan || 'FREE'
+      );
+    } catch (error) {
+      console.error('Failed to send admin registration alert:', error);
+      // Don't fail the verification if admin email fails
+    }
+
     return { success: true, message: 'Email verified successfully' };
   }
 

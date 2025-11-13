@@ -158,6 +158,8 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
 
   // Auto-upgrade if this is an upgrade invoice
   if (payment.invoice.type === 'UPGRADE' && payment.invoice.plan) {
+    const oldPlan = payment.invoice.tenant.plan;
+
     await prisma.tenant.update({
       where: { id: payment.tenantId },
       data: {
@@ -166,6 +168,22 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
     });
 
     console.log('[Payment Verification] Auto-upgraded tenant to:', payment.invoice.plan);
+
+    // Send admin notification about upgrade
+    try {
+      const { emailService } = await import('@/lib/email');
+      await emailService.sendAdminUpgradeAlert(
+        payment.invoice.tenant.name,
+        user.name,
+        user.email,
+        oldPlan,
+        payment.invoice.plan,
+        Number(payment.amount).toFixed(2)
+      );
+    } catch (emailError) {
+      console.error('[Payment Verification] Failed to send admin upgrade alert:', emailError);
+      // Don't fail the upgrade if admin email fails
+    }
   }
 
   // Auto-unsuspend if tenant is suspended and this clears their overdue invoices

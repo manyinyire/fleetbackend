@@ -335,6 +335,8 @@ async function performAutoActions(invoice: any, payment: any) {
       });
 
       if (tenant) {
+        const oldPlan = tenant.plan;
+
         await prisma.tenant.update({
           where: { id: invoice.tenantId },
           data: {
@@ -377,6 +379,31 @@ async function performAutoActions(invoice: any, payment: any) {
           },
           'Auto-upgraded tenant'
         );
+
+        // Send admin notification about upgrade
+        try {
+          const { emailService } = await import('@/lib/email');
+          const tenantAdmin = await prisma.user.findFirst({
+            where: {
+              tenantId: invoice.tenantId,
+              role: 'TENANT_ADMIN'
+            }
+          });
+
+          if (tenantAdmin) {
+            await emailService.sendAdminUpgradeAlert(
+              invoice.tenant.name,
+              tenantAdmin.name,
+              tenantAdmin.email,
+              oldPlan,
+              invoice.plan,
+              Number(invoice.amount).toFixed(2)
+            );
+          }
+        } catch (emailError) {
+          console.error('[PayNow Callback] Failed to send admin upgrade alert:', emailError);
+          // Don't fail the upgrade if admin email fails
+        }
       }
     }
 
