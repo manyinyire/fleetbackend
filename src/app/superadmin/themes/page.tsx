@@ -120,7 +120,7 @@ export default function ThemesPage() {
                   type="text"
                   value={settings.primaryColor}
                   onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white"
                 />
               </div>
             </div>
@@ -140,7 +140,7 @@ export default function ThemesPage() {
                   type="text"
                   value={settings.secondaryColor}
                   onChange={(e) => setSettings({ ...settings, secondaryColor: e.target.value })}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white"
                 />
               </div>
             </div>
@@ -160,7 +160,7 @@ export default function ThemesPage() {
                   type="text"
                   value={settings.accentColor}
                   onChange={(e) => setSettings({ ...settings, accentColor: e.target.value })}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white"
                 />
               </div>
             </div>
@@ -226,7 +226,7 @@ export default function ThemesPage() {
                     onClick={() => setSettings({ ...settings, mode })}
                     className={`p-3 rounded-lg border-2 transition-colors ${
                       settings.mode === mode
-                        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+                        ? "border-primary bg-primary/5 dark:bg-primary/10"
                         : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
                     }`}
                   >
@@ -234,7 +234,7 @@ export default function ThemesPage() {
                       {mode}
                     </div>
                     {settings.mode === mode && (
-                      <CheckCircleIcon className="h-4 w-4 text-indigo-600 dark:text-indigo-400 mx-auto mt-1" />
+                      <CheckCircleIcon className="h-4 w-4 text-primary dark:text-primary-light mx-auto mt-1" />
                     )}
                   </button>
                 ))}
@@ -256,7 +256,7 @@ export default function ThemesPage() {
                     onClick={() => setSettings({ ...settings, borderRadius: radius.value })}
                     className={`p-3 rounded-lg border-2 transition-colors ${
                       settings.borderRadius === radius.value
-                        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+                        ? "border-primary bg-primary/5 dark:bg-primary/10"
                         : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
                     }`}
                   >
@@ -286,7 +286,7 @@ export default function ThemesPage() {
                     onClick={() => setSettings({ ...settings, fontSize: size.value })}
                     className={`p-3 rounded-lg border-2 transition-colors ${
                       settings.fontSize === size.value
-                        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+                        ? "border-primary bg-primary/5 dark:bg-primary/10"
                         : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
                     }`}
                   >

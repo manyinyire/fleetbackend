@@ -15,9 +15,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function LandingPage() {
   const settings = await getPlatformSettingsWithDefaults();
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-dark">
+    <div className="min-h-screen bg-white bg-atmospheric dark:bg-gray-dark">
       {/* Navigation */}
-      <nav className="fixed top-0 w-full bg-white/90 dark:bg-gray-dark/90 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 z-50">
+      <nav className="fixed top-0 w-full bg-white/80 dark:bg-gray-dark/80 backdrop-blur-lg border-b border-stroke dark:border-stroke-dark z-50 transition-smooth">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
@@ -29,7 +29,7 @@ export default async function LandingPage() {
                 />
               ) : (
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-blue-600 dark:bg-blue-500 rounded"></div>
+                  <div className="w-8 h-8 bg-primary dark:bg-primary-light rounded"></div>
                   <span className="text-lg font-semibold text-gray-900 dark:text-white">{settings.platformName}</span>
                 </div>
               )}
@@ -48,7 +48,7 @@ export default async function LandingPage() {
               </Link>
               <Link
                 href="/auth/sign-up"
-                className="text-sm px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-600"
+                className="text-sm px-4 py-2 bg-primary dark:bg-primary-light text-white rounded hover:bg-primary-dark dark:hover:bg-primary"
               >
                 Start for free
               </Link>
@@ -61,14 +61,14 @@ export default async function LandingPage() {
       <section className="pt-24 pb-16 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           <div className="max-w-3xl mx-auto text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-sm rounded-full mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/5 dark:bg-primary/10 text-primary-dark dark:text-primary-light text-sm rounded-full mb-6">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
               Trusted by 500+ fleet managers
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-bold text-gradient-forest dark:text-white mb-6 leading-tight animate-fade-in">
               Fleet management made simple
             </h1>
 
@@ -79,7 +79,7 @@ export default async function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
               <Link
                 href="/auth/sign-up"
-                className="w-full sm:w-auto px-6 py-3 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-600 text-center"
+                className="w-full sm:w-auto px-6 py-3 bg-primary dark:bg-primary-light text-white rounded hover:bg-primary-dark dark:hover:bg-primary text-center"
               >
                 Start for free
               </Link>
@@ -91,19 +91,19 @@ export default async function LandingPage() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 text-sm text-gray-600 dark:text-gray-400">
               <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-blue-600 dark:text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4 text-primary dark:text-primary-light" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 No credit card required
               </div>
               <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-blue-600 dark:text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4 text-primary dark:text-primary-light" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 Setup in 5 minutes
               </div>
               <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-blue-600 dark:text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4 text-primary dark:text-primary-light" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 Cancel anytime
@@ -203,7 +203,7 @@ export default async function LandingPage() {
               },
             ].map((item, i) => (
               <div key={i} className="bg-white dark:bg-gray-900 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-                <div className="text-3xl font-bold text-blue-600 dark:text-blue-500 mb-2">
+                <div className="text-3xl font-bold text-primary dark:text-primary-light mb-2">
                   {item.metric}
                 </div>
                 <div className="text-lg font-medium text-gray-900 dark:text-white mb-2">{item.label}</div>
@@ -287,7 +287,7 @@ export default async function LandingPage() {
                 key={i}
                 className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
               >
-                <div className="text-blue-600 dark:text-blue-500 mb-4">
+                <div className="text-primary dark:text-primary-light mb-4">
                   {feature.icon}
                 </div>
 
@@ -338,7 +338,7 @@ export default async function LandingPage() {
             ].map((testimonial, i) => (
               <div key={i} className="bg-white dark:bg-gray-900 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-blue-600 dark:bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                  <div className="w-12 h-12 bg-primary dark:bg-primary-light rounded-full flex items-center justify-center text-white font-semibold">
                     {testimonial.name.split(' ').map(n => n[0]).join('')}
                   </div>
                   <div>
@@ -430,13 +430,13 @@ export default async function LandingPage() {
                 key={i}
                 className={`relative bg-white dark:bg-gray-800 rounded-lg p-6 border-2 ${
                   plan.popular
-                    ? "border-blue-600 dark:border-blue-500 shadow-md"
+                    ? "border-primary dark:border-primary-light shadow-md"
                     : "border-gray-200 dark:border-gray-700"
                 }`}
               >
                 {plan.popular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <div className="bg-blue-600 dark:bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    <div className="bg-primary dark:bg-primary-light text-white px-3 py-1 rounded-full text-sm font-medium">
                       Most popular
                     </div>
                   </div>
@@ -455,7 +455,7 @@ export default async function LandingPage() {
                   href="/auth/sign-up"
                   className={`block w-full text-center py-3 rounded font-medium mb-6 ${
                     plan.popular
-                      ? "bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600"
+                      ? "bg-primary dark:bg-primary-light text-white hover:bg-primary-dark dark:hover:bg-primary"
                       : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600"
                   }`}
                 >
@@ -465,7 +465,7 @@ export default async function LandingPage() {
                 <ul className="space-y-3">
                   {plan.features.map((feature, j) => (
                     <li key={j} className="flex items-start gap-3">
-                      <svg className="w-5 h-5 text-blue-600 dark:text-blue-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="w-5 h-5 text-primary dark:text-primary-light flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                       <span className="text-gray-700 dark:text-gray-300">{feature}</span>
@@ -492,30 +492,30 @@ export default async function LandingPage() {
       </section>
 
       {/* Final CTA Section */}
-      <section className="py-16 px-4 sm:px-6 bg-blue-600 dark:bg-blue-700">
+      <section className="py-16 px-4 sm:px-6 bg-forest-amber dark:bg-primary-dark">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
             Ready to get started?
           </h2>
 
-          <p className="text-xl text-blue-100 mb-8">
+          <p className="text-xl text-white/90 mb-8">
             Join 500+ fleet managers who trust our platform
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link
               href="/auth/sign-up"
-              className="w-full sm:w-auto px-8 py-4 bg-white text-blue-600 rounded font-semibold hover:bg-gray-100"
+              className="w-full sm:w-auto px-8 py-4 bg-white text-primary rounded font-semibold hover:bg-gray-100"
             >
               Start for free
             </Link>
 
-            <button className="w-full sm:w-auto px-8 py-4 border-2 border-white text-white rounded font-semibold hover:bg-blue-700">
+            <button className="w-full sm:w-auto px-8 py-4 border-2 border-white text-white rounded font-semibold hover:bg-primary-dark">
               Schedule demo
             </button>
           </div>
 
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 text-blue-100">
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 text-white/90">
             <span className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -552,7 +552,7 @@ export default async function LandingPage() {
                   />
                 ) : (
                   <>
-                    <div className="w-8 h-8 bg-blue-600 dark:bg-blue-500 rounded"></div>
+                    <div className="w-8 h-8 bg-primary dark:bg-primary-light rounded"></div>
                     <span className="text-lg font-semibold text-gray-900 dark:text-white">{settings.platformName}</span>
                   </>
                 )}
