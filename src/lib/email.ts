@@ -125,6 +125,67 @@ class EmailService {
     });
   }
 
+  async sendWelcomeEmail(email: string, userName: string, planName: string = 'FREE'): Promise<boolean> {
+    const { appConfig } = await import('@/config/app');
+    const dashboardUrl = `${appConfig.baseUrl}/dashboard`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Welcome to Fleet Manager!</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">🎉 Welcome to Fleet Manager!</h1>
+          </div>
+
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">Hi ${userName}!</h2>
+
+            <p>Thank you for verifying your email! Your Fleet Manager account is now fully activated and ready to use.</p>
+
+            <p>You're currently on the <strong>${planName}</strong> plan. Here's what you can do next:</p>
+
+            <ul style="color: #495057; line-height: 1.8;">
+              <li>Set up your fleet and add vehicles</li>
+              <li>Create driver profiles and assignments</li>
+              <li>Track maintenance schedules</li>
+              <li>Monitor fuel consumption and costs</li>
+              <li>Generate comprehensive reports</li>
+            </ul>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${dashboardUrl}"
+                 style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Go to Dashboard
+              </a>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+
+            <h3 style="color: #495057; font-size: 16px;">Need Help Getting Started?</h3>
+            <p style="color: #6c757d; font-size: 14px;">
+              Check out our documentation or contact our support team. We're here to help you make the most of Fleet Manager!
+            </p>
+
+            <p style="color: #6c757d; font-size: 14px; margin-top: 20px;">
+              Best regards,<br/>
+              The Fleet Manager Team
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: 'Welcome to Fleet Manager - Get Started!',
+      html,
+    });
+  }
+
   async sendOTPEmail(email: string, otp: string, userName: string): Promise<boolean> {
     const html = `
       <!DOCTYPE html>
