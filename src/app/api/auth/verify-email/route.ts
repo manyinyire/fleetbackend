@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { emailVerificationService } from '@/lib/email-verification';
+import { appConfig } from '@/config/app';
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,14 +47,14 @@ export async function GET(request: NextRequest) {
     const result = await emailVerificationService.verifyEmail(token);
 
     if (result.success) {
-      // Redirect to success page
-      return NextResponse.redirect(new URL('/auth/email-verified', request.url));
+      // Redirect to success page using configured base URL
+      return NextResponse.redirect(new URL('/auth/email-verified', appConfig.baseUrl));
     } else {
-      // Redirect to error page
-      return NextResponse.redirect(new URL('/auth/verification-failed', request.url));
+      // Redirect to error page using configured base URL
+      return NextResponse.redirect(new URL('/auth/verification-failed', appConfig.baseUrl));
     }
   } catch (error) {
     console.error('Email verification error:', error);
-    return NextResponse.redirect(new URL('/auth/verification-failed', request.url));
+    return NextResponse.redirect(new URL('/auth/verification-failed', appConfig.baseUrl));
   }
 }

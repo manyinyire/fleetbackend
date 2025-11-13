@@ -77,9 +77,9 @@ class EmailService {
   }
 
   async sendVerificationEmail(email: string, verificationToken: string, userName: string): Promise<boolean> {
-    // Use server-side env variable directly to avoid build-time caching
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fleetmanager.co.zw';
-    const verificationUrl = `${baseUrl}/api/auth/verify-email?token=${verificationToken}`;
+    // Use appConfig to get the proper base URL with validation
+    const { appConfig } = await import('@/config/app');
+    const verificationUrl = `${appConfig.baseUrl}/api/auth/verify-email?token=${verificationToken}`;
     
     const html = `
       <!DOCTYPE html>
