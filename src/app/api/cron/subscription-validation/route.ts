@@ -111,33 +111,25 @@ export async function POST(request: NextRequest) {
           'Tenant suspended due to expired subscription'
         );
 
-        // TODO: Send email notification to tenant about suspension
-        // Need to implement sendAccountSuspendedEmail in email service
+        // Send email notification to tenant about suspension
         if (tenant.users.length > 0) {
           const adminUser = tenant.users[0];
-          apiLogger.info(
-            { email: adminUser.email, tenantId: tenant.id },
-            'Suspension notification email not yet implemented'
-          );
-          // try {
-          //   await emailService.sendAccountSuspendedEmail(
-          //     adminUser.email,
-          //     {
-          //       tenantName: tenant.name,
-          //       userName: adminUser.name,
-          //       reason: tenant.isInTrial ? 'Trial period expired' : 'Subscription expired',
-          //       suspendedDate: now.toLocaleDateString(),
-          //       renewalUrl: `${process.env.NEXT_PUBLIC_APP_URL}/billing/plans`,
-          //       supportEmail: process.env.SUPPORT_EMAIL || 'support@example.com'
-          //     }
-          //   );
-          //   apiLogger.info(
-          //     { email: adminUser.email, tenantId: tenant.id },
-          //     'Suspension notification email sent'
-          //   );
-          // } catch (emailError) {
           try {
-            // Placeholder for email error handling
+            await emailService.sendAccountSuspendedEmail(
+              adminUser.email,
+              {
+                tenantName: tenant.name,
+                userName: adminUser.name,
+                reason: tenant.isInTrial ? 'Trial period expired' : 'Subscription expired',
+                suspendedDate: now.toLocaleDateString(),
+                renewalUrl: `${process.env.NEXT_PUBLIC_APP_URL}/billing/plans`,
+                supportEmail: process.env.SUPPORT_EMAIL || process.env.ADMIN_EMAIL
+              }
+            );
+            apiLogger.info(
+              { email: adminUser.email, tenantId: tenant.id },
+              'Suspension notification email sent successfully'
+            );
           } catch (emailError) {
             apiLogger.error(
               { err: emailError, email: adminUser.email, tenantId: tenant.id },
@@ -247,45 +239,31 @@ export async function POST(request: NextRequest) {
         );
 
         // Send email notification to tenant admin about suspension due to failed payment
-        // TODO: Send suspension notification for overdue payment
         if (adminUser) {
           const totalOverdueAmount = tenant.invoices.reduce(
             (sum, invoice) => sum + Number(invoice.amount),
             0
           );
-          apiLogger.info(
-            { email: adminUser.email, tenantId: tenant.id, overdueAmount: totalOverdueAmount },
-            'Suspension notification email not yet implemented (overdue payment)'
-          );
-          // try {
-          //   await emailService.sendAccountSuspendedEmail(
-          //     adminUser.email,
-          //     {
-          //       tenantName: tenant.name,
-          //       userName: adminUser.name,
-          //       reason: `Failed/missed payment - ${tenant.invoices.length} overdue invoice(s)`,
-          //       suspendedDate: now.toLocaleDateString(),
-          //       overdueAmount: totalOverdueAmount,
-          //       overdueInvoices: tenant.invoices.map(inv => ({
-          //         invoiceNumber: inv.invoiceNumber,
-          //         amount: Number(inv.amount),
-          //         dueDate: inv.dueDate.toLocaleDateString()
-          //       })),
-          //       paymentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/billing/invoices`,
-          //       supportEmail: process.env.SUPPORT_EMAIL || 'support@example.com'
-          //     }
-          //   );
-          //   apiLogger.info(
-          //     { email: adminUser.email, tenantId: tenant.id },
-          //     'Suspension notification email sent for overdue payment'
-          //   );
-          // } catch (emailError) {
           try {
-            // Placeholder
+            await emailService.sendAccountSuspendedEmail(
+              adminUser.email,
+              {
+                tenantName: tenant.name,
+                userName: adminUser.name,
+                reason: `Failed payment - ${tenant.invoices.length} overdue invoice(s) totaling $${totalOverdueAmount.toFixed(2)}`,
+                suspendedDate: now.toLocaleDateString(),
+                renewalUrl: `${process.env.NEXT_PUBLIC_APP_URL}/billing/invoices`,
+                supportEmail: process.env.SUPPORT_EMAIL || process.env.ADMIN_EMAIL
+              }
+            );
+            apiLogger.info(
+              { email: adminUser.email, tenantId: tenant.id, overdueAmount: totalOverdueAmount },
+              'Suspension notification email sent successfully (overdue payment)'
+            );
           } catch (emailError) {
             apiLogger.error(
               { err: emailError, email: adminUser.email, tenantId: tenant.id },
-              'Failed to send suspension notification email for overdue payment'
+              'Failed to send suspension notification email (overdue payment)'
             );
           }
         }

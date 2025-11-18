@@ -619,6 +619,163 @@ class EmailService {
       html,
     });
   }
+
+  async sendAccountSuspendedEmail(
+    email: string,
+    data: {
+      tenantName: string;
+      userName: string;
+      reason: string;
+      suspendedDate: string;
+      renewalUrl: string;
+      supportEmail?: string;
+    }
+  ): Promise<boolean> {
+    const { getPlatformSettingsWithDefaults } = await import('@/lib/platform-settings');
+    const platformSettings = await getPlatformSettingsWithDefaults();
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Account Suspended - ${platformSettings.platformName}</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">⚠️ Account Suspended</h1>
+          </div>
+
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">Hi ${data.userName}!</h2>
+
+            <p>We're writing to inform you that your ${platformSettings.platformName} account has been suspended.</p>
+
+            <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #721c24; margin-top: 0;">Suspension Details</h3>
+              <p><strong>Company/Tenant:</strong> ${data.tenantName}</p>
+              <p><strong>Reason:</strong> ${data.reason}</p>
+              <p><strong>Suspended Date:</strong> ${data.suspendedDate}</p>
+            </div>
+
+            <h3 style="color: #495057; font-size: 18px;">What This Means:</h3>
+            <ul style="color: #495057; line-height: 1.8;">
+              <li>Your account access has been temporarily disabled</li>
+              <li>All users under your account cannot log in</li>
+              <li>Your data remains safe and secure</li>
+              <li>No data will be deleted during suspension</li>
+            </ul>
+
+            <h3 style="color: #495057; font-size: 18px;">How to Restore Access:</h3>
+            <p>To reactivate your account, please renew your subscription:</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${data.renewalUrl}"
+                 style="background: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Renew Subscription
+              </a>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+
+            <p style="color: #6c757d; font-size: 14px;">
+              If you have any questions or believe this suspension was made in error, please contact our support team${data.supportEmail ? ` at ${data.supportEmail}` : ''}.
+            </p>
+
+            <p style="color: #6c757d; font-size: 14px; margin-top: 20px;">
+              Best regards,<br/>
+              The ${platformSettings.platformName} Team
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: `Account Suspended - ${data.reason}`,
+      html,
+    });
+  }
+
+  async sendInvoiceNotificationEmail(
+    email: string,
+    data: {
+      invoiceNumber: string;
+      amount: number;
+      dueDate: string;
+      companyName: string;
+      userName: string;
+      plan: string;
+      paymentUrl: string;
+    },
+    invoicePdf?: Buffer
+  ): Promise<boolean> {
+    const { getPlatformSettingsWithDefaults } = await import('@/lib/platform-settings');
+    const platformSettings = await getPlatformSettingsWithDefaults();
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>New Invoice - ${platformSettings.platformName}</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">New Invoice Available</h1>
+          </div>
+
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">Hi ${data.userName}!</h2>
+
+            <p>A new invoice has been generated for your ${data.plan} plan subscription.</p>
+
+            <div style="background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #004085; margin-top: 0;">Invoice Details</h3>
+              <p><strong>Invoice Number:</strong> ${data.invoiceNumber}</p>
+              <p><strong>Company:</strong> ${data.companyName}</p>
+              <p><strong>Plan:</strong> ${data.plan}</p>
+              <p><strong>Amount Due:</strong> $${data.amount.toFixed(2)}</p>
+              <p><strong>Due Date:</strong> ${data.dueDate}</p>
+            </div>
+
+            <p>Please make payment before the due date to avoid service interruption.</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${data.paymentUrl}"
+                 style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Pay Invoice Now
+              </a>
+            </div>
+
+            ${invoicePdf ? '<p style="color: #6c757d; font-size: 14px;">The invoice PDF is attached to this email for your records.</p>' : ''}
+
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+
+            <p style="color: #6c757d; font-size: 14px;">
+              If you have any questions about this invoice, please contact our support team${platformSettings.platformEmail ? ` at ${platformSettings.platformEmail}` : ''}.
+            </p>
+
+            <p style="color: #6c757d; font-size: 14px; margin-top: 20px;">
+              Thank you for using ${platformSettings.platformName}!
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: `New Invoice ${data.invoiceNumber} - Payment Due ${data.dueDate}`,
+      html,
+      attachments: invoicePdf ? [{
+        filename: `invoice-${data.invoiceNumber}.pdf`,
+        content: invoicePdf,
+        contentType: 'application/pdf',
+      }] : undefined,
+    });
+  }
 }
 
 // Export standalone functions for backward compatibility

@@ -130,24 +130,31 @@ async function autoGenerateInvoices() {
 
       logger.info(`Generated invoice ${invoice.invoiceNumber} for tenant ${tenant.id}`);
 
-      // TODO: Send payment notification email to tenant admin
-      // Need to implement sendInvoiceNotificationEmail in email service
+      // Send payment notification email to tenant admin
       const adminUser = tenant.users[0];
       if (adminUser) {
-        logger.info(`Invoice generated for ${adminUser.email} - notification email not yet implemented`);
-        // const emailSent = await emailService.sendInvoiceNotificationEmail(
-        //   adminUser.email,
-        //   {
-        //     invoiceNumber: invoice.invoiceNumber,
-        //     amount,
-        //     dueDate: invoice.dueDate.toLocaleDateString(),
-        //     companyName: tenant.name,
-        //     userName: adminUser.name,
-        //     plan: tenant.plan,
-        //     paymentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/billing/invoices/${invoice.id}/pay`
-        //   },
-        //   pdf
-        // );
+        try {
+          const emailSent = await emailService.sendInvoiceNotificationEmail(
+            adminUser.email,
+            {
+              invoiceNumber: invoice.invoiceNumber,
+              amount,
+              dueDate: invoice.dueDate.toLocaleDateString(),
+              companyName: tenant.name,
+              userName: adminUser.name,
+              plan: tenant.plan,
+              paymentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/billing/invoices/${invoice.id}/pay`
+            },
+            pdf
+          );
+          if (emailSent) {
+            logger.info(`Invoice notification email sent to ${adminUser.email}`);
+          } else {
+            logger.warn(`Failed to send invoice notification email to ${adminUser.email}`);
+          }
+        } catch (emailError) {
+          logger.error({ error: emailError, email: adminUser.email }, 'Error sending invoice notification email');
+        }
       }
 
       generated.push({
