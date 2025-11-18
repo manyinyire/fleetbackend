@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { successResponse } from '@/lib/api-middleware';
 import { WeeklyTargetService } from '@/services/weekly-target.service';
 import { prisma } from '@/lib/prisma';
+import { apiLogger } from '@/lib/logger';
 
 /**
  * POST /api/cron/weekly-targets
@@ -12,7 +13,12 @@ export async function POST(request: NextRequest) {
   try {
     // Verify cron secret for security
     const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET || 'dev-secret';
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret) {
+      apiLogger.error('CRON_SECRET not configured');
+      return Response.json({ error: 'Server configuration error' }, { status: 500 });
+    }
 
     if (authHeader !== `Bearer ${cronSecret}`) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });

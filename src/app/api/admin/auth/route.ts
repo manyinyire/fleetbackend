@@ -4,6 +4,7 @@ import { z } from 'zod';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import crypto from 'crypto';
+import { authLogger } from '@/lib/logger';
 import {
   verifyAdminPassword,
   verify2FACode,
@@ -45,9 +46,28 @@ const ERROR_MESSAGES = {
 const MAX_CONCURRENT_SESSIONS = 3;
 
 /**
+ * Security event data type
+ */
+interface SecurityEventData {
+  userId?: string;
+  email?: string;
+  ip?: string;
+  userAgent?: string;
+  reason?: string;
+  sessionId?: string;
+  activeSessions?: number;
+  maxSessions?: number;
+  rememberDevice?: boolean;
+  ipAddress?: string;
+  description?: string;
+  enabled?: boolean;
+  errorCode?: string;
+}
+
+/**
  * Security event logger
  */
-async function logSecurityEvent(action: string, data: any) {
+async function logSecurityEvent(action: string, data: SecurityEventData) {
   try {
     // If we have a userId, log to audit log
     if (data.userId) {
@@ -64,9 +84,9 @@ async function logSecurityEvent(action: string, data: any) {
       });
     }
 
-    console.info({ action, ...data }, 'Admin security event');
+    authLogger.info({ action, ...data }, 'Admin security event');
   } catch (error) {
-    console.error({ error, action, data }, 'Failed to log security event');
+    authLogger.error({ err: error, action, data }, 'Failed to log security event');
   }
 }
 
@@ -214,7 +234,7 @@ export async function POST(request: NextRequest) {
     return response;
 
   } catch (error) {
-    console.error('Admin login error:', error);
+    authLogger.error({ err: error }, 'Admin login failed');
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -261,7 +281,7 @@ export async function PUT(request: NextRequest) {
         }
       });
 
-      console.info({ userId }, '2FA setup initiated');
+      authLogger.info({ userId }, '2FA setup initiated');
 
       return NextResponse.json({
         secret: secret.base32,
@@ -303,7 +323,7 @@ export async function PUT(request: NextRequest) {
           email: adminSettings.user.email
         });
 
-        console.info({ userId }, '2FA enabled successfully');
+        authLogger.info({ userId }, '2FA enabled successfully');
 
         return NextResponse.json({ success: true });
       } else {
@@ -349,7 +369,7 @@ export async function PUT(request: NextRequest) {
           email: adminSettings.user.email
         });
 
-        console.info({ userId }, '2FA disabled');
+        authLogger.info({ userId }, '2FA disabled');
 
         return NextResponse.json({ success: true });
       } else {
@@ -366,7 +386,7 @@ export async function PUT(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('2FA setup error:', error);
+    authLogger.error({ err: error }, '2FA setup failed');
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -400,7 +420,7 @@ export async function PATCH(request: NextRequest) {
         description
       });
 
-      console.info({ userId, ipAddress }, 'IP added to whitelist');
+      authLogger.info({ userId, ipAddress }, 'IP added to whitelist');
 
       return NextResponse.json(whitelistEntry);
     }
@@ -420,7 +440,7 @@ export async function PATCH(request: NextRequest) {
         ipAddress
       });
 
-      console.info({ userId, ipAddress }, 'IP removed from whitelist');
+      authLogger.info({ userId, ipAddress }, 'IP removed from whitelist');
 
       return NextResponse.json({ success: true });
     }
@@ -444,7 +464,7 @@ export async function PATCH(request: NextRequest) {
         enabled
       });
 
-      console.info({ userId, enabled }, 'IP whitelist toggled');
+      authLogger.info({ userId, enabled }, 'IP whitelist toggled');
 
       return NextResponse.json({ success: true, enabled });
     }
@@ -455,7 +475,7 @@ export async function PATCH(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('IP whitelist management error:', error);
+    authLogger.error({ err: error }, 'IP whitelist management failed');
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -503,7 +523,7 @@ export async function DELETE(request: NextRequest) {
     return response;
 
   } catch (error) {
-    console.error('Logout error:', error);
+    authLogger.error({ err: error }, 'Logout failed');
     // Still clear cookie even if logging fails
     const response = NextResponse.json({ success: true });
     response.cookies.delete('admin-session');

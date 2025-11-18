@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantForDashboard } from '@/lib/auth-helpers';
 import { PremiumFeatureService } from '@/lib/premium-features';
+import { reportGeneratorService } from '@/services/report-generator.service';
+import { apiLogger } from '@/lib/logger';
+import { ReportType } from '@prisma/client';
 
 /**
  * POST /api/reports/export
@@ -30,19 +33,172 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Implement actual export logic
-    // For now, return a placeholder response
-    return NextResponse.json({
-      success: true,
-      message: 'Export functionality coming soon',
-      reportType,
-      format,
+    // Validate inputs
+    if (!reportType || !format) {
+      return NextResponse.json(
+        { error: 'Report type and format are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate report type
+    if (!Object.values(ReportType).includes(reportType as ReportType)) {
+      return NextResponse.json(
+        { error: `Invalid report type: ${reportType}` },
+        { status: 400 }
+      );
+    }
+
+    // Generate report data
+    const reportData = await reportGeneratorService.generateReport(
+      tenantId,
+      reportType as ReportType,
+      data?.filters
+    );
+
+    apiLogger.info({ tenantId, reportType, format }, 'Generating report export');
+
+    // Export to requested format
+    let fileContent: Buffer;
+    let contentType: string;
+    let filename: string;
+
+    switch (format.toLowerCase()) {
+      case 'pdf':
+        fileContent = await generatePDFBuffer(reportData);
+        contentType = 'application/pdf';
+        filename = `${reportData.title.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+        break;
+
+      case 'csv':
+        fileContent = Buffer.from(generateCSVString(reportData));
+        contentType = 'text/csv';
+        filename = `${reportData.title.replace(/\s+/g, '_')}_${Date.now()}.csv`;
+        break;
+
+      case 'excel':
+      case 'xlsx':
+        fileContent = await generateExcelBuffer(reportData);
+        contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        filename = `${reportData.title.replace(/\s+/g, '_')}_${Date.now()}.xlsx`;
+        break;
+
+      default:
+        return NextResponse.json(
+          { error: `Unsupported format: ${format}. Use pdf, csv, or excel.` },
+          { status: 400 }
+        );
+    }
+
+    // Return file as download
+    const headers = new Headers();
+    headers.set('Content-Type', contentType);
+    headers.set('Content-Disposition', `attachment; filename="${filename}"`);
+    headers.set('Content-Length', fileContent.length.toString());
+
+    return new NextResponse(fileContent, {
+      status: 200,
+      headers,
     });
+
   } catch (error) {
-    console.error('Error exporting report:', error);
+    apiLogger.error({ err: error, reportType, format }, 'Report export failed');
     return NextResponse.json(
-      { error: 'Failed to export report' },
+      { error: error instanceof Error ? error.message : 'Failed to export report' },
       { status: 500 }
     );
   }
+}
+
+// Helper functions for server-side export
+
+function generateCSVString(data: { headers: string[]; rows: any[][] }): string {
+  const rows = [
+    data.headers.join(','),
+    ...data.rows.map(row =>
+      row.map(cell => {
+        const str = String(cell ?? '');
+        // Escape commas and quotes
+        return str.includes(',') || str.includes('"') || str.includes('\n')
+          ? `"${str.replace(/"/g, '""')}"`
+          : str;
+      }).join(',')
+    )
+  ];
+  return rows.join('\n');
+}
+
+async function generatePDFBuffer(data: { title: string; headers: string[]; rows: any[][]; metadata?: Record<string, any> }): Promise<Buffer> {
+  const { default: jsPDF } = await import('jspdf');
+  await import('jspdf-autotable');
+
+  const doc = new jsPDF();
+
+  // Add title
+  doc.setFontSize(16);
+  doc.text(data.title, 14, 20);
+
+  // Add metadata if present
+  let startY = 30;
+  if (data.metadata) {
+    doc.setFontSize(10);
+    const metadataLines: string[] = [];
+    Object.entries(data.metadata).forEach(([key, value]) => {
+      metadataLines.push(`${key}: ${value}`);
+    });
+    doc.text(metadataLines, 14, startY);
+    startY += metadataLines.length * 5 + 5;
+  }
+
+  // Add table using autoTable
+  (doc as any).autoTable({
+    head: [data.headers],
+    body: data.rows,
+    startY,
+    styles: {
+      fontSize: 8,
+      cellPadding: 2,
+    },
+    headStyles: {
+      fillColor: [59, 130, 246],
+      textColor: 255,
+      fontStyle: 'bold',
+    },
+    alternateRowStyles: {
+      fillColor: [249, 250, 251],
+    },
+    margin: { top: startY, left: 14, right: 14 },
+  });
+
+  // Convert to buffer
+  const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+  return pdfBuffer;
+}
+
+async function generateExcelBuffer(data: { title: string; headers: string[]; rows: any[][] }): Promise<Buffer> {
+  const XLSX = await import('xlsx');
+
+  // Create worksheet from data
+  const worksheet = XLSX.utils.aoa_to_sheet([
+    data.headers,
+    ...data.rows
+  ]);
+
+  // Set column widths
+  const colWidths = data.headers.map((_, index) => {
+    const maxLength = Math.max(
+      data.headers[index].length,
+      ...data.rows.map(row => String(row[index] || '').length)
+    );
+    return { wch: Math.min(maxLength + 2, 50) };
+  });
+  worksheet['!cols'] = colWidths;
+
+  // Create workbook
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, data.title.slice(0, 31)); // Excel limits sheet names to 31 chars
+
+  // Write to buffer
+  const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  return Buffer.from(excelBuffer);
 }
