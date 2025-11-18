@@ -18,6 +18,8 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 export async function cleanupDatabase() {
   // Delete in reverse order of dependencies
   await prisma.auditLog.deleteMany()
+  await prisma.payment.deleteMany()
+  await prisma.invoice.deleteMany()
   await prisma.remittance.deleteMany()
   await prisma.income.deleteMany()
   await prisma.expense.deleteMany()
@@ -99,13 +101,48 @@ export async function createTestDriver(data: Partial<any> = {}) {
 
 export async function createTestSession(data: Partial<any> = {}) {
   const user = data.userId ? null : await createTestUser()
-  
+
   return await prisma.session.create({
     data: {
       id: data.id || 'test-session-id',
       userId: data.userId || user?.id,
       expiresAt: data.expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000),
       token: data.token || 'test-token',
+    },
+  })
+}
+
+export async function createTestInvoice(data: Partial<any> = {}) {
+  const tenant = data.tenantId ? null : await createTestTenant()
+
+  return await prisma.invoice.create({
+    data: {
+      tenantId: data.tenantId || tenant?.id,
+      invoiceNumber: data.invoiceNumber || 'INV-TEST-001',
+      type: data.type || 'SUBSCRIPTION',
+      plan: data.plan || 'BASIC',
+      amount: data.amount || 100,
+      status: data.status || 'PENDING',
+      dueDate: data.dueDate || new Date(),
+    },
+  })
+}
+
+export async function createTestPayment(data: Partial<any> = {}) {
+  const tenant = data.tenantId ? null : await createTestTenant()
+  const invoice = data.invoiceId ? null : await createTestInvoice({ tenantId: data.tenantId || tenant?.id })
+
+  return await prisma.payment.create({
+    data: {
+      tenantId: data.tenantId || tenant?.id,
+      invoiceId: data.invoiceId || invoice?.id,
+      amount: data.amount || 100,
+      currency: data.currency || 'USD',
+      status: data.status || 'PENDING',
+      verified: data.verified ?? false,
+      reconciled: data.reconciled ?? false,
+      paymentMethod: data.paymentMethod || 'PAYNOW',
+      paymentMetadata: data.paymentMetadata || {},
     },
   })
 }
