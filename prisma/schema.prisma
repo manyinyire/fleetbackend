@@ -866,6 +866,12 @@ model Payment {
   emailSent         Boolean       @default(false)
   adminNotified     Boolean       @default(false)
 
+  // Admin reconciliation
+  reconciled        Boolean       @default(false)
+  reconciledAt      DateTime?
+  reconciledBy      String?
+  reconciliationNotes String?
+
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 

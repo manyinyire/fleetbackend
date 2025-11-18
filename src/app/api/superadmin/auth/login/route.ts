@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { authLogger } from '@/lib/logger';
 
 
 export async function POST(request: NextRequest) {
@@ -191,12 +192,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-  } catch (error: any) {
-    console.error('Super Admin login error:', error);
+  } catch (error) {
+    authLogger.error({ err: error }, 'Super Admin login error');
     return NextResponse.json(
-      { error: error.message || 'Login failed' },
+      { error: error instanceof Error ? error.message : 'Login failed' },
       { status: 500 }
     );
-  } finally {
   }
 }

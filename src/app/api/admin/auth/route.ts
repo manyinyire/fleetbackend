@@ -46,9 +46,28 @@ const ERROR_MESSAGES = {
 const MAX_CONCURRENT_SESSIONS = 3;
 
 /**
+ * Security event data type
+ */
+interface SecurityEventData {
+  userId?: string;
+  email?: string;
+  ip?: string;
+  userAgent?: string;
+  reason?: string;
+  sessionId?: string;
+  activeSessions?: number;
+  maxSessions?: number;
+  rememberDevice?: boolean;
+  ipAddress?: string;
+  description?: string;
+  enabled?: boolean;
+  errorCode?: string;
+}
+
+/**
  * Security event logger
  */
-async function logSecurityEvent(action: string, data: any) {
+async function logSecurityEvent(action: string, data: SecurityEventData) {
   try {
     // If we have a userId, log to audit log
     if (data.userId) {

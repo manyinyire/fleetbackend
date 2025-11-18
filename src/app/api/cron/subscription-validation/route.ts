@@ -4,6 +4,12 @@ import { prisma } from '@/lib/prisma';
 import { apiLogger } from '@/lib/logger';
 import { emailService } from '@/lib/email';
 
+interface SuspensionError {
+  tenantId: string;
+  tenantName: string;
+  error: string;
+}
+
 /**
  * POST /api/cron/subscription-validation
  * Daily cron job to validate subscriptions and suspend expired accounts
@@ -28,7 +34,7 @@ export async function POST(request: NextRequest) {
     const results = {
       suspended: 0,
       alreadySuspended: 0,
-      errors: [] as any[],
+      errors: [] as SuspensionError[],
     };
 
     // Find all tenants with expired subscriptions that are not suspended

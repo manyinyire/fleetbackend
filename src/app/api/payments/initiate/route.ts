@@ -3,12 +3,20 @@ import { withTenantAuth, successResponse, validateBody } from "@/lib/api-middlew
 import { createPayment } from "@/lib/paynow";
 import { paymentInitiateSchema } from "@/lib/validations";
 import { Errors, handleCommonError } from "@/lib/error-handler";
+import { PrismaClient } from "@prisma/client";
+
+interface PaymentUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+}
 
 // Shared payment initiation logic
 async function initiatePayment(
-  prisma: any,
+  prisma: PrismaClient,
   tenantId: string,
-  user: any,
+  user: PaymentUser,
   invoiceId: string,
   request: NextRequest
 ) {
