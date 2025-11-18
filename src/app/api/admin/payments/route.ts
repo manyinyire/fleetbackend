@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth-server";
+import { apiLogger } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
   try {
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Fetch payments error:", error);
+    apiLogger.error({ err: error }, "Failed to fetch payments");
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -100,7 +101,7 @@ export async function PATCH(request: NextRequest) {
       { status: 501 }
     );
   } catch (error) {
-    console.error("Update payment error:", error);
+    apiLogger.error({ err: error }, "Failed to update payment");
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

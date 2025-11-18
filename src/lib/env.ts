@@ -78,6 +78,11 @@ const envSchema = z.object({
   // OPTIONAL - Background Jobs (Redis)
   // ============================================
   REDIS_URL: z.string().url().optional().or(z.literal('')).default('redis://localhost:6379'),
+
+  // ============================================
+  // OPTIONAL - Cron Jobs Security
+  // ============================================
+  CRON_SECRET: z.string().min(32, 'CRON_SECRET must be at least 32 characters for security (generate with: openssl rand -base64 32)').optional(),
 });
 
 // Export the type for use in the application
@@ -117,6 +122,7 @@ export const features = {
   hasAnalytics: () => !!env.NEXT_PUBLIC_GA_MEASUREMENT_ID,
   hasS3: () => !!(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.AWS_S3_BUCKET),
   hasRedis: () => !!env.REDIS_URL && env.REDIS_URL !== 'redis://localhost:6379',
+  hasCronSecret: () => !!env.CRON_SECRET && env.CRON_SECRET.length >= 32,
 };
 
 // Log feature availability (only in development)
@@ -128,7 +134,8 @@ if (process.env.NODE_ENV === 'development') {
   console.log(`├── ${features.hasSMS() ? '✅' : '⚠️ '} SMS: ${features.hasSMS() ? 'Configured' : 'Not configured'}`);
   console.log(`├── ${features.hasAnalytics() ? '✅' : '⚠️ '} Analytics: ${features.hasAnalytics() ? 'Configured' : 'Not configured'}`);
   console.log(`├── ${features.hasS3() ? '✅' : '⚠️ '} S3 Storage: ${features.hasS3() ? 'Configured' : 'Not configured'}`);
-  console.log(`└── ${features.hasRedis() ? '✅' : '⚠️ '} Redis: ${features.hasRedis() ? 'Configured' : 'Not configured'}\n`);
+  console.log(`├── ${features.hasRedis() ? '✅' : '⚠️ '} Redis: ${features.hasRedis() ? 'Configured' : 'Not configured'}`);
+  console.log(`└── ${features.hasCronSecret() ? '✅' : '⚠️ '} Cron Jobs: ${features.hasCronSecret() ? 'Configured' : 'Not configured (required for cron endpoints)'}\n`);
 }
 
 export default env;

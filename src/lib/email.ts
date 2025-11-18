@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import logger from './logger';
 
 interface EmailConfig {
   host: string;
@@ -43,7 +44,7 @@ class EmailService {
 
     // Validate configuration
     if (!config.auth.user || !config.auth.pass) {
-      console.warn('SMTP configuration incomplete. Email service will not work.');
+      logger.warn('SMTP configuration incomplete. Email service will not work.');
       return;
     }
 
@@ -53,7 +54,7 @@ class EmailService {
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
     if (!this.transporter) {
-      console.error('Email service not initialized. Check SMTP configuration.');
+      logger.error('Email service not initialized. Check SMTP configuration.');
       return false;
     }
 
@@ -68,10 +69,10 @@ class EmailService {
       };
 
       const result = await this.transporter.sendMail(mailOptions);
-      console.log('Email sent successfully:', result.messageId);
+      logger.info({ messageId: result.messageId, to: options.to, subject: options.subject }, 'Email sent successfully');
       return true;
     } catch (error) {
-      console.error('Failed to send email:', error);
+      logger.error({ err: error, to: options.to, subject: options.subject }, 'Failed to send email');
       return false;
     }
   }
@@ -438,7 +439,7 @@ class EmailService {
     const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_USER || '';
 
     if (!adminEmail) {
-      console.warn('Admin email not configured. Skipping admin alert.');
+      logger.warn('Admin email not configured. Skipping admin payment alert.');
       return false;
     }
 
@@ -493,7 +494,7 @@ class EmailService {
     const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_USER || '';
 
     if (!adminEmail) {
-      console.warn('Admin email not configured. Skipping admin registration alert.');
+      logger.warn('Admin email not configured. Skipping admin registration alert.');
       return false;
     }
 
@@ -561,7 +562,7 @@ class EmailService {
     const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_USER || '';
 
     if (!adminEmail) {
-      console.warn('Admin email not configured. Skipping admin upgrade alert.');
+      logger.warn('Admin email not configured. Skipping admin upgrade alert.');
       return false;
     }
 
@@ -636,7 +637,7 @@ export async function generateInvoicePdf(invoiceId: string): Promise<Buffer | nu
     });
 
     if (!invoice) {
-      console.error('Invoice not found:', invoiceId);
+      logger.error({ invoiceId }, 'Invoice not found');
       return null;
     }
 
@@ -651,7 +652,7 @@ export async function generateInvoicePdf(invoiceId: string): Promise<Buffer | nu
 
     return pdf;
   } catch (error) {
-    console.error('Error generating invoice PDF:', error);
+    logger.error({ err: error, invoiceId }, 'Error generating invoice PDF');
     return null;
   }
 }

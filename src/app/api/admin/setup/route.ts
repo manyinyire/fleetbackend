@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
+import { authLogger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -30,8 +32,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // TODO: Hash password when better-auth provides the method
-    const hashedPassword = 'placeholder-hashed-password';
+    // Hash password with bcrypt (salt rounds: 10)
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create Super Admin user
     const adminUser = await prisma.user.create({
@@ -40,26 +42,30 @@ export async function POST(request: NextRequest) {
         name,
         role: 'SUPER_ADMIN',
         tenantId: null, // Super Admin has no tenant
-        // TODO: Add password when field is available
+        password: hashedPassword,
         emailVerified: true
       }
     });
 
     // TODO: Create admin settings when model is available
-    console.log('Admin settings would be created for user:', adminUser.id);
+    authLogger.info({ userId: adminUser.id }, 'Admin settings would be created for user');
 
     // If IP whitelist is enabled, add current IP
     if (enableIpWhitelist) {
-      const clientIP = request.headers.get('x-forwarded-for') || 
-                      request.headers.get('x-real-ip') || 
+      const clientIP = request.headers.get('x-forwarded-for') ||
+                      request.headers.get('x-real-ip') ||
                       '127.0.0.1';
-      
+
       // TODO: Create IP whitelist entry when model is available
-      console.log('IP whitelist entry would be created:', { userId: adminUser.id, ipAddress: clientIP });
+      authLogger.info({ userId: adminUser.id, ipAddress: clientIP }, 'IP whitelist entry would be created');
     }
 
-    // TODO: Log admin creation when adminSecurityLog model is available
-    console.log('Admin creation logged for user:', adminUser.id);
+    // Log admin creation
+    authLogger.info({
+      userId: adminUser.id,
+      email: adminUser.email,
+      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1'
+    }, 'Super Admin account created successfully');
 
     return NextResponse.json({ 
       success: true,
@@ -69,7 +75,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Create admin error:', error);
+    authLogger.error({ err: error }, 'Failed to create Super Admin');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -88,7 +94,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Check admin error:', error);
+    authLogger.error({ err: error }, 'Failed to check Super Admin existence');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

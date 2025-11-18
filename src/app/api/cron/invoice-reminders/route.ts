@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { invoiceReminderService } from '@/lib/invoice-reminder';
+import { apiLogger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Cron job error:', error);
+    apiLogger.error({ err: error }, 'Invoice reminders cron job failed');
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
