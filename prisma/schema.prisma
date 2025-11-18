@@ -47,6 +47,7 @@ model Tenant {
   invoiceReminders     InvoiceReminder[]
   payments             Payment[]
   subscriptionHistory  SubscriptionHistory[]
+  whiteLabel           WhiteLabel?
 
   @@map("tenants")
 }
@@ -95,6 +96,7 @@ model User {
   sessions  Session[]
   accounts  Account[]
   auditLogs AuditLog[]
+  notifications Notification[]
 
   // Email verification
   emailVerifications EmailVerification[]
@@ -984,4 +986,209 @@ model SubscriptionMetrics {
 
   @@index([date])
   @@map("subscription_metrics")
+}
+
+// ============================================
+// WHITE-LABEL & CUSTOM BRANDING (PREMIUM)
+// ============================================
+
+model WhiteLabel {
+  id                String   @id @default(cuid())
+  tenantId          String   @unique
+
+  // Branding
+  companyName       String
+  logo              String?   // S3 URL
+  favicon           String?   // S3 URL
+  primaryColor      String   @default("#3b82f6")
+  secondaryColor    String   @default("#1e40af")
+  accentColor       String   @default("#10b981")
+
+  // Custom domain
+  customDomain      String?  @unique
+  domainVerified    Boolean  @default(false)
+  domainVerifiedAt  DateTime?
+
+  // Email customization
+  emailFromName     String?
+  emailFromAddress  String?
+
+  // Contact customization
+  supportEmail      String?
+  supportPhone      String?
+
+  // Legal pages
+  termsUrl          String?
+  privacyUrl        String?
+
+  // Advanced customization
+  customCss         String?  @db.Text
+  customFooter      String?  @db.Text
+  customHeader      String?  @db.Text
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relationships
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([customDomain])
+  @@map("white_label")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String
+  tenantId  String?
+
+  // Notification content
+  type      NotificationType    @default(INFO)
+  title     String
+  message   String              @db.Text
+  priority  NotificationPriority @default(NORMAL)
+
+  // Status
+  read      Boolean             @default(false)
+  readAt    DateTime?
+
+  // Additional data
+  metadata  Json?
+  actionUrl String?             // Link to relevant page
+
+  createdAt DateTime            @default(now())
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  PAYMENT
+  INVOICE
+  SUBSCRIPTION
+  SYSTEM
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+// ============================================
+// SCHEDULED REPORTS (PREMIUM)
+// ============================================
+
+model ScheduledReport {
+  id           String            @id @default(cuid())
+  tenantId     String
+
+  // Report configuration
+  name         String
+  description  String?
+  reportType   ReportType
+  frequency    ReportFrequency
+  format       ReportFormat[]
+
+  // Delivery
+  recipients   String[]          // Array of email addresses
+
+  // Filters
+  filters      Json?             // Date ranges, vehicle IDs, etc.
+
+  // Schedule
+  dayOfWeek    Int?              // 0-6 for weekly reports
+  dayOfMonth   Int?              // 1-31 for monthly reports
+  timeOfDay    String?           // HH:MM format
+  timezone     String            @default("UTC")
+
+  // Status
+  isActive     Boolean           @default(true)
+  nextRunAt    DateTime
+  lastRunAt    DateTime?
+
+  // Metadata
+  createdBy    String            // userId
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  // Relationships
+  runs ReportRun[]
+
+  @@index([tenantId])
+  @@index([nextRunAt, isActive])
+  @@index([createdBy])
+  @@map("scheduled_reports")
+}
+
+model ReportRun {
+  id                String              @id @default(cuid())
+  scheduledReportId String
+
+  // Execution status
+  status            ReportRunStatus     @default(PENDING)
+  startedAt         DateTime            @default(now())
+  completedAt       DateTime?
+
+  // Results
+  error             String?             @db.Text
+  files             Json?               // { pdf: "s3://...", csv: "s3://...", excel: "s3://..." }
+  recordCount       Int?                // Number of records in report
+
+  // Delivery status
+  emailsSent        Int                 @default(0)
+  emailsFailed      Int                 @default(0)
+
+  createdAt         DateTime            @default(now())
+
+  // Relationships
+  scheduledReport ScheduledReport @relation(fields: [scheduledReportId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledReportId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("report_runs")
+}
+
+enum ReportType {
+  FINANCIAL_SUMMARY
+  VEHICLE_PERFORMANCE
+  DRIVER_PERFORMANCE
+  MAINTENANCE_SUMMARY
+  REMITTANCE_SUMMARY
+}
+
+enum ReportFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+}
+
+enum ReportFormat {
+  PDF
+  CSV
+  EXCEL
+}
+
+enum ReportRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
