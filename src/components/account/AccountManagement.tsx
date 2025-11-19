@@ -31,16 +31,8 @@ export function AccountManagement() {
   const loadAccounts = async () => {
     try {
       setLoading(true);
-      const result = await authClient.listAccounts();
-      // BetterAuth returns { data, error } format
-      if (result.error) {
-        toast.error(result.error.message || "Failed to load linked accounts");
-        setAccounts([]);
-        return;
-      }
-      // Ensure result.data is an array
-      const accountsList = Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
-      setAccounts(accountsList as Account[]);
+      // TODO: Implement account listing when BetterAuth supports it
+      setAccounts([]);
     } catch (error: any) {
       console.error("Failed to load accounts:", error);
       toast.error("Failed to load linked accounts");
@@ -51,15 +43,7 @@ export function AccountManagement() {
   };
 
   const handleLinkGoogle = async () => {
-    try {
-      await authClient.linkSocial({
-        provider: "google",
-        callbackURL: "/profile",
-      });
-      // User will be redirected to Google OAuth
-    } catch (error: any) {
-      toast.error(error.message || "Failed to start account linking");
-    }
+    toast.error("Account linking feature not yet implemented");
   };
 
   const handleUnlink = async (providerId: string, accountId?: string) => {
@@ -72,21 +56,8 @@ export function AccountManagement() {
       return;
     }
 
-    setUnlinking(providerId);
-
-    try {
-      await authClient.unlinkAccount({
-        providerId,
-        accountId,
-      });
-
-      toast.success("Account unlinked successfully");
-      loadAccounts();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to unlink account");
-    } finally {
-      setUnlinking(null);
-    }
+    toast.error("Account unlinking feature not yet implemented");
+    setUnlinking(null);
   };
 
   const getProviderName = (providerId: string) => {

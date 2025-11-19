@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { withTenantAuth, ApiContext, successResponse, validateBody, getPaginationFromRequest, getDateRangeFromRequest } from '@/lib/api-middleware';
-import { serializePrismaResults } from '@/lib/serialize-prisma';
+import { serializePrismaResults, serializePrismaData } from '@/lib/serialize-prisma';
 import { MaintenanceType } from '@prisma/client';
 import { createMaintenanceSchema } from '@/lib/validations/maintenance';
 
@@ -56,5 +56,5 @@ export const POST = withTenantAuth(async ({ services, user, request }: ApiContex
   // Use MaintenanceService for creation
   const maintenance = await services.maintenance.create(maintenanceData, user.id);
 
-  return successResponse(serializePrismaResults(maintenance), 201);
+  return successResponse(serializePrismaData(maintenance), 201);
 });

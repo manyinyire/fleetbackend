@@ -426,7 +426,7 @@ export class SubscriptionService {
           proratedAmount: prorationResult?.creditAmount || 0,
           effectiveDate: effectiveDate || new Date(),
           changedBy: userId,
-          metadata: { prorationResult, invoiceId: invoice.invoice.id }
+          metadata: { prorationResult, invoiceId: invoice.invoice.id } as any
         }
       });
 

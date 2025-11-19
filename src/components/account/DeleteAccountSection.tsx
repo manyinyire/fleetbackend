@@ -23,16 +23,8 @@ export function DeleteAccountSection() {
     setLoading(true);
 
     try {
-      const result = await authClient.deleteUser({
-        callbackURL: "/goodbye",
-      });
-
-      if (result.error) {
-        toast.error(result.error.message || "Failed to initiate account deletion");
-        return;
-      }
-
-      toast.success("Verification email sent! Please check your email to confirm account deletion.");
+      // TODO: Implement account deletion when BetterAuth supports it
+      toast.error("Account deletion feature not yet implemented");
       setShowConfirm(false);
       setConfirmText("");
     } catch (error: any) {

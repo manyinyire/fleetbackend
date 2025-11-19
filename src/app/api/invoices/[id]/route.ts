@@ -1,8 +1,11 @@
 import { NextRequest } from 'next/server';
 import { withTenantAuth, successResponse } from '@/lib/api-middleware';
 
-export const GET = withTenantAuth(async ({ prisma, tenantId, request }, { params }) => {
-  const { id } = await params;
+export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
+  // Extract id from URL path
+  const url = new URL(request.url);
+  const pathParts = url.pathname.split('/');
+  const id = pathParts[pathParts.length - 1];
 
   const invoice = await prisma.invoice.findFirst({
     where: {

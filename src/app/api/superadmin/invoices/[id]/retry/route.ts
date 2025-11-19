@@ -62,7 +62,7 @@ export async function POST(
           data: {
             status: 'CANCELLED',
             paymentMetadata: {
-              ...pendingPayment.paymentMetadata,
+              ...(pendingPayment.paymentMetadata as object || {}),
               cancelledReason: 'Retry initiated by super admin',
               cancelledAt: new Date().toISOString(),
             },
@@ -117,7 +117,7 @@ export async function POST(
         pollUrl: paynowResponse.pollUrl,
         redirectUrl: paynowResponse.redirectUrl,
         paymentMetadata: {
-          ...tempPayment.paymentMetadata,
+          ...((tempPayment.paymentMetadata as object) || {}),
           hash: paynowResponse.hash,
         },
       },

@@ -44,7 +44,7 @@ export async function getTopProducts() {
         sold: vehicle.remittances.length, // Number of remittances
         profit: totalRevenue,
       };
-    }).sort((a, b) => b.profit - a.profit).slice(0, 4);
+    }).sort((a: any, b: any) => b.profit - a.profit).slice(0, 4);
 
     return vehiclesWithRevenue;
   } catch (error) {
@@ -77,7 +77,7 @@ export async function getInvoiceTableData() {
       }
     });
 
-    return invoices.map(invoice => ({
+    return invoices.map((invoice: any) => ({
       id: invoice.id,
       name: `${invoice.plan} - ${invoice.tenant.name}`,
       price: Number(invoice.amount),

@@ -112,14 +112,14 @@ export async function GET(request: NextRequest) {
     const where: any = {};
 
     if (category) {
-      where.category = category;
+      where.type = category as any; // category maps to type in schema
     }
 
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
-        { slug: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
+        { subject: { contains: search, mode: 'insensitive' } },
+        { body: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
     const templates = await prisma.emailTemplate.findMany({
       where,
       orderBy: {
-        category: 'asc',
+        type: 'asc',
       },
     });
 
@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
       active: await prisma.emailTemplate.count({ where: { isActive: true } }),
       inactive: await prisma.emailTemplate.count({ where: { isActive: false } }),
       byCategory: await prisma.emailTemplate.groupBy({
-        by: ['category'],
+        by: ['type'],
         _count: true,
       }),
     };
@@ -171,16 +171,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if slug already exists
-    const existing = await prisma.emailTemplate.findUnique({
-      where: { slug: data.slug },
-    });
+    // Check if name already exists (name is unique)
+    if (!data.id) {
+      const existing = await prisma.emailTemplate.findUnique({
+        where: { name: data.name },
+      });
 
-    if (existing && !data.id) {
-      return NextResponse.json(
-        { success: false, error: 'Template with this slug already exists' },
-        { status: 400 }
-      );
+      if (existing) {
+        return NextResponse.json(
+          { success: false, error: 'Template with this name already exists' },
+          { status: 400 }
+        );
+      }
     }
 
     // Create or update template
@@ -190,22 +192,19 @@ export async function POST(request: NextRequest) {
       },
       update: {
         name: data.name,
-        description: data.description,
+        type: data.type || data.category || 'WELCOME',
         subject: data.subject,
         body: data.body,
         variables: data.variables || [],
         isActive: data.isActive !== undefined ? data.isActive : true,
-        category: data.category || 'OTHER',
       },
       create: {
-        slug: data.slug,
         name: data.name,
-        description: data.description,
+        type: data.type || data.category || 'WELCOME',
         subject: data.subject,
         body: data.body,
         variables: data.variables || [],
         isActive: data.isActive !== undefined ? data.isActive : true,
-        category: data.category || 'OTHER',
       },
     });
 
@@ -218,7 +217,7 @@ export async function POST(request: NextRequest) {
         entityId: template.id,
         newValues: {
           name: template.name,
-          slug: template.slug,
+          type: template.type,
         },
         ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown',
@@ -246,12 +245,19 @@ export async function PUT(request: NextRequest) {
     const created = [];
     for (const template of DEFAULT_TEMPLATES) {
       const existing = await prisma.emailTemplate.findUnique({
-        where: { slug: template.slug },
+        where: { name: template.name },
       });
 
       if (!existing) {
         const newTemplate = await prisma.emailTemplate.create({
-          data: template,
+          data: {
+            name: template.name,
+            type: (template as any).type || (template as any).category || 'WELCOME',
+            subject: template.subject,
+            body: template.body,
+            variables: template.variables,
+            isActive: template.isActive !== undefined ? template.isActive : true,
+          },
         });
         created.push(newTemplate);
       }
@@ -312,7 +318,7 @@ export async function DELETE(request: NextRequest) {
         entityId: templateId,
         oldValues: {
           name: template.name,
-          slug: template.slug,
+          type: template.type,
         },
         ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown',

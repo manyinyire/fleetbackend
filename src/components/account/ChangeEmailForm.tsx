@@ -28,17 +28,8 @@ export function ChangeEmailForm() {
     setLoading(true);
 
     try {
-      const result = await authClient.changeEmail({
-        newEmail,
-        callbackURL: "/profile",
-      });
-
-      if (result.error) {
-        toast.error(result.error.message || "Failed to send verification email");
-        return;
-      }
-
-      toast.success("Verification email sent! Please check your current email to approve the change.");
+      // TODO: Implement email change when BetterAuth supports it
+      toast.error("Email change feature not yet implemented");
       setNewEmail("");
       setShowForm(false);
     } catch (error: any) {

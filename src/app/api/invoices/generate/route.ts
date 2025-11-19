@@ -2,12 +2,13 @@ import { NextRequest } from 'next/server';
 import { withTenantAuth, successResponse, validateBody } from '@/lib/api-middleware';
 import { invoiceGenerator } from '@/lib/invoice-generator';
 import { emailService } from '@/lib/email';
+import { InvoiceType } from '@prisma/client';
 import { z } from 'zod';
 
 // Validation schema for generating an invoice
 const generateInvoiceSchema = z.object({
-  type: z.enum(['SUBSCRIPTION', 'UPGRADE', 'PAYMENT']),
-  plan: z.enum(['FREE', 'BASIC', 'PREMIUM', 'ENTERPRISE']),
+  type: z.nativeEnum(InvoiceType),
+  plan: z.enum(['FREE', 'BASIC', 'PREMIUM']),
   description: z.string().optional(),
 });
 

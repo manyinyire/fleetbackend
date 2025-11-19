@@ -386,7 +386,7 @@ export class MaintenanceService {
       return {
         total,
         totalCost: totalCost._sum.cost || 0,
-        averageCost: total > 0 ? (totalCost._sum.cost || 0) / total : 0,
+        averageCost: total > 0 ? Number(totalCost._sum.cost || 0) / total : 0,
         byType: byType.map(item => ({
           type: item.type,
           count: item._count.type,

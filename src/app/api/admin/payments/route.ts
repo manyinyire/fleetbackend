@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth-server";
 import { apiLogger } from "@/lib/logger";
-import { Prisma } from "@prisma/client";
+import { Prisma, PaymentStatus } from "@prisma/client";
 
 interface AuthSession {
   user?: {
@@ -16,7 +16,7 @@ interface AuthSession {
 export async function GET(request: NextRequest) {
   try {
     // Authenticate user
-    const session = await auth.api.getSession({ headers: request.headers }) as AuthSession;
+    const session = await auth.api.getSession({ headers: request.headers }) as AuthSession | null;
 
     if (!session?.user || session.user?.role !== "SUPER_ADMIN") {
       return NextResponse.json(
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: Prisma.PaymentWhereInput = {};
-    if (status) where.status = status;
+    if (status) where.status = status as PaymentStatus;
     if (verified !== null && verified !== undefined) {
       where.verified = verified === "true";
     }
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     // Authenticate user
-    const session = await auth.api.getSession({ headers: request.headers }) as AuthSession;
+    const session = await auth.api.getSession({ headers: request.headers }) as AuthSession | null;
 
     if (!session?.user || session.user?.role !== "SUPER_ADMIN") {
       return NextResponse.json(

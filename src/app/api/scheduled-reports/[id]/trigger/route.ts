@@ -20,8 +20,27 @@ export async function POST(
 ) {
   try {
     const params = await context.params;
-    const user = await requireAuth();
-    const tenant = await requireTenant(user);
+    const { tenantId } = await requireTenant();
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { success: false, error: 'Tenant context required' },
+        { status: 403 }
+      );
+    }
+
+    // Fetch tenant to check plan
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { plan: true },
+    });
+
+    if (!tenant) {
+      return NextResponse.json(
+        { success: false, error: 'Tenant not found' },
+        { status: 404 }
+      );
+    }
 
     // Check if tenant has PREMIUM plan
     if (tenant.plan !== SubscriptionPlan.PREMIUM) {
@@ -48,7 +67,7 @@ export async function POST(
     const scheduledReport = await prisma.scheduledReport.findFirst({
       where: {
         id: params.id,
-        tenantId: tenant.id,
+        tenantId: tenantId,
       },
     });
 
@@ -77,7 +96,7 @@ export async function POST(
       'generate-report',
       {
         scheduledReportId: scheduledReport.id,
-        tenantId: tenant.id,
+        tenantId: tenantId,
       },
       {
         priority: 1, // High priority for manual triggers

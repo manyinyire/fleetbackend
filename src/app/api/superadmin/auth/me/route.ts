@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     // Get current user from session
     const session = await auth.api.getSession({
       headers: request.headers
-    });
+    }) as { user: { id: string; role: string | null } } | null;
 
     if (!session?.user) {
       return NextResponse.json(

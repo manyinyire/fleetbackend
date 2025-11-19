@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { TruckIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Vehicle {
   id: string;
@@ -39,40 +40,30 @@ interface DashboardOverviewProps {
 }
 
 export function DashboardOverview({ vehicles, drivers }: DashboardOverviewProps) {
-  const [activeTab, setActiveTab] = useState<'vehicles' | 'drivers'>('vehicles');
-
   return (
     <div className="bg-white rounded-lg shadow">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <div className="flex space-x-8">
-          <button
-            onClick={() => setActiveTab('vehicles')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'vehicles'
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <TruckIcon className="h-5 w-5 inline mr-2" />
-            Vehicles ({vehicles.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('drivers')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'drivers'
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <UserGroupIcon className="h-5 w-5 inline mr-2" />
-            Drivers ({drivers.length})
-          </button>
+      <Tabs defaultValue="vehicles" className="w-full">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <TabsList className="bg-transparent p-0 h-auto gap-8">
+            <TabsTrigger
+              value="vehicles"
+              className="py-2 px-1 border-b-2 border-transparent data-[state=active]:border-indigo-500 data-[state=active]:text-indigo-600 text-gray-500 hover:text-gray-700 hover:border-gray-300 rounded-none shadow-none"
+            >
+              <TruckIcon className="h-5 w-5 inline mr-2" />
+              Vehicles ({vehicles.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="drivers"
+              className="py-2 px-1 border-b-2 border-transparent data-[state=active]:border-indigo-500 data-[state=active]:text-indigo-600 text-gray-500 hover:text-gray-700 hover:border-gray-300 rounded-none shadow-none"
+            >
+              <UserGroupIcon className="h-5 w-5 inline mr-2" />
+              Drivers ({drivers.length})
+            </TabsTrigger>
+          </TabsList>
         </div>
-      </div>
 
-      <div className="p-6">
-        {activeTab === 'vehicles' && (
-          <div className="space-y-4">
+        <div className="p-6">
+          <TabsContent value="vehicles" className="mt-0 space-y-4 outline-none">
             {vehicles.length === 0 ? (
               <div className="text-center py-8">
                 <TruckIcon className="mx-auto h-12 w-12 text-gray-400" />
@@ -154,11 +145,9 @@ export function DashboardOverview({ vehicles, drivers }: DashboardOverviewProps)
                 </table>
               </div>
             )}
-          </div>
-        )}
+          </TabsContent>
 
-        {activeTab === 'drivers' && (
-          <div className="space-y-4">
+          <TabsContent value="drivers" className="mt-0 space-y-4 outline-none">
             {drivers.length === 0 ? (
               <div className="text-center py-8">
                 <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
@@ -233,9 +222,9 @@ export function DashboardOverview({ vehicles, drivers }: DashboardOverviewProps)
                 </table>
               </div>
             )}
-          </div>
-        )}
-      </div>
+          </TabsContent>
+        </div>
+      </Tabs>
     </div>
   );
 }

@@ -157,11 +157,12 @@ export async function checkVerificationOTP(params: {
  */
 export async function getSession(params: {
   headers: Headers;
-}) {
+}): Promise<{ user?: { id: string; email: string; name?: string } } | null> {
   try {
     // In NextAuth v5, session is handled differently
     // This is a placeholder - actual implementation depends on how you're using sessions
     // You might need to extract the session token from cookies/headers
+    // TODO: Implement proper session retrieval from NextAuth v5
     return null;
   } catch (error) {
     apiLogger.error({ error }, 'getSession failed');
@@ -334,7 +335,7 @@ export async function listUserSessions(params: {
     // Get user sessions from NextAuth Session table
     const sessions = await prisma.session.findMany({
       where: { userId },
-      orderBy: { expires: 'desc' },
+      orderBy: { expiresAt: 'desc' },
     });
 
     return sessions;

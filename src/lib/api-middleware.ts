@@ -17,20 +17,28 @@ import { z } from 'zod';
 
 export interface ApiContext {
   user: any;
-  tenantId: string;
+  tenantId: string | null;
   prisma: PrismaClient;
   services: ServiceContainer;
   request: NextRequest;
+}
+
+export interface TenantApiContext extends Omit<ApiContext, 'tenantId'> {
+  tenantId: string;
 }
 
 export type ApiHandler = (
   context: ApiContext
 ) => Promise<NextResponse> | NextResponse;
 
+export type TenantApiHandler = (
+  context: TenantApiContext
+) => Promise<NextResponse> | NextResponse;
+
 /**
  * Wrap API route with tenant authentication and error handling
  */
-export function withTenantAuth(handler: ApiHandler) {
+export function withTenantAuth(handler: TenantApiHandler) {
   return async (request: NextRequest): Promise<NextResponse> => {
     const startTime = Date.now();
     const method = request.method;
@@ -39,6 +47,14 @@ export function withTenantAuth(handler: ApiHandler) {
     try {
       // Authenticate and get tenant
       const { user, tenantId } = await requireTenant();
+
+      // Ensure tenantId is not null for tenant-specific routes
+      if (!tenantId) {
+        return NextResponse.json(
+          { error: 'Tenant context required for this operation' },
+          { status: 400 }
+        );
+      }
 
       // Set RLS context
       if (tenantId) {
@@ -53,8 +69,8 @@ export function withTenantAuth(handler: ApiHandler) {
       // Create service container for dependency injection
       const services = new ServiceContainer(tenantId);
 
-      // Create context
-      const context: ApiContext = {
+      // Create context with guaranteed non-null tenantId
+      const context: TenantApiContext = {
         user,
         tenantId,
         prisma,

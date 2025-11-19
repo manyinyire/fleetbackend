@@ -194,7 +194,7 @@ export async function DELETE(request: NextRequest) {
       const result = await prisma.notification.deleteMany({
         where: {
           createdAt: { lt: ninetyDaysAgo },
-          status: { in: ['READ', 'ARCHIVED'] },
+          read: true, // Only delete read notifications
         },
       });
 

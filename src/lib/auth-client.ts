@@ -22,9 +22,32 @@ export const authClient = {
     },
   },
   emailOtp: {
-    sendVerificationOtp: async () => {
-      console.warn("Email OTP not yet implemented with Auth.js v5");
-      return { error: { message: "Feature not yet implemented" } };
+    sendVerificationOtp: async (data: { email: string; type?: string }) => {
+      try {
+        const response = await fetch("/api/auth/resend-verification", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email: data.email }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          return { error: { message: result.error || "Failed to send verification email" } };
+        }
+
+        return { data: result };
+      } catch (error: any) {
+        return { error: { message: error.message || "Failed to send verification email" } };
+      }
+    },
+    verifyEmail: async (data: { email: string; otp: string }) => {
+      // Note: Current implementation uses token-based verification (link in email)
+      // not OTP-based verification. This is a stub for compatibility.
+      console.warn("OTP-based email verification not implemented. Use token-based verification via email link.");
+      return { error: { message: "OTP verification not supported. Please use the link sent to your email." } };
     },
   },
   twoFactor: {
@@ -38,9 +61,26 @@ export const authClient = {
     },
   },
   user: {
-    update: async () => {
-      console.warn("User update not yet implemented with Auth.js v5");
-      return { error: { message: "Feature not yet implemented" } };
+    update: async (data: { name?: string; image?: string }) => {
+      try {
+        const response = await fetch("/api/user/profile", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          return { error: { message: result.error || "Failed to update profile" } };
+        }
+
+        return { data: result.data };
+      } catch (error: any) {
+        return { error: { message: error.message || "Failed to update profile" } };
+      }
     },
     changeEmail: async () => {
       console.warn("Change email not yet implemented with Auth.js v5");

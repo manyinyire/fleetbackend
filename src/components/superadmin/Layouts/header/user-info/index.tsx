@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 
 export function UserInfo() {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, isLoading, error } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
 
   const handleLogout = async () => {

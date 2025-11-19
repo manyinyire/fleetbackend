@@ -44,17 +44,19 @@ export const scheduledReportsWorker = new Worker<ScheduledReportJob>(
       // Get scheduled report details
       const scheduledReport = await prisma.scheduledReport.findUnique({
         where: { id: scheduledReportId },
-        include: {
-          tenant: true,
-        },
       });
 
       if (!scheduledReport) {
         throw new Error('Scheduled report not found');
       }
 
+      // Get tenant to check plan
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: scheduledReport.tenantId },
+      });
+
       // Check if tenant has PREMIUM plan
-      if (scheduledReport.tenant.plan !== SubscriptionPlan.PREMIUM) {
+      if (tenant?.plan !== SubscriptionPlan.PREMIUM) {
         throw new Error('Scheduled reports are only available for PREMIUM plan');
       }
 
@@ -77,7 +79,7 @@ export const scheduledReportsWorker = new Worker<ScheduledReportJob>(
         data: {
           status: ReportRunStatus.COMPLETED,
           completedAt: new Date(),
-          fileUrls,
+          files: fileUrls as any,
         },
       });
 

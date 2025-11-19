@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     // Get current user from session
     const session = await auth.api.getSession({
       headers: request.headers
-    });
+    }) as { user: { id: string }; session: { id: string } } | null;
 
     if (!session?.user) {
       return NextResponse.json(
@@ -29,8 +29,9 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Sign out using BetterAuth
-    await auth.api.signOut({
+    // Revoke session using BetterAuth
+    await auth.api.revokeSession({
+      body: { sessionId: session.session.id },
       headers: request.headers
     });
 

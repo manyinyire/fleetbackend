@@ -16,8 +16,27 @@ import { rateLimitByPlan } from '@/lib/rate-limit';
  */
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth();
-    const tenant = await requireTenant(user);
+    const { tenantId } = await requireTenant();
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { success: false, error: 'Tenant context required' },
+        { status: 403 }
+      );
+    }
+
+    // Fetch tenant to check plan
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { plan: true },
+    });
+
+    if (!tenant) {
+      return NextResponse.json(
+        { success: false, error: 'Tenant not found' },
+        { status: 404 }
+      );
+    }
 
     // Check rate limit
     const rateLimitResult = await rateLimitByPlan(
@@ -30,7 +49,7 @@ export async function GET(request: NextRequest) {
     }
 
     const scheduledReports = await prisma.scheduledReport.findMany({
-      where: { tenantId: tenant.id },
+      where: { tenantId: tenantId },
       include: {
         runs: {
           orderBy: { createdAt: 'desc' },
@@ -62,8 +81,27 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth();
-    const tenant = await requireTenant(user);
+    const { tenantId, user } = await requireTenant();
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { success: false, error: 'Tenant context required' },
+        { status: 403 }
+      );
+    }
+
+    // Fetch tenant to check plan
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { plan: true },
+    });
+
+    if (!tenant) {
+      return NextResponse.json(
+        { success: false, error: 'Tenant not found' },
+        { status: 404 }
+      );
+    }
 
     // Check if tenant has PREMIUM plan
     if (tenant.plan !== SubscriptionPlan.PREMIUM) {
@@ -151,7 +189,7 @@ export async function POST(request: NextRequest) {
     // Create scheduled report
     const scheduledReport = await prisma.scheduledReport.create({
       data: {
-        tenantId: tenant.id,
+        tenantId: tenantId,
         name,
         description,
         reportType,
@@ -169,7 +207,7 @@ export async function POST(request: NextRequest) {
       'generate-report',
       {
         scheduledReportId: scheduledReport.id,
-        tenantId: tenant.id,
+        tenantId: tenantId,
       },
       {
         delay: nextRunAt.getTime() - Date.now(),

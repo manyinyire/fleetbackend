@@ -92,7 +92,7 @@ export class ReportGeneratorService {
     });
 
     // Get expenses (maintenance)
-    const expenses = await prisma.maintenance.findMany({
+    const expenses = await prisma.maintenanceRecord.findMany({
       where: {
         tenantId,
         date: {
@@ -121,7 +121,7 @@ export class ReportGeneratorService {
       ['Date', 'Driver', 'Vehicle', 'Amount'],
       ...remittances.slice(0, 20).map(r => [
         new Date(r.date).toLocaleDateString(),
-        r.driver.name,
+        r.driver.fullName,
         r.vehicle.registrationNumber,
         `$${Number(r.amount).toFixed(2)}`,
       ]),
@@ -230,7 +230,7 @@ export class ReportGeneratorService {
         const avgPerTrip = tripCount > 0 ? totalRevenue / tripCount : 0;
 
         return [
-          d.name,
+          d.fullName,
           d.phone || 'N/A',
           d.status,
           `$${totalRevenue.toFixed(2)}`,
@@ -257,7 +257,7 @@ export class ReportGeneratorService {
   ): Promise<ReportData> {
     const dateRange = this.getDateRange(filters);
 
-    const maintenance = await prisma.maintenance.findMany({
+    const maintenance = await prisma.maintenanceRecord.findMany({
       where: {
         tenantId,
         date: {
@@ -272,18 +272,17 @@ export class ReportGeneratorService {
     });
 
     const rows = [
-      ['Date', 'Vehicle', 'Type', 'Description', 'Cost', 'Status'],
-      ...maintenance.map(m => [
+      ['Date', 'Vehicle', 'Type', 'Description', 'Cost'],
+      ...maintenance.map((m: any) => [
         new Date(m.date).toLocaleDateString(),
         m.vehicle.registrationNumber,
         m.type,
         m.description || 'N/A',
         `$${Number(m.cost || 0).toFixed(2)}`,
-        m.status,
       ]),
     ];
 
-    const totalCost = maintenance.reduce((sum, m) => sum + Number(m.cost || 0), 0);
+    const totalCost = maintenance.reduce((sum: number, m: any) => sum + Number(m.cost || 0), 0);
 
     return {
       title: 'Maintenance Summary Report',
@@ -325,7 +324,7 @@ export class ReportGeneratorService {
       ['Date', 'Driver', 'Vehicle', 'Amount', 'Status', 'Notes'],
       ...remittances.map(r => [
         new Date(r.date).toLocaleDateString(),
-        r.driver.name,
+        r.driver.fullName,
         r.vehicle.registrationNumber,
         `$${Number(r.amount).toFixed(2)}`,
         r.status,

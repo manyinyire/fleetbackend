@@ -98,7 +98,7 @@ export class ServiceContainer {
    */
   get subscriptions(): SubscriptionService {
     if (!this._subscriptionService) {
-      this._subscriptionService = new SubscriptionService(this.tenantId);
+      this._subscriptionService = new SubscriptionService();
     }
     return this._subscriptionService;
   }
@@ -120,7 +120,7 @@ export class ServiceContainer {
    */
   get admin(): AdminService {
     if (!this._adminService) {
-      this._adminService = new AdminService(this.tenantId);
+      this._adminService = new AdminService();
     }
     return this._adminService;
   }

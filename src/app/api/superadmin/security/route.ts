@@ -48,15 +48,19 @@ export async function GET(request: NextRequest) {
     await requireRole('SUPER_ADMIN');
 
     // Get security settings from database
-    const settings = await prisma.platformSettings.findFirst({
-      where: {
-        category: 'SECURITY',
-      },
-    });
+    const settings = await prisma.platformSettings.findFirst();
 
     let securitySettings = DEFAULT_SETTINGS;
-    if (settings?.settings) {
-      securitySettings = { ...DEFAULT_SETTINGS, ...(settings.settings as any) };
+    if (settings) {
+      // Map PlatformSettings fields to security settings
+      securitySettings = {
+        ...DEFAULT_SETTINGS,
+        accountLockoutThreshold: settings.failedLoginAttempts,
+        maintenance: {
+          ...DEFAULT_SETTINGS.maintenance,
+          enabled: settings.maintenanceMode,
+        },
+      };
     }
 
     // Get security statistics
@@ -170,30 +174,30 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get current settings
-    let currentSettings = await prisma.platformSettings.findFirst({
-      where: {
-        category: 'SECURITY',
-      },
-    });
+    let currentSettings = await prisma.platformSettings.findFirst();
 
-    const newSettings = {
-      ...DEFAULT_SETTINGS,
-      ...(currentSettings?.settings as any || {}),
-      ...data,
-    };
+    // Map security settings to PlatformSettings fields
+    const updateData: any = {};
+    if (data.accountLockoutThreshold !== undefined) {
+      updateData.failedLoginAttempts = data.accountLockoutThreshold;
+    }
+    if (data.maintenance?.enabled !== undefined) {
+      updateData.maintenanceMode = data.maintenance.enabled;
+    }
+    if (data.requireEmailVerification !== undefined) {
+      updateData.requireEmailVerification = data.requireEmailVerification;
+    }
 
     // Upsert settings
     const updated = await prisma.platformSettings.upsert({
       where: {
-        id: currentSettings?.id || 'new-security-settings',
+        id: currentSettings?.id || 'new-platform-settings',
       },
-      update: {
-        settings: newSettings,
-        updatedAt: new Date(),
-      },
+      update: updateData,
       create: {
-        category: 'SECURITY',
-        settings: newSettings,
+        ...updateData,
+        platformName: 'Azaire Fleet Manager',
+        platformUrl: 'https://azaire.com',
       },
     });
 
@@ -204,18 +208,17 @@ export async function PUT(request: NextRequest) {
         action: 'SECURITY_SETTINGS_UPDATED',
         entityType: 'PlatformSettings',
         entityId: updated.id,
-        oldValues: currentSettings?.settings || {},
-        newValues: newSettings,
+        oldValues: currentSettings || {},
+        newValues: data,
         ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown',
-        severity: 'HIGH',
       },
     });
 
     return NextResponse.json({
       success: true,
       data: {
-        settings: newSettings,
+        settings: data,
       },
     });
   } catch (error) {

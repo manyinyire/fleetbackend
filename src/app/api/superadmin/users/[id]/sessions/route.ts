@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
@@ -11,13 +10,10 @@ export async function GET(
   try {
     await requireRole('SUPER_ADMIN');
 
-    // Use BetterAuth admin plugin to list user sessions
-    const headersList = await headers();
-    const sessions = await auth.api.listUserSessions({
-      body: {
-        userId: id,
-      },
-      headers: headersList,
+    // List user sessions from database
+    const sessions = await prisma.session.findMany({
+      where: { userId: id },
+      orderBy: { createdAt: 'desc' },
     });
 
     return NextResponse.json({
@@ -41,13 +37,9 @@ export async function DELETE(
   try {
     await requireRole('SUPER_ADMIN');
 
-    // Use BetterAuth admin plugin to revoke all user sessions
-    const headersList = await headers();
-    await auth.api.revokeUserSessions({
-      body: {
-        userId: id,
-      },
-      headers: headersList,
+    // Revoke all user sessions by deleting them from database
+    await prisma.session.deleteMany({
+      where: { userId: id },
     });
 
     return NextResponse.json({

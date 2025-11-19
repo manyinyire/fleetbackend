@@ -27,12 +27,12 @@ export default function ClearCachePage() {
         sessionStorage.clear();
 
         setStatus('Signing out...');
-        await signOut({ fetchOptions: { onSuccess: () => {
-          setStatus('Redirecting to login...');
-          setTimeout(() => {
-            window.location.href = '/auth/sign-in';
-          }, 1000);
-        }}});
+        await signOut();
+        
+        setStatus('Redirecting to login...');
+        setTimeout(() => {
+          window.location.href = '/auth/sign-in';
+        }, 1000);
 
       } catch (error) {
         console.error('Error clearing cache:', error);

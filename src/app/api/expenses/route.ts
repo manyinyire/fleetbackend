@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withTenantAuth, successResponse, validateBody, getPaginationFromRequest, getDateRangeFromRequest, paginationResponse } from '@/lib/api-middleware';
-import { serializePrismaResults } from '@/lib/serialize-prisma';
+import { serializePrismaResults, serializePrismaData } from '@/lib/serialize-prisma';
+import { ExpenseCategory, ExpenseStatus } from '@prisma/client';
 import { z } from 'zod';
 
 // Validation schema for creating an expense
 const createExpenseSchema = z.object({
   vehicleId: z.string().uuid().optional().nullable(),
-  category: z.enum(['FUEL', 'MAINTENANCE', 'INSURANCE', 'TAX', 'REPAIRS', 'OTHER']),
+  category: z.nativeEnum(ExpenseCategory),
   amount: z.number().positive('Amount must be positive'),
   date: z.string().refine((date) => !isNaN(Date.parse(date)), 'Invalid date'),
   description: z.string().min(1, 'Description is required'),
   receipt: z.string().url().optional().nullable(),
-  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional().default('PENDING'),
+  status: z.nativeEnum(ExpenseStatus).optional().default('PENDING'),
 });
 
 export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
@@ -89,5 +90,5 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, request }) => {
     },
   });
 
-  return successResponse(serializePrismaResults(expense), 201);
+  return successResponse(serializePrismaData(expense), 201);
 });

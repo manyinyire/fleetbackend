@@ -113,7 +113,7 @@ export function ScheduledReportsManager() {
       <div className="p-6">
         <UpgradePrompt
           feature="Scheduled Reports"
-          plan={getRequiredPlan('SCHEDULED_REPORTS')}
+          plan={getRequiredPlan('SCHEDULED_REPORTS') as 'BASIC' | 'PREMIUM'}
           variant="inline"
           description="Automate your reporting with scheduled reports delivered directly to your inbox."
           benefits={[

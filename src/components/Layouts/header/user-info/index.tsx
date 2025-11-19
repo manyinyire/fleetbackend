@@ -24,7 +24,7 @@ interface PlanInfo {
 
 export function UserInfo() {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, isLoading, error } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
   const [currentPlan, setCurrentPlan] = useState<PlanInfo | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(true);
@@ -88,7 +88,7 @@ export function UserInfo() {
     const isDevelopment = typeof window !== 'undefined' && 
       (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
     if (isDevelopment) {
-      console.warn('UserInfo: No user data available after loading', { isLoading, error });
+      console.warn('UserInfo: No user data available after loading', { isLoading });
     }
     return (
       <div className="flex items-center gap-3">

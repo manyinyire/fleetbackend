@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { withTenantAuth, successResponse, validateBody } from '@/lib/api-middleware';
-import { serializePrismaResults } from '@/lib/serialize-prisma';
+import { serializePrismaResults, serializePrismaData } from '@/lib/serialize-prisma';
 import { z } from 'zod';
 
 // Validation schema for updating a remittance
@@ -14,8 +14,11 @@ const updateRemittanceSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
-export const GET = withTenantAuth(async ({ prisma, tenantId, request }, { params }) => {
-  const { id } = await params;
+export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
+  // Extract id from URL path
+  const url = new URL(request.url);
+  const pathParts = url.pathname.split('/');
+  const id = pathParts[pathParts.length - 1];
 
   const remittance = await prisma.remittance.findFirst({
     where: {
@@ -47,11 +50,15 @@ export const GET = withTenantAuth(async ({ prisma, tenantId, request }, { params
     return successResponse({ error: 'Remittance not found' }, 404);
   }
 
-  return successResponse(serializePrismaResults(remittance));
+  return successResponse(serializePrismaData(remittance));
 });
 
-export const PUT = withTenantAuth(async ({ prisma, tenantId, user, request }, { params }) => {
-  const { id } = await params;
+export const PUT = withTenantAuth(async ({ prisma, tenantId, user, request }) => {
+  // Extract id from URL path
+  const url = new URL(request.url);
+  const pathParts = url.pathname.split('/');
+  const id = pathParts[pathParts.length - 1];
+  
   const data = await validateBody(request, updateRemittanceSchema);
 
   // Get existing remittance
@@ -130,11 +137,14 @@ export const PUT = withTenantAuth(async ({ prisma, tenantId, user, request }, { 
     });
   }
 
-  return successResponse(serializePrismaResults(updatedRemittance));
+  return successResponse(serializePrismaData(updatedRemittance));
 });
 
-export const DELETE = withTenantAuth(async ({ prisma, tenantId, request }, { params }) => {
-  const { id } = await params;
+export const DELETE = withTenantAuth(async ({ prisma, tenantId, request }) => {
+  // Extract id from URL path
+  const url = new URL(request.url);
+  const pathParts = url.pathname.split('/');
+  const id = pathParts[pathParts.length - 1];
 
   // Get existing remittance
   const existingRemittance = await prisma.remittance.findFirst({

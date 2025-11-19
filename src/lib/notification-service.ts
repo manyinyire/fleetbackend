@@ -79,7 +79,7 @@ export class NotificationService {
       // Aggregate results
       results.forEach((channelResult, index) => {
         const channel = channels[index];
-        if (channelResult.status === 'fulfilled') {
+        if (channelResult.status === 'fulfilled' && channelResult.value) {
           result.channels[channel.toLowerCase() as keyof typeof result.channels] = channelResult.value;
           if (channelResult.value.success) {
             result.success = true;
@@ -87,7 +87,7 @@ export class NotificationService {
         } else {
           result.channels[channel.toLowerCase() as keyof typeof result.channels] = {
             success: false,
-            error: channelResult.reason?.message || 'Unknown error',
+            error: channelResult.status === 'rejected' ? (channelResult.reason?.message || 'Unknown error') : 'Unknown error',
           };
         }
       });
@@ -121,7 +121,7 @@ export class NotificationService {
       // Get recipient phone
       let phone = payload.recipientPhone;
       if (!phone && payload.recipientId) {
-        phone = await this.getRecipientPhone(payload.recipientId);
+        phone = await this.getRecipientPhone(payload.recipientId) || undefined;
       }
 
       if (!phone) {

@@ -137,7 +137,7 @@ export function WhiteLabelSettings() {
       <div className="p-6">
         <UpgradePrompt
           feature="White-Labeling"
-          plan={getRequiredPlan('WHITE_LABELING')}
+          plan={getRequiredPlan('WHITE_LABELING') as 'BASIC' | 'PREMIUM'}
           variant="inline"
           description="Customize your fleet management system with your own branding, colors, and domain."
           benefits={[

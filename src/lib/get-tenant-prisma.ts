@@ -68,7 +68,7 @@ class LRUCache<K, V> {
 /**
  * Type for extended Prisma client with tenant scoping
  */
-type ExtendedPrismaClient = ReturnType<typeof prisma.$extends<ReturnType<typeof tenantExtension>>>;
+type ExtendedPrismaClient = any;
 
 /**
  * LRU cache for tenant-scoped Prisma clients

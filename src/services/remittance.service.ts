@@ -316,7 +316,7 @@ export class RemittanceService {
       let updateData: any = { ...data };
       if (data.amount) {
         const targetAmount = existing.targetAmount;
-        updateData.targetReached = targetAmount ? data.amount >= targetAmount : false;
+        updateData.targetReached = targetAmount ? data.amount >= Number(targetAmount) : false;
       }
 
       // Update remittance

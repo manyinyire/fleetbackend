@@ -159,12 +159,13 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await hash(data.password, 10);
 
-    // Create admin user
+    // Create admin user with hashed password
     const newAdmin = await prisma.user.create({
       data: {
         name: data.name,
         email: data.email,
-        emailVerified: new Date(), // Auto-verify admin users
+        emailVerified: true, // Auto-verify admin users
+        password: hashedPassword,
         role: data.role,
         tenantId: data.role === 'TENANT_ADMIN' ? data.tenantId : null,
       },
@@ -183,16 +184,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Create account using BetterAuth (stores password)
-    await auth.api.createAccount({
-      body: {
-        userId: newAdmin.id,
-        providerId: 'credential',
-        password: hashedPassword,
-        accountId: newAdmin.email,
-      },
-    });
-
     // Log the creation
     await prisma.auditLog.create({
       data: {
@@ -207,7 +198,6 @@ export async function POST(request: NextRequest) {
         },
         ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown',
-        severity: 'HIGH',
       },
     });
 
@@ -257,7 +247,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    if (!['SUPER_ADMIN', 'TENANT_ADMIN'].includes(user.role)) {
+    if (!user.role || !['SUPER_ADMIN', 'TENANT_ADMIN'].includes(user.role)) {
       return NextResponse.json(
         { success: false, error: 'User is not an admin' },
         { status: 400 }
@@ -283,7 +273,6 @@ export async function DELETE(request: NextRequest) {
         },
         ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown',
-        severity: 'CRITICAL',
       },
     });
 

@@ -28,7 +28,7 @@ export async function InvoiceTable() {
         </TableHeader>
 
         <TableBody>
-          {data.map((item, index) => (
+          {data.map((item: any, index: number) => (
             <TableRow key={index} className="border-[#eee] dark:border-dark-3">
               <TableCell className="min-w-[155px] xl:pl-7.5">
                 <h5 className="text-dark dark:text-white">{item.name}</h5>

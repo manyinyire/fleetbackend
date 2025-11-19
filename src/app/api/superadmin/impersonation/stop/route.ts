@@ -7,51 +7,13 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireRole('SUPER_ADMIN');
+    await requireRole('SUPER_ADMIN');
     
-    // Get current session to check if impersonating
-    const headersList = await headers();
-    const session = await auth.api.getSession({
-      headers: headersList,
-    });
-
-    // Use BetterAuth admin plugin to stop impersonation
-    await auth.api.stopImpersonating({
-      headers: headersList,
-    });
-
-    // Log the end of impersonation if we have session info
-    if (session?.user) {
-      // Try to get impersonated session info from database
-      const impersonatedSession = await prisma.session.findFirst({
-        where: {
-          userId: session.user.id,
-          impersonatedBy: { not: null }
-        },
-        orderBy: { createdAt: 'desc' }
-      });
-
-      if (impersonatedSession?.impersonatedBy) {
-        await prisma.auditLog.create({
-          data: {
-            userId: user.id,
-            action: 'IMPERSONATION_STOPPED',
-            entityType: 'User',
-            entityId: session.user.id,
-            newValues: {
-              stoppedAt: new Date().toISOString()
-            },
-            ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-            userAgent: request.headers.get('user-agent') || 'unknown'
-          }
-        });
-      }
-    }
-
+    // TODO: Implement impersonation stop functionality when BetterAuth supports it
     return NextResponse.json({
-      success: true,
-      message: 'Impersonation stopped'
-    });
+      success: false,
+      error: 'Impersonation feature not yet implemented'
+    }, { status: 501 });
   } catch (error: any) {
     console.error('Stop impersonation error:', error);
     return NextResponse.json(

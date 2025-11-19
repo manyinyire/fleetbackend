@@ -124,18 +124,22 @@ export async function checkIPWhitelist(
   userId: string,
   clientIP: string
 ): Promise<{ allowed: boolean; reason?: string }> {
-  const adminSettings = await prisma.adminSettings.findUnique({
-    where: { userId },
-    include: { ipWhitelist: true }
+  // Get user with admin IP whitelist
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      adminSettings: true,
+      adminIpWhitelist: true
+    }
   });
 
   // If whitelist not enabled, allow all IPs
-  if (!adminSettings?.ipWhitelistEnabled) {
+  if (!user?.adminSettings?.ipWhitelistEnabled) {
     return { allowed: true };
   }
 
   // Check if IP is in whitelist
-  const isAllowed = adminSettings.ipWhitelist.some(
+  const isAllowed = user.adminIpWhitelist.some(
     entry => entry.ipAddress === clientIP && entry.isActive
   );
 
@@ -185,11 +189,10 @@ export async function createAdminSession(
   const session = await prisma.adminSession.create({
     data: {
       userId,
-      token: crypto.randomUUID(),
       expiresAt: sessionExpiry,
       ipAddress: clientIP,
       userAgent,
-      isActive: true,
+      rememberDevice,
     }
   });
 

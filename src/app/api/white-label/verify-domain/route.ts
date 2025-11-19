@@ -16,8 +16,26 @@ import { apiLogger } from '@/lib/logger';
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth();
-    const tenant = await requireTenant(user);
+    await requireAuth();
+    const { tenantId } = await requireTenant();
+    
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant context required' },
+        { status: 403 }
+      );
+    }
+    
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+    
+    if (!tenant) {
+      return NextResponse.json(
+        { error: 'Tenant not found' },
+        { status: 404 }
+      );
+    }
 
     // Check if tenant has PREMIUM plan
     if (tenant.plan !== SubscriptionPlan.PREMIUM) {
@@ -52,7 +70,7 @@ export async function POST(request: NextRequest) {
     if (isVerified) {
       await prisma.whiteLabel.update({
         where: { tenantId: tenant.id },
-        data: { customDomainVerified: true },
+        data: { domainVerified: true },
       });
 
       return NextResponse.json({

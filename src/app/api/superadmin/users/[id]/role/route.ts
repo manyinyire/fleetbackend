@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 
 
@@ -21,14 +19,12 @@ export async function PUT(
       );
     }
 
-    // Use BetterAuth admin plugin to set user role
-    const headersList = await headers();
-    await auth.api.setRole({
-      body: {
-        userId: id,
-        role: Array.isArray(role) ? role : [role],
+    // Update user role directly in database
+    await prisma.user.update({
+      where: { id },
+      data: {
+        role: Array.isArray(role) ? role.join(',') : role,
       },
-      headers: headersList,
     });
 
     // Log the role change

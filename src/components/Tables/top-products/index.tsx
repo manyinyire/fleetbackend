@@ -36,7 +36,7 @@ export async function TopProducts() {
         </TableHeader>
 
         <TableBody>
-          {data.map((product) => (
+          {data.map((product: any) => (
             <TableRow
               className="text-base font-medium text-dark dark:text-white"
               key={product.name + product.profit}

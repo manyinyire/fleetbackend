@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Sparkles, TrendingUp, Lock } from 'lucide-react';
+import { SubscriptionPlan } from '@prisma/client';
 
 export interface UpgradePromptProps {
   feature: string;
@@ -44,14 +45,14 @@ export function UpgradePrompt({
   const displayDescription = description || defaultDescription;
 
   const defaultBenefits = {
-    BASIC: [
+    'BASIC': [
       'Up to 25 vehicles',
       'Advanced reporting',
       'Priority support',
       'API access',
       '5 user accounts',
     ],
-    PREMIUM: [
+    'PREMIUM': [
       'Unlimited vehicles',
       'Custom reports & scheduling',
       '24/7 dedicated support',

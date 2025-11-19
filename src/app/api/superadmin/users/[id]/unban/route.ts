@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 
 
@@ -13,13 +11,14 @@ export async function POST(
   try {
     const adminUser = await requireRole('SUPER_ADMIN');
 
-    // Use BetterAuth admin plugin to unban user
-    const headersList = await headers();
-    await auth.api.unbanUser({
-      body: {
-        userId: id,
+    // Unban user by updating the database directly
+    await prisma.user.update({
+      where: { id },
+      data: {
+        banned: false,
+        banReason: null,
+        banExpires: null,
       },
-      headers: headersList,
     });
 
     // Log the unban action

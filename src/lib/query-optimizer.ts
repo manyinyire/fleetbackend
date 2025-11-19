@@ -18,11 +18,11 @@ import { cache } from 'react';
  */
 const SLOW_QUERY_THRESHOLD = 1000; // ms
 
-export function monitorQuery<T>(
+export async function monitorQuery<T>(
   queryName: string,
   operation: () => Promise<T>
 ): Promise<T> {
-  return measureTime(
+  return await measureTime(
     operation,
     (duration) => {
       if (duration > SLOW_QUERY_THRESHOLD) {

@@ -103,7 +103,7 @@ export async function createRemittance(data: CreateRemittanceInput) {
       });
 
       const existingSum = existingRemittances.reduce(
-        (sum, r) => sum + Number(r.amount),
+        (sum: number, r: { amount: any }) => sum + Number(r.amount),
         0
       );
 
@@ -231,7 +231,7 @@ export async function updateRemittance(data: UpdateRemittanceInput) {
       });
 
       const existingSum = existingRemittances.reduce(
-        (sum, r) => sum + Number(r.amount),
+        (sum: number, r: { amount: any }) => sum + Number(r.amount),
         0
       );
 
@@ -477,7 +477,7 @@ export async function getRemainingBalance(
   });
 
   const existingSum = existingRemittances.reduce(
-    (sum, r) => sum + Number(r.amount),
+    (sum: number, r: { amount: any }) => sum + Number(r.amount),
     0
   );
 

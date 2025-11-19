@@ -72,7 +72,7 @@ async function initiatePayment(
         data: {
           status: "CANCELLED",
           paymentMetadata: {
-            ...pendingPayment.paymentMetadata,
+            ...(typeof pendingPayment.paymentMetadata === 'object' && pendingPayment.paymentMetadata !== null ? pendingPayment.paymentMetadata : {}),
             cancelledReason: "Stale payment (timeout)",
             cancelledAt: new Date().toISOString(),
           },
@@ -199,6 +199,9 @@ export const GET = withTenantAuth(async ({ prisma, tenantId, user, request }) =>
     const result = await initiatePayment(prisma, tenantId, user, invoiceId, request);
 
     // Redirect to Paynow payment page
+    if (!result.redirectUrl) {
+      return successResponse({ error: "Payment redirect URL not available" }, 500);
+    }
     return NextResponse.redirect(result.redirectUrl);
   } catch (error) {
     // If error, return error response instead of redirecting

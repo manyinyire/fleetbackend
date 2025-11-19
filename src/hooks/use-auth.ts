@@ -4,7 +4,8 @@ import { useSession } from '@/lib/auth-client';
 import { useEffect } from 'react';
 
 export function useAuth() {
-  const { data: session, isPending, error } = useSession();
+  const { data: session, status } = useSession();
+  const isPending = status === 'loading';
 
   // Debug logging in development
   useEffect(() => {
@@ -19,8 +20,8 @@ export function useAuth() {
         userId: session?.user?.id,
         userEmail: session?.user?.email,
         userName: session?.user?.name,
+        status,
         isPending,
-        error: error?.message,
         sessionData: session,
       });
       
@@ -29,12 +30,12 @@ export function useAuth() {
         console.warn('useAuth: Session loaded but no user data found');
       }
     }
-  }, [session, isPending, error]);
+  }, [session, status, isPending]);
 
   return {
     user: session?.user || null,
     isAuthenticated: !!session?.user,
     isLoading: isPending,
-    error,
+    status,
   };
 }

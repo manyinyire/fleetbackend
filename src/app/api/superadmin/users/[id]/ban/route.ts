@@ -14,15 +14,16 @@ export async function POST(
     const adminUser = await requireRole('SUPER_ADMIN');
     const { banReason, banExpiresIn } = await request.json();
 
-    // Use BetterAuth admin plugin to ban user
-    const headersList = await headers();
-    await auth.api.banUser({
-      body: {
-        userId: id,
+    // Ban user by updating the database directly
+    const banExpires = banExpiresIn ? new Date(Date.now() + parseInt(banExpiresIn) * 1000) : null;
+    
+    await prisma.user.update({
+      where: { id },
+      data: {
+        banned: true,
         banReason: banReason || 'No reason provided',
-        banExpiresIn: banExpiresIn ? parseInt(banExpiresIn) : undefined,
+        banExpires: banExpires,
       },
-      headers: headersList,
     });
 
     // Log the ban action

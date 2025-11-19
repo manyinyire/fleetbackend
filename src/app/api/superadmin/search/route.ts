@@ -88,7 +88,6 @@ export async function GET(request: NextRequest) {
             { registrationNumber: { contains: query, mode: 'insensitive' } },
             { make: { contains: query, mode: 'insensitive' } },
             { model: { contains: query, mode: 'insensitive' } },
-            { vin: { contains: query, mode: 'insensitive' } },
           ],
         },
         select: {

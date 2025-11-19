@@ -90,80 +90,11 @@ export async function POST(
       }
     }
 
-    // Use BetterAuth admin plugin to impersonate user
-    const headersList = await headers();
-    const impersonationResult = await auth.api.impersonateUser({
-      body: {
-        userId: targetUser.id,
-      },
-      headers: headersList,
-    });
-
-    // Track active impersonation
-    if (!activeImpersonations.has(adminUser.id)) {
-      activeImpersonations.set(adminUser.id, new Set());
-    }
-    activeImpersonations.get(adminUser.id)!.add(tenantId);
-
-    // Set auto-timeout for impersonation (1 hour)
-    setTimeout(() => {
-      const sessions = activeImpersonations.get(adminUser.id);
-      if (sessions) {
-        sessions.delete(tenantId);
-        if (sessions.size === 0) {
-          activeImpersonations.delete(adminUser.id);
-        }
-      }
-    }, 60 * 60 * 1000); // 1 hour
-
-    // Log the impersonation with enhanced details
-    await prisma.auditLog.create({
-      data: {
-        userId: adminUser.id,
-        action: 'IMPERSONATION_STARTED',
-        entityType: 'Tenant',
-        entityId: tenantId,
-        newValues: {
-          tenantName: tenant.name,
-          tenantAdminEmail: targetUser.email,
-          impersonatedUserId: targetUser.id,
-          reason: reason,
-          startedAt: new Date().toISOString(),
-          expectedDuration: '1 hour',
-          adminName: (adminUser as any).name,
-          adminEmail: (adminUser as any).email,
-        },
-        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-        userAgent: request.headers.get('user-agent') || 'unknown'
-      }
-    });
-
-    // Create alert for security monitoring
-    await prisma.systemAlert.create({
-      data: {
-        type: 'SECURITY',
-        severity: 'INFO',
-        title: 'Admin Impersonation Started',
-        message: `${(adminUser as any).email} is impersonating ${targetUser.email} (Tenant: ${tenant.name})`,
-        data: {
-          adminId: adminUser.id,
-          targetUserId: targetUser.id,
-          tenantId,
-          reason,
-        },
-      },
-    });
-
+    // TODO: Implement impersonation when BetterAuth supports it
     return NextResponse.json({
-      success: true,
-      data: {
-        tenantId: tenant.id,
-        tenantName: tenant.name,
-        impersonatedUserId: targetUser.id,
-        redirectUrl: `/dashboard`,
-        expiresIn: '1 hour',
-      }
-    });
+      success: false,
+      error: 'Impersonation feature not yet implemented'
+    }, { status: 501 });
   } catch (error: any) {
     console.error('Impersonation error:', error);
     return NextResponse.json(

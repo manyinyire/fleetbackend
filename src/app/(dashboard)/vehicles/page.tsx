@@ -8,10 +8,10 @@ import { PlusIcon } from '@heroicons/react/24/outline';
 
 export default async function VehiclesPage() {
   const { user, tenantId } = await requireTenantForDashboard();
-  
+
   // Set RLS context
   await setTenantContext(tenantId);
-  
+
   // Get scoped Prisma client
   const prisma = getTenantPrisma(tenantId);
 
@@ -48,12 +48,6 @@ export default async function VehiclesPage() {
 
   // Serialize all Decimal fields to numbers for client components
   const vehiclesForClient = serializePrismaArray(vehicles) as typeof vehicles;
-
-  // Debug: Log the data
-  console.log('Vehicles page - vehicles count:', vehicles.length);
-  console.log('Vehicles page - vehiclesForClient count:', vehiclesForClient.length);
-  console.log('Vehicles page - first vehicle:', vehicles[0]);
-  console.log('Vehicles page - first vehicleForClient:', vehiclesForClient[0]);
 
   return (
     <div className="space-y-8">

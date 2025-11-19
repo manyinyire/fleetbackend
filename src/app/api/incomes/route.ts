@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withTenantAuth, successResponse, validateBody, getPaginationFromRequest, getDateRangeFromRequest, paginationResponse } from '@/lib/api-middleware';
-import { serializePrismaResults } from '@/lib/serialize-prisma';
+import { serializePrismaResults, serializePrismaData } from '@/lib/serialize-prisma';
+import { IncomeSource } from '@prisma/client';
 import { z } from 'zod';
 
 // Validation schema for creating an income
 const createIncomeSchema = z.object({
   vehicleId: z.string().uuid().optional().nullable(),
-  source: z.enum(['REMITTANCE', 'RENTAL', 'SALE', 'OTHER']),
+  source: z.nativeEnum(IncomeSource),
   amount: z.number().positive('Amount must be positive'),
   date: z.string().refine((date) => !isNaN(Date.parse(date)), 'Invalid date'),
   description: z.string().optional().nullable(),
@@ -83,5 +84,5 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, request }) => {
     },
   });
 
-  return successResponse(serializePrismaResults(income), 201);
+  return successResponse(serializePrismaData(income), 201);
 });

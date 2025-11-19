@@ -25,6 +25,10 @@ export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 export async function createVehicle(data: CreateVehicleInput) {
   const { user, tenantId } = await requireTenant();
 
+  if (!tenantId) {
+    throw new Error('Tenant context required');
+  }
+
   // Validate input
   const validated = createVehicleSchema.parse(data);
 

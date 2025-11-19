@@ -11,10 +11,14 @@ import { ReportType } from '@prisma/client';
  * Premium feature: Report export requires BASIC plan or higher
  */
 export async function POST(request: NextRequest) {
+  let reportType: string | undefined;
+  let format: string | undefined;
+  
   try {
     const { tenantId } = await requireTenantForDashboard();
     const body = await request.json();
-    const { reportType, format, data } = body;
+    ({ reportType, format } = body);
+    const { data } = body;
 
     // Check if tenant has access to report export
     const featureCheck = await PremiumFeatureService.hasFeatureAccess(
@@ -96,7 +100,7 @@ export async function POST(request: NextRequest) {
     headers.set('Content-Disposition', `attachment; filename="${filename}"`);
     headers.set('Content-Length', fileContent.length.toString());
 
-    return new NextResponse(fileContent, {
+    return new NextResponse(new Uint8Array(fileContent), {
       status: 200,
       headers,
     });

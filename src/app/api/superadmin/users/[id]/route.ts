@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 
 
@@ -14,14 +12,10 @@ export async function PUT(
     const adminUser = await requireRole('SUPER_ADMIN');
     const data = await request.json();
 
-    // Use BetterAuth admin plugin to update user
-    const headersList = await headers();
-    const updatedUser = await auth.api.adminUpdateUser({
-      body: {
-        userId: id,
-        data,
-      },
-      headers: headersList,
+    // Update user directly in database
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data,
     });
 
     // Log the update
@@ -79,13 +73,9 @@ export async function DELETE(
 
     console.log(`Cleared ${sessionsCleared.count} session(s) for user ${userToDelete.email}`);
 
-    // Use BetterAuth admin plugin to remove user
-    const headersList = await headers();
-    await auth.api.removeUser({
-      body: {
-        userId: id,
-      },
-      headers: headersList,
+    // Delete user from database
+    await prisma.user.delete({
+      where: { id },
     });
 
     // Log the deletion

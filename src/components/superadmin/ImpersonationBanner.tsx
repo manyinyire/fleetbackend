@@ -10,60 +10,14 @@ export function ImpersonationBanner() {
   const [userName, setUserName] = useState("");
 
   useEffect(() => {
-    // Check for impersonation via BetterAuth session
+    // Check for impersonation status
+    // Note: Impersonation is not yet implemented with Auth.js v5
+    // This component will remain hidden until the feature is implemented
     const checkImpersonation = async () => {
       try {
-        const session = await authClient.getSession();
-        // BetterAuth stores impersonation info in session
-        // Check if session has impersonatedBy field or if user role changed unexpectedly
-        if (session?.data?.session) {
-          // BetterAuth admin plugin sets impersonatedBy in session
-          // We can check this via an API call or session data
-          try {
-            const response = await fetch('/api/auth/session');
-            
-            // Check if response is ok and has content
-            if (!response.ok) {
-              return; // Exit early if response is not ok
-            }
-            
-            // Check if response has content before parsing
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-              return; // Exit if not JSON
-            }
-            
-            // Get text first to check if it's empty
-            const text = await response.text();
-            if (!text || text.trim().length === 0) {
-              return; // Exit if empty response
-            }
-            
-            // Parse JSON only if we have content
-            let sessionData;
-            try {
-              sessionData = JSON.parse(text);
-            } catch (parseError) {
-              console.warn("Failed to parse session response:", parseError);
-              return; // Exit if JSON parsing fails
-            }
-            
-            // Check if session indicates impersonation (BetterAuth handles this internally)
-            // For now, check if user is not SUPER_ADMIN but we're in superadmin portal
-            if (sessionData?.user && sessionData.user.role !== 'SUPER_ADMIN') {
-              setIsImpersonating(true);
-              setUserName(sessionData.user.name || sessionData.user.email);
-            } else {
-              setIsImpersonating(false);
-            }
-          } catch (fetchError) {
-            // Silently handle fetch errors - session endpoint might not exist
-            // This is expected if BetterAuth doesn't expose /api/auth/session
-            setIsImpersonating(false);
-          }
-        } else {
-          setIsImpersonating(false);
-        }
+        // TODO: Implement impersonation check when Auth.js v5 impersonation is ready
+        // For now, always return false
+        setIsImpersonating(false);
       } catch (err) {
         console.error("Failed to check impersonation:", err);
         setIsImpersonating(false);
@@ -71,9 +25,6 @@ export function ImpersonationBanner() {
     };
 
     checkImpersonation();
-    // Check periodically
-    const interval = setInterval(checkImpersonation, 2000);
-    return () => clearInterval(interval);
   }, []);
 
   const handleStopImpersonation = async () => {

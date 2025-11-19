@@ -100,6 +100,7 @@ export function CreateTenantModal({ isOpen, onClose, onSuccess }: CreateTenantMo
       const createdUser = await superAdminAPI.createUser({
         name: adminName,
         email: adminEmail,
+        password: adminPassword,
         role: "TENANT_ADMIN",
         tenantId: createdTenant.id
       }) as { id: string };
@@ -108,8 +109,6 @@ export function CreateTenantModal({ isOpen, onClose, onSuccess }: CreateTenantMo
         setError("Tenant created, but failed to create admin user");
         return;
       }
-
-      await superAdminAPI.setUserPassword(createdUser.id, adminPassword);
 
       // TODO: integrate welcome email sender once endpoint is available
 

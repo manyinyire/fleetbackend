@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { hash } from 'bcryptjs';
 
 
 export async function PUT(
@@ -21,14 +20,14 @@ export async function PUT(
       );
     }
 
-    // Use BetterAuth admin plugin to set user password
-    const headersList = await headers();
-    await auth.api.setUserPassword({
-      body: {
-        userId: id,
-        newPassword,
+    // Hash and set user password directly
+    const hashedPassword = await hash(newPassword, 10);
+    
+    await prisma.user.update({
+      where: { id },
+      data: {
+        password: hashedPassword,
       },
-      headers: headersList,
     });
 
     // Log the password change

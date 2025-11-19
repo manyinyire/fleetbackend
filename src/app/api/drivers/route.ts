@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { withTenantAuth, ApiContext, successResponse, paginationResponse, getPaginationFromRequest, validateBody } from '@/lib/api-middleware';
+import { withTenantAuth, TenantApiContext, successResponse, paginationResponse, getPaginationFromRequest, validateBody } from '@/lib/api-middleware';
 import { PremiumFeatureService } from '@/lib/premium-features';
 import { DriverStatus } from '@prisma/client';
 
@@ -23,7 +23,7 @@ const createDriverSchema = z.object({
  * GET /api/drivers
  * List all drivers with filtering and pagination
  */
-export const GET = withTenantAuth(async ({ services, request }: ApiContext) => {
+export const GET = withTenantAuth(async ({ services, request }: TenantApiContext) => {
   const { page, limit } = getPaginationFromRequest(request);
   const { searchParams } = new URL(request.url);
 
@@ -45,7 +45,7 @@ export const GET = withTenantAuth(async ({ services, request }: ApiContext) => {
  * POST /api/drivers
  * Create a new driver
  */
-export const POST = withTenantAuth(async ({ services, tenantId, user, request }: ApiContext) => {
+export const POST = withTenantAuth(async ({ services, tenantId, user, request }: TenantApiContext) => {
   // Validate request body
   const data = await validateBody(request, createDriverSchema);
 

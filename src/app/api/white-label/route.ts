@@ -15,11 +15,18 @@ import { rateLimitByPlan } from '@/lib/rate-limit';
  */
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth();
-    const tenant = await requireTenant(user);
+    await requireAuth();
+    const { tenantId } = await requireTenant();
+    
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant context required' },
+        { status: 403 }
+      );
+    }
 
     const whiteLabel = await prisma.whiteLabel.findUnique({
-      where: { tenantId: tenant.id },
+      where: { tenantId },
     });
 
     if (!whiteLabel) {
@@ -52,8 +59,26 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth();
-    const tenant = await requireTenant(user);
+    await requireAuth();
+    const { tenantId } = await requireTenant();
+    
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant context required' },
+        { status: 403 }
+      );
+    }
+    
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+    
+    if (!tenant) {
+      return NextResponse.json(
+        { error: 'Tenant not found' },
+        { status: 404 }
+      );
+    }
 
     // Check if tenant has PREMIUM plan
     if (tenant.plan !== SubscriptionPlan.PREMIUM) {
@@ -167,8 +192,26 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await requireAuth();
-    const tenant = await requireTenant(user);
+    await requireAuth();
+    const { tenantId } = await requireTenant();
+    
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant context required' },
+        { status: 403 }
+      );
+    }
+    
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+    
+    if (!tenant) {
+      return NextResponse.json(
+        { error: 'Tenant not found' },
+        { status: 404 }
+      );
+    }
 
     // Check if tenant has PREMIUM plan
     if (tenant.plan !== SubscriptionPlan.PREMIUM) {
@@ -237,11 +280,18 @@ export async function PATCH(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const user = await requireAuth();
-    const tenant = await requireTenant(user);
+    await requireAuth();
+    const { tenantId } = await requireTenant();
+    
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant context required' },
+        { status: 403 }
+      );
+    }
 
     const whiteLabel = await prisma.whiteLabel.findUnique({
-      where: { tenantId: tenant.id },
+      where: { tenantId },
     });
 
     if (!whiteLabel) {
@@ -255,7 +305,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await prisma.whiteLabel.delete({
-      where: { tenantId: tenant.id },
+      where: { tenantId },
     });
 
     return NextResponse.json({

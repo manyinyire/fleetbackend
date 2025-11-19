@@ -30,6 +30,10 @@ export type CreateDriverInput = z.infer<typeof createDriverSchema>;
 export async function createDriver(data: CreateDriverInput) {
   const { user, tenantId } = await requireTenant();
 
+  if (!tenantId) {
+    throw new Error('Tenant context required');
+  }
+
   // Validate input
   const validated = createDriverSchema.parse(data);
 

@@ -8,29 +8,7 @@ import { createVehicle, type CreateVehicleInput } from '@/server/actions/vehicle
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 
-const vehicleFormSchema = z.object({
-  registrationNumber: z.string().min(1, 'Registration number is required'),
-  make: z.string().min(1, 'Make is required'),
-  model: z.string().min(1, 'Model is required'),
-  year: z.coerce.number().int().min(1900).max(new Date().getFullYear() + 1),
-  type: z.enum(['CAR', 'OMNIBUS', 'BIKE']),
-  initialCost: z.coerce.number().positive('Initial cost must be positive'),
-  currentMileage: z.coerce.number().int().min(0).default(0),
-  status: z.enum(['ACTIVE', 'UNDER_MAINTENANCE', 'DECOMMISSIONED']).default('ACTIVE'),
-  // Payment Configuration
-  paymentModel: z.enum(['OWNER_PAYS', 'DRIVER_REMITS', 'HYBRID']),
-  // Owner Pays fields
-  ownerPaysPercentage: z.coerce.number().min(0).max(100).optional(),
-  ownerPaysClosingDay: z.string().optional(),
-  // Driver Remits fields
-  driverRemitsAmount: z.coerce.number().min(0).optional(),
-  driverRemitsFrequency: z.string().optional(),
-  // Hybrid fields
-  hybridBaseAmount: z.coerce.number().min(0).optional(),
-  hybridCommissionPercentage: z.coerce.number().min(0).max(100).optional(),
-});
-
-type VehicleFormData = z.infer<typeof vehicleFormSchema>;
+import { vehicleFormSchema, type VehicleFormData } from '@/lib/schemas/vehicle';
 
 export function VehicleForm() {
   const [loading, setLoading] = useState(false);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
@@ -77,7 +78,7 @@ async function logSecurityEvent(action: string, data: SecurityEventData) {
           action,
           entityType: 'AdminAuth',
           entityId: data.userId,
-          newValues: data,
+          newValues: JSON.parse(JSON.stringify(data)) as Prisma.JsonObject,
           ipAddress: data.ip || 'unknown',
           userAgent: data.userAgent || 'unknown',
         }

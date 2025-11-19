@@ -124,7 +124,7 @@ export const planRateLimitConfigs: Record<SubscriptionPlan, {
  */
 function getClientIdentifier(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
-  const ip = forwarded ? forwarded.split(',')[0] : request.ip || 'unknown';
+  const ip = forwarded ? forwarded.split(',')[0] : 'unknown';
   const userAgent = request.headers.get('user-agent') || 'unknown';
 
   // Create a simple hash of IP + User Agent

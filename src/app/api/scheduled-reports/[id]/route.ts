@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, requireTenant } from '@/lib/auth-helpers';
+import { requireAuth, requireTenant, requireTenantForDashboard } from '@/lib/auth-helpers';
 import { scheduledReportsQueue } from '@/lib/queue';
 import { SubscriptionPlan } from '@prisma/client';
 import { rateLimitByPlan } from '@/lib/rate-limit';
@@ -20,13 +20,19 @@ export async function GET(
 ) {
   try {
     const params = await context.params;
-    const user = await requireAuth();
-    const tenant = await requireTenant(user);
+    const { tenantId } = await requireTenant();
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { success: false, error: 'Tenant context required' },
+        { status: 403 }
+      );
+    }
 
     const scheduledReport = await prisma.scheduledReport.findFirst({
       where: {
         id: params.id,
-        tenantId: tenant.id,
+        tenantId: tenantId,
       },
       include: {
         runs: {
@@ -72,8 +78,20 @@ export async function PATCH(
 ) {
   try {
     const params = await context.params;
-    const user = await requireAuth();
-    const tenant = await requireTenant(user);
+    const { tenantId } = await requireTenantForDashboard();
+
+    // Fetch tenant to check plan
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { plan: true },
+    });
+
+    if (!tenant) {
+      return NextResponse.json(
+        { success: false, error: 'Tenant not found' },
+        { status: 404 }
+      );
+    }
 
     // Check if tenant has PREMIUM plan
     if (tenant.plan !== SubscriptionPlan.PREMIUM) {
@@ -101,7 +119,7 @@ export async function PATCH(
     const scheduledReport = await prisma.scheduledReport.findFirst({
       where: {
         id: params.id,
-        tenantId: tenant.id,
+        tenantId: tenantId,
       },
     });
 
@@ -155,13 +173,19 @@ export async function DELETE(
 ) {
   try {
     const params = await context.params;
-    const user = await requireAuth();
-    const tenant = await requireTenant(user);
+    const { tenantId } = await requireTenant();
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { success: false, error: 'Tenant context required' },
+        { status: 403 }
+      );
+    }
 
     const scheduledReport = await prisma.scheduledReport.findFirst({
       where: {
         id: params.id,
-        tenantId: tenant.id,
+        tenantId: tenantId,
       },
     });
 

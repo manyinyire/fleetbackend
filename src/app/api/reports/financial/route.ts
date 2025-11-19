@@ -35,43 +35,45 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Create FinancialService instance
+    const financialService = new FinancialService(tenantId);
+    
+    // Default date range: last 30 days
+    const defaultEndDate = new Date();
+    const defaultStartDate = new Date();
+    defaultStartDate.setDate(defaultStartDate.getDate() - 30);
+    
+    const dateStart = startDate ? new Date(startDate) : defaultStartDate;
+    const dateEnd = endDate ? new Date(endDate) : defaultEndDate;
+    
     let reportData;
 
     switch (reportType) {
       case 'summary':
         // Basic financial summary (available on all plans)
-        reportData = await FinancialService.getFinancialSummary(
-          tenantId,
-          startDate ? new Date(startDate) : undefined,
-          endDate ? new Date(endDate) : undefined
-        );
+        reportData = await financialService.getFinancialSummary(dateStart, dateEnd);
         break;
 
       case 'profit-loss':
         // P&L Report (BASIC and PREMIUM)
-        reportData = await FinancialService.getProfitLossReport(
-          tenantId,
-          startDate ? new Date(startDate) : undefined,
-          endDate ? new Date(endDate) : undefined
-        );
+        reportData = await financialService.getProfitLossReport(dateStart, dateEnd);
         break;
 
       case 'cash-flow':
         // Cash Flow Report (BASIC and PREMIUM)
-        reportData = await FinancialService.getCashFlowReport(
-          tenantId,
-          startDate ? new Date(startDate) : undefined,
-          endDate ? new Date(endDate) : undefined
-        );
+        reportData = await financialService.getCashFlowReport(dateStart, dateEnd);
         break;
 
       case 'vehicle-profitability':
         // Vehicle Profitability Report (BASIC and PREMIUM)
-        reportData = await FinancialService.getVehicleProfitability(
-          tenantId,
-          startDate ? new Date(startDate) : undefined,
-          endDate ? new Date(endDate) : undefined
-        );
+        const vehicleId = searchParams.get('vehicleId');
+        if (!vehicleId) {
+          return NextResponse.json(
+            { error: 'vehicleId is required for vehicle profitability report' },
+            { status: 400 }
+          );
+        }
+        reportData = await financialService.getVehicleProfitability(vehicleId, dateStart, dateEnd);
         break;
 
       default:

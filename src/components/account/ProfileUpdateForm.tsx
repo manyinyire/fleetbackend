@@ -30,7 +30,7 @@ export function ProfileUpdateForm() {
     setLoading(true);
 
     try {
-      const result = await authClient.updateUser({
+      const result = await authClient.user.update({
         name: formData.name,
         image: formData.image || undefined,
       });
@@ -42,7 +42,9 @@ export function ProfileUpdateForm() {
 
       toast.success("Profile updated successfully!");
       setIsEditing(false);
-      // Session will automatically update via BetterAuth
+      
+      // Refresh the page to update the session
+      window.location.reload();
     } catch (error: any) {
       toast.error(error.message || "Failed to update profile");
     } finally {

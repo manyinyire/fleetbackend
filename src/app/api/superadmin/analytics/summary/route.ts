@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      prisma.session.count({
+      prisma.session.findMany({
         where: {
           createdAt: {
             gte: startDate,
@@ -57,7 +57,8 @@ export async function GET(request: NextRequest) {
           },
         },
         distinct: ["userId"],
-      }),
+        select: { userId: true },
+      }).then(sessions => sessions.length),
       prisma.user.count({
         where: {
           createdAt: {
