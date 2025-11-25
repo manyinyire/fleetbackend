@@ -9,6 +9,7 @@ import { reportGeneratorService } from '@/services/report-generator.service';
 import { emailQueue } from '@/lib/queue';
 import { ReportRunStatus, SubscriptionPlan } from '@prisma/client';
 import Redis from 'ioredis';
+import { jobLogger } from '@/lib/logger';
 
 const connection = new Redis({
   host: process.env.REDIS_HOST || 'localhost',
@@ -29,7 +30,7 @@ export const scheduledReportsWorker = new Worker<ScheduledReportJob>(
   async (job: Job<ScheduledReportJob>) => {
     const { scheduledReportId, tenantId } = job.data;
 
-    console.log(`Processing scheduled report: ${scheduledReportId}`);
+    jobLogger.info({ scheduledReportId, tenantId }, 'Processing scheduled report');
 
     // Create report run record
     const reportRun = await prisma.reportRun.create({
@@ -105,7 +106,7 @@ export const scheduledReportsWorker = new Worker<ScheduledReportJob>(
         tenantId,
       });
 
-      console.log(`Successfully processed scheduled report: ${scheduledReportId}`);
+      jobLogger.info({ scheduledReportId, reportRunId: reportRun.id }, 'Successfully processed scheduled report');
 
       return {
         success: true,
@@ -113,7 +114,7 @@ export const scheduledReportsWorker = new Worker<ScheduledReportJob>(
         fileUrls,
       };
     } catch (error) {
-      console.error(`Error processing scheduled report: ${scheduledReportId}`, error);
+      jobLogger.error({ scheduledReportId, err: error }, 'Error processing scheduled report');
 
       // Update report run with failure
       await prisma.reportRun.update({
@@ -169,15 +170,15 @@ function calculateNextRunTime(frequency: string, currentDate: Date): Date {
 
 // Event handlers
 scheduledReportsWorker.on('completed', (job, result) => {
-  console.log(`Job ${job.id} completed with result:`, result);
+  jobLogger.info({ jobId: job.id, result }, 'Job completed');
 });
 
 scheduledReportsWorker.on('failed', (job, error) => {
-  console.error(`Job ${job?.id} failed:`, error);
+  jobLogger.error({ jobId: job?.id, err: error }, 'Job failed');
 });
 
 scheduledReportsWorker.on('error', (error) => {
-  console.error('Worker error:', error);
+  jobLogger.error({ err: error }, 'Worker error');
 });
 
 // Graceful shutdown

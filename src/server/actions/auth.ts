@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { hash } from 'bcryptjs';
 import crypto from 'crypto';
+import { authLogger } from '@/lib/logger';
 
 async function generateUniqueSlug(baseName: string): Promise<string> {
   const baseSlug = baseName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -97,7 +98,7 @@ export async function signUp(formData: FormData) {
     // Create email verification token and send email
     let emailSent = false;
     try {
-      console.log(`[SIGNUP] Creating verification token for user: ${email}`);
+      authLogger.info({ email }, 'Creating verification token for user');
       const verificationToken = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiry
@@ -111,20 +112,20 @@ export async function signUp(formData: FormData) {
           used: false,
         },
       });
-      console.log(`[SIGNUP] Verification token created for: ${email}`);
+      authLogger.info({ email }, 'Verification token created');
 
       // Send verification email
-      console.log(`[SIGNUP] Attempting to send verification email to: ${email}`);
+      authLogger.info({ email }, 'Attempting to send verification email');
       const { emailService } = await import('@/lib/email');
       emailSent = await emailService.sendVerificationEmail(email, verificationToken, name);
 
       if (!emailSent) {
-        console.error(`[SIGNUP] Failed to send verification email to: ${email}`);
+        authLogger.error({ email }, 'Failed to send verification email');
       } else {
-        console.log(`[SIGNUP] Verification email sent successfully to: ${email}`);
+        authLogger.info({ email }, 'Verification email sent successfully');
       }
     } catch (emailError) {
-      console.error(`[SIGNUP] Exception while sending verification email to ${email}:`, emailError);
+      authLogger.error({ email, err: emailError }, 'Exception while sending verification email');
       // Don't fail the signup process if email fails, but log it clearly
     }
 
@@ -145,7 +146,7 @@ export async function signUp(formData: FormData) {
 
       await emailService.sendInvoiceEmail(email, invoiceData, pdf);
     } catch (invoiceError) {
-      console.error('Failed to generate invoice:', invoiceError);
+      authLogger.error({ err: invoiceError }, 'Failed to generate invoice');
       // Don't fail the signup process if invoice generation fails
     }
 
@@ -157,13 +158,13 @@ export async function signUp(formData: FormData) {
         if (tenantSettings) {
           await prisma.tenantSettings.delete({
             where: { tenantId: tenant.id },
-          }).catch(() => {});
+          }).catch(() => { });
         }
         await prisma.tenant.delete({
           where: { id: tenant.id },
-        }).catch(() => {});
+        }).catch(() => { });
       } catch (cleanupError) {
-        console.error('Failed to cleanup tenant:', cleanupError);
+        authLogger.error({ err: cleanupError }, 'Failed to cleanup tenant');
       }
     }
 

@@ -95,12 +95,15 @@ function validateEnv(): Env {
     return env;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('❌ Invalid environment variables:');
-      error.errors.forEach((err) => {
-        console.error(`  - ${err.path.join('.')}: ${err.message}`);
-      });
-      console.error('\n💡 Check your .env file and ensure all required variables are set.');
-      console.error('📖 See .env.example for reference.\n');
+      // Log env errors to console in development for visibility
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('❌ Invalid environment variables:');
+        error.errors.forEach((err) => {
+          console.error(`  - ${err.path.join('.')}: ${err.message}`);
+        });
+        console.error('\n💡 Check your .env file and ensure all required variables are set.');
+        console.error('📖 See .env.example for reference.\n');
+      }
 
       // In production, fail fast
       if (process.env.NODE_ENV === 'production') {

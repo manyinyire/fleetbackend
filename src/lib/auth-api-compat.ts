@@ -95,12 +95,10 @@ export async function sendVerificationOTP(params: {
 
     // TODO: Send email with OTP using your email service
     // For now, just log it (in production, use your email service)
-    apiLogger.info({ email, otp, type }, 'OTP generated (implement email sending)');
+    apiLogger.info({ email, type }, 'OTP generated (implement email sending)');
 
-    // In development, you might want to return the OTP for testing
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[DEV] OTP for ${email}: ${otp}`);
-    }
+    // Note: OTP should be sent via email, not logged
+    // Development: Check email or database for OTP value
 
     return { success: true };
   } catch (error) {

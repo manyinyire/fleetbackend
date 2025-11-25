@@ -4,6 +4,7 @@ import { checkPaymentStatus } from '@/lib/paynow';
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from '@/lib/notification-service';
 import { handleCommonError } from '@/lib/error-handler';
+import { apiLogger } from '@/lib/logger';
 
 /**
  * Manual payment verification endpoint
@@ -58,26 +59,27 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
     return successResponse({ error: 'No poll URL available for this payment' }, 400);
   }
 
-  console.log('[Payment Verification] Checking status for payment:', paymentId);
+  apiLogger.info({ paymentId }, 'Checking payment status');
   const statusCheck = await checkPaymentStatus(payment.pollUrl);
 
   if (!statusCheck.success) {
-    console.error('[Payment Verification] Status check failed:', statusCheck.error);
+    apiLogger.error({ paymentId, error: statusCheck.error }, 'Payment status check failed');
     return successResponse({
       success: false,
       error: statusCheck.error || 'Payment verification failed'
     }, 500);
   }
 
-  console.log('[Payment Verification] PayNow status:', {
+  apiLogger.info({
+    paymentId,
     paid: statusCheck.paid,
     status: statusCheck.status,
     amount: statusCheck.amount
-  });
+  }, 'PayNow status retrieved');
 
   // If not paid, return current status
   if (!statusCheck.paid) {
-    console.log('[Payment Verification] Payment not yet paid, current status:', statusCheck.status);
+    apiLogger.info({ paymentId, status: statusCheck.status }, 'Payment not yet paid');
     return successResponse({
       success: true,
       payment: {
@@ -93,10 +95,11 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
   const paidAmount = statusCheck.amount ? Number(statusCheck.amount) : expectedAmount;
 
   if (statusCheck.amount && Math.abs(expectedAmount - paidAmount) > 0.01) {
-    console.error('[Payment Verification] Amount mismatch:', {
+    apiLogger.error({
+      paymentId,
       expected: expectedAmount,
       paid: paidAmount
-    });
+    }, 'Payment amount mismatch');
     return successResponse({
       success: false,
       error: 'Payment amount mismatch'
@@ -105,11 +108,11 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
 
   // Log if amount verification was skipped
   if (!statusCheck.amount) {
-    console.warn('[Payment Verification] Amount not provided by PayNow, skipping amount verification');
+    apiLogger.warn({ paymentId }, 'Amount not provided by PayNow, skipping amount verification');
   }
 
   // Payment verified! Update records
-  console.log('[Payment Verification] Payment verified, updating records');
+  apiLogger.info({ paymentId }, 'Payment verified, updating records');
 
   const now = new Date();
 
@@ -167,7 +170,7 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
       }
     });
 
-    console.log('[Payment Verification] Auto-upgraded tenant to:', payment.invoice.plan);
+    apiLogger.info({ tenantId: payment.tenantId, plan: payment.invoice.plan }, 'Auto-upgraded tenant');
 
     // Send admin notification about upgrade
     try {
@@ -181,7 +184,7 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
         Number(payment.amount).toFixed(2)
       );
     } catch (emailError) {
-      console.error('[Payment Verification] Failed to send admin upgrade alert:', emailError);
+      apiLogger.error({ err: emailError }, 'Failed to send admin upgrade alert');
       // Don't fail the upgrade if admin email fails
     }
   }
@@ -225,7 +228,7 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
         }
       });
 
-      console.log('[Payment Verification] Auto-unsuspended tenant');
+      apiLogger.info({ tenantId: payment.tenantId }, 'Auto-unsuspended tenant');
     }
   }
 
@@ -236,7 +239,7 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
     Number(payment.amount),
     payment.invoice.invoiceNumber
   ).catch((err) => {
-    console.error('[Payment Verification] Notification failed:', err);
+    apiLogger.error({ err }, 'Payment notification failed');
     // Don't fail the payment if notification fails
   });
 
@@ -247,7 +250,7 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
       user.id,
       payment.invoice.plan
     ).catch((err) => {
-      console.error('[Payment Verification] Upgrade notification failed:', err);
+      apiLogger.error({ err }, 'Upgrade notification failed');
     });
   }
 
@@ -257,11 +260,11 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
       payment.tenantId,
       payment.invoice.tenant.name
     ).catch((err) => {
-      console.error('[Payment Verification] Reactivation notification failed:', err);
+      apiLogger.error({ err }, 'Reactivation notification failed');
     });
   }
 
-  console.log('[Payment Verification] Payment verification complete');
+  apiLogger.info({ paymentId }, 'Payment verification complete');
 
   return successResponse({
     success: true,

@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import { emailService } from './email';
 import { invoiceGenerator } from './invoice-generator';
+import { jobLogger } from './logger';
 
 class InvoiceReminderService {
   async checkAndSendReminders(): Promise<void> {
@@ -16,13 +17,13 @@ class InvoiceReminderService {
 
     // Find invoices due in 7 days
     await this.sendRemindersForDate(sevenDaysFromNow, 'SEVEN_DAYS');
-    
+
     // Find invoices due in 3 days
     await this.sendRemindersForDate(threeDaysFromNow, 'THREE_DAYS');
-    
+
     // Find invoices due in 1 day
     await this.sendRemindersForDate(oneDayFromNow, 'ONE_DAY');
-    
+
     // Find overdue invoices
     await this.sendOverdueReminders();
   }
@@ -30,7 +31,7 @@ class InvoiceReminderService {
   private async sendRemindersForDate(targetDate: Date, reminderType: 'SEVEN_DAYS' | 'THREE_DAYS' | 'ONE_DAY'): Promise<void> {
     const startOfDay = new Date(targetDate);
     startOfDay.setHours(0, 0, 0, 0);
-    
+
     const endOfDay = new Date(targetDate);
     endOfDay.setHours(23, 59, 59, 999);
 
@@ -76,7 +77,7 @@ class InvoiceReminderService {
 
   private async sendOverdueReminders(): Promise<void> {
     const now = new Date();
-    
+
     const overdueInvoices = await prisma.invoice.findMany({
       where: {
         status: 'PENDING',
@@ -124,7 +125,7 @@ class InvoiceReminderService {
     const adminUser = tenant.users[0];
 
     if (!adminUser) {
-      console.warn(`No admin user found for tenant ${tenant.id}`);
+      jobLogger.warn({ tenantId: tenant.id }, 'No admin user found for tenant');
       return;
     }
 
@@ -180,9 +181,9 @@ class InvoiceReminderService {
         }
       });
 
-      console.log(`Invoice reminder sent for ${invoice.invoiceNumber} (${reminderType})`);
+      jobLogger.info({ invoiceNumber: invoice.invoiceNumber, reminderType }, 'Invoice reminder sent');
     } else {
-      console.error(`Failed to send invoice reminder for ${invoice.invoiceNumber}`);
+      jobLogger.error({ invoiceNumber: invoice.invoiceNumber }, 'Failed to send invoice reminder');
     }
   }
 
@@ -190,9 +191,9 @@ class InvoiceReminderService {
     // This would typically be called by a cron job
     try {
       await this.checkAndSendReminders();
-      console.log('Invoice reminders processed successfully');
+      jobLogger.info('Invoice reminders processed successfully');
     } catch (error) {
-      console.error('Error processing invoice reminders:', error);
+      jobLogger.error({ err: error }, 'Error processing invoice reminders');
     }
   }
 
@@ -232,7 +233,7 @@ class InvoiceReminderService {
       await this.sendInvoiceReminder(invoice, 'CUSTOM' as any);
       return { success: true, message: 'Reminder sent successfully' };
     } catch (error) {
-      console.error('Error sending manual reminder:', error);
+      jobLogger.error({ err: error }, 'Error sending manual reminder');
       return { success: false, message: 'Failed to send reminder' };
     }
   }

@@ -1,6 +1,7 @@
 import AT from 'africastalking-ts';
 import { prisma } from './prisma';
 import { smsQueue } from './queue';
+import { apiLogger } from './logger';
 
 // Initialize Africa's Talking
 const at = new (AT as any)({
@@ -83,7 +84,7 @@ export async function sendSMS({
           metadata,
         });
       } catch (logError) {
-        console.error('Failed to log SMS:', logError);
+        apiLogger.error({ err: logError }, 'Failed to log SMS');
       }
     }
 
@@ -99,7 +100,7 @@ export async function sendSMS({
       };
     }
   } catch (error) {
-    console.error('SMS sending error:', error);
+    apiLogger.error({ err: error }, 'SMS sending error');
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to send SMS'
@@ -135,22 +136,22 @@ async function logSMS(data: {
   metadata?: Record<string, any>;
 }) {
   // Note: This requires adding SMSLog model to Prisma schema
-  // For now, we'll just log to console
+  // For now, we'll just log to logger
   // TODO: Add SMSLog model and implement database logging
-  console.log('SMS Log:', data);
+  apiLogger.info({ smsLog: data }, 'SMS sent');
 }
 
 export async function sendBulkSMS(messages: SMSMessage[]): Promise<SMSResponse[]> {
   const results: SMSResponse[] = [];
-  
+
   for (const message of messages) {
     const result = await sendSMS(message);
     results.push(result);
-    
+
     // Add delay between messages to avoid rate limiting
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  
+
   return results;
 }
 
