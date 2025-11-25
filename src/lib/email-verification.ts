@@ -85,7 +85,7 @@ class EmailVerificationService {
         user.tenant?.plan || 'FREE'
       );
     } catch (error) {
-      console.error('Failed to send welcome email:', error);
+      apiLogger.error({ err: error }, 'Failed to send welcome email:');
       // Don't fail the verification if email fails
     }
 
@@ -98,7 +98,7 @@ class EmailVerificationService {
         user.tenant?.plan || 'FREE'
       );
     } catch (error) {
-      console.error('Failed to send admin registration alert:', error);
+      apiLogger.error({ err: error }, 'Failed to send admin registration alert:');
       // Don't fail the verification if admin email fails
     }
 

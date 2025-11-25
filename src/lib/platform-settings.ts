@@ -52,7 +52,7 @@ export const getPlatformSettings = cache(async (): Promise<PlatformSettings | nu
     const settings = await prisma.platformSettings.findFirst();
     return settings;
   } catch (error) {
-    console.error('Error fetching platform settings:', error);
+    apiLogger.error({ err: error }, 'Error fetching platform settings:');
     return null;
   }
 });

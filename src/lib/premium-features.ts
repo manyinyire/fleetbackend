@@ -269,7 +269,7 @@ export class PremiumFeatureService {
         };
       }
     } catch (error) {
-      console.error('Error fetching plan configuration from database:', error);
+      apiLogger.error({ err: error }, 'Error fetching plan configuration from database:');
     }
 
     // Fall back to hardcoded defaults

@@ -54,7 +54,7 @@ export async function getPendingActions() {
       .filter(action => action.synced === false)
       .toArray();
   } catch (error) {
-    console.error('Error fetching pending actions:', error);
+    apiLogger.error({ err: error }, 'Error fetching pending actions:');
     return [];
   }
 }

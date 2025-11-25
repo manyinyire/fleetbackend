@@ -67,7 +67,7 @@ export async function exportToExcel(data: ExportableData, filename: string = 'ex
 
     XLSX.writeFile(workbook, filename);
   } catch (error) {
-    console.error('Excel export error:', error);
+    apiLogger.error({ err: error }, 'Excel export error:');
     throw new Error('Failed to export to Excel. Please try CSV format instead.');
   }
 }
@@ -125,7 +125,7 @@ export async function exportToPDF(data: ExportableData, filename: string = 'expo
 
     doc.save(filename);
   } catch (error) {
-    console.error('PDF export error:', error);
+    apiLogger.error({ err: error }, 'PDF export error:');
     throw new Error('Failed to export to PDF. Please try CSV format instead.');
   }
 }

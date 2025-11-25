@@ -23,7 +23,7 @@ export function formatDate(date: string | Date | null | undefined): string {
       day: 'numeric'
     });
   } catch (error) {
-    console.error('Error formatting date:', error);
+    apiLogger.error({ err: error }, 'Error formatting date:');
     return '-';
   }
 }
@@ -50,7 +50,7 @@ export function formatDateTime(date: string | Date | null | undefined): string {
       hour12: true
     });
   } catch (error) {
-    console.error('Error formatting date time:', error);
+    apiLogger.error({ err: error }, 'Error formatting date time:');
     return '-';
   }
 }
@@ -74,7 +74,7 @@ export function formatDateLong(date: string | Date | null | undefined): string {
       day: 'numeric'
     });
   } catch (error) {
-    console.error('Error formatting date long:', error);
+    apiLogger.error({ err: error }, 'Error formatting date long:');
     return '-';
   }
 }
@@ -94,7 +94,7 @@ export function formatDateISO(date: string | Date | null | undefined): string {
 
     return dateObj.toISOString();
   } catch (error) {
-    console.error('Error formatting date ISO:', error);
+    apiLogger.error({ err: error }, 'Error formatting date ISO:');
     return '';
   }
 }

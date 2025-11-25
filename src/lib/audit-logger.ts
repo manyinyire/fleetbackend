@@ -49,7 +49,7 @@ export class AuditLogger {
         }
       });
     } catch (error) {
-      console.error('Failed to create audit log:', error);
+      apiLogger.error({ err: error }, 'Failed to create audit log:');
       // Don't throw - audit logging should not break the main flow
     }
   }
