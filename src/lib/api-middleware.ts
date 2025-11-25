@@ -106,7 +106,7 @@ export function withTenantAuth(handler: TenantApiHandler) {
           // Extract the redirect path from the error digest
           const redirectMatch = errorDigest.match(/NEXT_REDIRECT;replace;(.+)/);
           const redirectPath = redirectMatch ? redirectMatch[1] : '/auth/sign-in';
-          
+
           // Log error
           const duration = Date.now() - startTime;
           apiLogger.error(
@@ -170,15 +170,37 @@ export async function validateBody<T extends z.ZodType>(
 
 /**
  * Get pagination parameters from search params
+ * 
+ * Enforces safe defaults and maximum limits to prevent unbounded queries:
+ * - Default page: 1
+ * - Default limit: 20
+ * - Maximum limit: 100 (prevents excessive memory usage)
+ * - Minimum values: page >= 1, limit >= 1
+ * 
+ * @param request - Next.js request with search parameters
+ * @returns Pagination params with page, limit, skip, and take
+ * 
+ * @example
+ * ```ts
+ * const { page, limit, skip, take } = getPaginationFromRequest(request);
+ * const results = await prisma.vehicle.findMany({ skip, take });
+ * ```
  */
 export function getPaginationFromRequest(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1', 10);
-  const limit = parseInt(searchParams.get('limit') || '10', 10);
+  const limit = parseInt(searchParams.get('limit') || '20', 10);
+
+  // Enforce safe bounds
+  const safePage = Math.max(1, page);
+  const safeLimit = Math.min(100, Math.max(1, limit)); // Max 100 items per page
+  const skip = (safePage - 1) * safeLimit;
 
   return {
-    page: Math.max(1, page),
-    limit: Math.min(100, Math.max(1, limit)),
+    page: safePage,
+    limit: safeLimit,
+    skip,
+    take: safeLimit,
   };
 }
 

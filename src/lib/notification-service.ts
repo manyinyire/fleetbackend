@@ -51,6 +51,24 @@ export interface NotificationResult {
 export class NotificationService {
   /**
    * Send a notification through the specified channel(s)
+   * 
+   * Supports multi-channel delivery (SMS, Email, In-App) with automatic fallback.
+   * All channels are attempted concurrently for reliability.
+   * 
+   * @param payload - Notification configuration and content
+   * @returns Detailed result for each channel attempted
+   * 
+   * @example
+   * ```ts
+   * const result = await NotificationService.send({
+   *   type: NotificationType.ALL,
+   *   recipientId: 'user_123',
+   *   subject: 'Payment Received',
+   *   message: 'Thank you for your payment!',
+   *   tenantId: 'tenant_456'
+   * });
+   * console.log(result.success); // true if at least one channel succeeded
+   * ```
    */
   static async send(payload: NotificationPayload): Promise<NotificationResult> {
     const result: NotificationResult = {
@@ -281,7 +299,16 @@ export class NotificationService {
   }
 
   /**
-   * Convenience methods for common notifications
+   * Send payment success notification
+   * 
+   * Notifies user across all channels when payment is successfully processed.
+   * Includes invoice details and amount paid.
+   * 
+   * @param tenantId - Tenant making the payment
+   * @param userId - User to notify
+   * @param amount - Payment amount
+   * @param invoiceNumber - Invoice number paid
+   * @returns Multi-channel notification result
    */
   static async notifyPaymentSuccess(
     tenantId: string,
@@ -304,6 +331,18 @@ export class NotificationService {
     });
   }
 
+  /**
+   * Send payment failed notification
+   * 
+   * Urgently notifies user when payment fails. Includes failure reason if available.
+   * 
+   * @param tenantId - Tenant attempting payment
+   * @param userId - User to notify
+   * @param amount - Payment amount that failed
+   * @param invoiceNumber - Invoice number
+   * @param reason - Optional failure reason
+   * @returns Multi-channel notification result
+   */
   static async notifyPaymentFailed(
     tenantId: string,
     userId: string,
@@ -327,6 +366,17 @@ export class NotificationService {
     });
   }
 
+  /**
+   * Notify all tenant admins of account suspension
+   * 
+   * Sends urgent notification to all admins when tenant account is suspended.
+   * Typically due to non-payment or terms violation.
+   * 
+   * @param tenantId - Suspended tenant ID
+   * @param tenantName - Tenant's display name
+   * @param reason - Suspension reason
+   * @returns Array of notification results (one per admin)
+   */
   static async notifyAccountSuspended(tenantId: string, tenantName: string, reason: string) {
     // Get all tenant admins
     const admins = await prisma.user.findMany({
