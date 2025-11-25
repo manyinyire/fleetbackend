@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { PremiumFeatureService } from '@/lib/premium-features';
+import { apiLogger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -78,54 +79,54 @@ export async function GET(request: NextRequest) {
 
     // Transform users with calculated fields
     const usersWithMetrics = usersWithTenant.map(user => {
-    const lastLogin = user.sessions[0]?.createdAt || null;
-    const isActive = lastLogin && new Date(lastLogin) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const lastLogin = user.sessions[0]?.createdAt || null;
+      const isActive = lastLogin && new Date(lastLogin) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      emailVerified: user.emailVerified,
-      createdAt: user.createdAt,
-      lastLogin,
-      isActive,
-      banned: user.banned,
-      banReason: user.banReason,
-      tenantId: user.tenantId,
-      tenantName: user.tenant?.name || 'No Tenant',
-      tenantSlug: user.tenant?.slug || null,
-      tenantStatus: user.tenant?.status || null,
-      totalSessions: user._count.sessions,
-    };
-  });
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+        lastLogin,
+        isActive,
+        banned: user.banned,
+        banReason: user.banReason,
+        tenantId: user.tenantId,
+        tenantName: user.tenant?.name || 'No Tenant',
+        tenantSlug: user.tenant?.slug || null,
+        tenantStatus: user.tenant?.status || null,
+        totalSessions: user._count.sessions,
+      };
+    });
 
-  // Get summary statistics in parallel
-  const [roleStats, activeUsersCount, bannedUsersCount] = await Promise.all([
-    prisma.user.groupBy({
-      by: ['role'],
-      _count: { role: true },
-      where: where.OR ? undefined : where, // Apply same filters except search
-    }),
-    prisma.user.count({
-      where: {
-        ...where,
-        sessions: {
-          some: {
-            createdAt: {
-              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    // Get summary statistics in parallel
+    const [roleStats, activeUsersCount, bannedUsersCount] = await Promise.all([
+      prisma.user.groupBy({
+        by: ['role'],
+        _count: { role: true },
+        where: where.OR ? undefined : where, // Apply same filters except search
+      }),
+      prisma.user.count({
+        where: {
+          ...where,
+          sessions: {
+            some: {
+              createdAt: {
+                gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+              }
             }
           }
         }
-      }
-    }),
-    prisma.user.count({
-      where: {
-        ...where,
-        banned: true
-      }
-    })
-  ]);
+      }),
+      prisma.user.count({
+        where: {
+          ...where,
+          banned: true
+        }
+      })
+    ]);
 
     return NextResponse.json({
       users: usersWithMetrics,
@@ -139,7 +140,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Error fetching users:', error);
+    apiLogger.error({ err: error }, 'Error fetching users');
     return NextResponse.json(
       { error: 'Failed to fetch users' },
       { status: 500 }
@@ -163,8 +164,8 @@ export async function POST(request: NextRequest) {
         {
           error: 'Tenant ID is required for all users except SUPER_ADMIN',
           details: 'In this system, every user must belong to a tenant organization. ' +
-                   'Only SUPER_ADMIN users can exist without a tenant. ' +
-                   'Please provide a tenantId or set role to SUPER_ADMIN.',
+            'Only SUPER_ADMIN users can exist without a tenant. ' +
+            'Please provide a tenantId or set role to SUPER_ADMIN.',
         },
         { status: 400 }
       );
@@ -220,16 +221,16 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log('User created by super admin:', {
+    apiLogger.info({
       userId: user.id,
       email: user.email,
       role: userRole,
-      tenantId: tenantId || 'none (SUPER_ADMIN)',
-    });
+      tenantId: tenantId || null
+    }, 'User created by super admin');
 
     return NextResponse.json(user, { status: 201 });
   } catch (error) {
-    console.error('Error creating user:', error);
+    apiLogger.error({ err: error }, 'Error creating user');
     return NextResponse.json(
       { error: 'Failed to create user' },
       { status: 500 }

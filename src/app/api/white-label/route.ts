@@ -4,10 +4,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { apiLogger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
+import { apiLogger } from '@/lib/logger';
 import { requireAuth, requireTenant } from '@/lib/auth-helpers';
+import { apiLogger } from '@/lib/logger';
 import { SubscriptionPlan } from '@prisma/client';
+import { apiLogger } from '@/lib/logger';
 import { rateLimitByPlan } from '@/lib/rate-limit';
+import { apiLogger } from '@/lib/logger';
 
 /**
  * GET /api/white-label
@@ -42,7 +47,7 @@ export async function GET(request: NextRequest) {
       data: whiteLabel,
     });
   } catch (error) {
-    console.error('Error fetching white-label settings:', error);
+    apiLogger.error({ err, error }, 'Error fetching white-label settings:');
     return NextResponse.json(
       {
         success: false,
@@ -175,7 +180,7 @@ export async function POST(request: NextRequest) {
       message: 'White-label settings created successfully',
     });
   } catch (error) {
-    console.error('Error creating white-label settings:', error);
+    apiLogger.error({ err, error }, 'Error creating white-label settings:');
     return NextResponse.json(
       {
         success: false,
@@ -263,7 +268,7 @@ export async function PATCH(request: NextRequest) {
       message: 'White-label settings updated successfully',
     });
   } catch (error) {
-    console.error('Error updating white-label settings:', error);
+    apiLogger.error({ err, error }, 'Error updating white-label settings:');
     return NextResponse.json(
       {
         success: false,
@@ -313,7 +318,7 @@ export async function DELETE(request: NextRequest) {
       message: 'White-label settings deleted successfully',
     });
   } catch (error) {
-    console.error('Error deleting white-label settings:', error);
+    apiLogger.error({ err, error }, 'Error deleting white-label settings:');
     return NextResponse.json(
       {
         success: false,

@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Billing overview error:', error);
+    apiLogger.error({ err: error }, 'Billing overview error:');
     return NextResponse.json(
       { error: 'Failed to fetch billing overview' },
       { status: 500 }

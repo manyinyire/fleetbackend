@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       error: 'Impersonation feature not yet implemented'
     }, { status: 501 });
   } catch (error: any) {
-    console.error('Stop impersonation error:', error);
+    apiLogger.error({ err: error }, 'Stop impersonation error:');
     return NextResponse.json(
       { error: error.message || 'Failed to stop impersonation' },
       { status: 500 }

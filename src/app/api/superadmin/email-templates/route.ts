@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Email templates fetch error:', error);
+    apiLogger.error({ err: error }, 'Email templates fetch error:');
     return NextResponse.json(
       { success: false, error: 'Failed to fetch email templates' },
       { status: 500 }
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
       data: template,
     });
   } catch (error) {
-    console.error('Email template save error:', error);
+    apiLogger.error({ err: error }, 'Email template save error:');
     return NextResponse.json(
       { success: false, error: 'Failed to save email template' },
       { status: 500 }
@@ -284,7 +284,7 @@ export async function PUT(request: NextRequest) {
       data: created,
     });
   } catch (error) {
-    console.error('Email templates seed error:', error);
+    apiLogger.error({ err: error }, 'Email templates seed error:');
     return NextResponse.json(
       { success: false, error: 'Failed to seed email templates' },
       { status: 500 }
@@ -330,7 +330,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Template deleted successfully',
     });
   } catch (error) {
-    console.error('Email template deletion error:', error);
+    apiLogger.error({ err: error }, 'Email template deletion error:');
     return NextResponse.json(
       { success: false, error: 'Failed to delete email template' },
       { status: 500 }

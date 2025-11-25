@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Superadmin error logs fetch failed:", error);
+    apiLogger.error({ err: error }, '`'');
     return NextResponse.json(
       { error: "Failed to fetch error logs" },
       { status: 500 },

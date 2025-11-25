@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Search error:', error);
+    apiLogger.error({ err: error }, 'Search error:');
     return NextResponse.json(
       { success: false, error: 'Search failed' },
       { status: 500 }

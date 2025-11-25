@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Invoices fetch error:', error);
+    apiLogger.error({ err: error }, 'Invoices fetch error:');
     return NextResponse.json(
       { error: 'Failed to fetch invoices' },
       { status: 500 }

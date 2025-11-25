@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Dashboard stats error:', error);
+    apiLogger.error({ err: error }, 'Dashboard stats error:');
     return NextResponse.json(
       { error: 'Failed to fetch dashboard statistics' },
       { status: 500 }

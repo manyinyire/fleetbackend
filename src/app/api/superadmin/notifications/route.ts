@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Notifications fetch error:', error);
+    apiLogger.error({ err: error }, 'Notifications fetch error:');
     return NextResponse.json(
       { success: false, error: 'Failed to fetch notifications' },
       { status: 500 }
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
       data: { count: userIds.length },
     });
   } catch (error) {
-    console.error('Notification creation error:', error);
+    apiLogger.error({ err: error }, 'Notification creation error:');
     return NextResponse.json(
       { success: false, error: 'Failed to create notifications' },
       { status: 500 }
@@ -234,7 +234,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Notification deleted successfully',
     });
   } catch (error) {
-    console.error('Notification deletion error:', error);
+    apiLogger.error({ err: error }, 'Notification deletion error:');
     return NextResponse.json(
       { success: false, error: 'Failed to delete notification' },
       { status: 500 }

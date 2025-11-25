@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('Get session statistics error:', error);
+    apiLogger.error({ err: error }, 'Get session statistics error:');
     return NextResponse.json(
       { error: error.message || 'Failed to get session statistics' },
       { status: 500 }
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('Clean sessions error:', error);
+    apiLogger.error({ err: error }, 'Clean sessions error:');
     return NextResponse.json(
       { error: error.message || 'Failed to clean sessions' },
       { status: 500 }

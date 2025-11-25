@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('System health error:', error);
+    apiLogger.error({ err: error }, 'System health error:');
     return NextResponse.json(
       { error: 'Failed to fetch system health' },
       { status: 500 }

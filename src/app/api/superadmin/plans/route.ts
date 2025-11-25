@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       plans
     });
   } catch (error) {
-    console.error("Failed to fetch plans:", error);
+    apiLogger.error({ err: error }, '`'');
     return NextResponse.json(
       { error: "Failed to fetch plans" },
       { status: 500 }
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       plan: planConfig
     });
   } catch (error) {
-    console.error("Failed to save plan:", error);
+    apiLogger.error({ err: error }, '`'');
     return NextResponse.json(
       { error: "Failed to save plan configuration" },
       { status: 500 }
@@ -100,7 +100,7 @@ export async function PUT(request: NextRequest) {
       message: "Plan configurations seeded successfully"
     });
   } catch (error) {
-    console.error("Failed to seed plans:", error);
+    apiLogger.error({ err: error }, '`'');
     return NextResponse.json(
       { error: "Failed to seed plan configurations" },
       { status: 500 }

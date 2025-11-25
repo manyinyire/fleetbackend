@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Superadmin subscriptions error:", error);
+    apiLogger.error({ err: error }, '`'');
     return NextResponse.json(
       { error: "Failed to load subscriptions" },
       { status: 500 },

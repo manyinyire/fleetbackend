@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiLogger } from '@/lib/logger';
 import { requireAuth } from '@/lib/auth-helpers';
+import { apiLogger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
+import { apiLogger } from '@/lib/logger';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -45,7 +48,7 @@ export async function PUT(request: NextRequest) {
       data: updatedUser,
     });
   } catch (error: any) {
-    console.error('Update profile error:', error);
+    apiLogger.error({ err, error }, 'Update profile error:');
     return NextResponse.json(
       { error: error.message || 'Failed to update profile' },
       { status: 500 }

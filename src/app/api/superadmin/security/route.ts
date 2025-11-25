@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Security settings error:', error);
+    apiLogger.error({ err: error }, 'Security settings error:');
     return NextResponse.json(
       { success: false, error: 'Failed to fetch security settings' },
       { status: 500 }
@@ -222,7 +222,7 @@ export async function PUT(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Security settings update error:', error);
+    apiLogger.error({ err: error }, 'Security settings update error:');
     return NextResponse.json(
       { success: false, error: 'Failed to update security settings' },
       { status: 500 }

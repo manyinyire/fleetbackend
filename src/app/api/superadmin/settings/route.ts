@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
       data: settings
     });
   } catch (error) {
-    console.error('Settings fetch error:', error);
+    apiLogger.error({ err: error }, 'Settings fetch error:');
     return NextResponse.json(
       { error: 'Failed to fetch settings' },
       { status: 500 }
@@ -208,7 +208,7 @@ export async function PUT(request: NextRequest) {
       message: 'Settings updated successfully'
     });
   } catch (error) {
-    console.error('Settings update error:', error);
+    apiLogger.error({ err: error }, 'Settings update error:');
     return NextResponse.json(
       { error: 'Failed to update settings' },
       { status: 500 }
