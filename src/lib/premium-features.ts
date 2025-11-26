@@ -1,5 +1,6 @@
 import { SubscriptionPlan } from "@prisma/client";
 import { prisma } from "./prisma";
+import { apiLogger } from "./logger";
 
 /**
  * Premium Feature Definitions
@@ -519,11 +520,11 @@ export class PremiumFeatureService {
     const planOrder: SubscriptionPlan[] = ['FREE', 'BASIC', 'PREMIUM'];
     const currentIndex = planOrder.indexOf(currentPlan);
 
-    if (currentIndex < planOrder.length - 1) {
+    if (currentIndex !== -1 && currentIndex < planOrder.length - 1) {
       return planOrder[currentIndex + 1];
     }
 
-    return currentPlan; // Already on highest plan
+    return currentPlan; // Already on highest plan or not found
   }
 
   /**

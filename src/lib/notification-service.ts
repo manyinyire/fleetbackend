@@ -89,21 +89,30 @@ export class NotificationService {
             return this.sendEmailNotification(payload);
           case NotificationType.IN_APP:
             return this.sendInAppNotification(payload);
+          default:
+            return { success: false, error: 'Unknown channel' };
         }
       });
 
       const results = await Promise.allSettled(promises);
 
       // Aggregate results
+      // Aggregate results
       results.forEach((channelResult, index) => {
         const channel = channels[index];
+        if (!channel) return;
+
+        const channelKey = channel === NotificationType.IN_APP ? 'inApp' : channel.toLowerCase() as keyof typeof result.channels;
+
         if (channelResult.status === 'fulfilled' && channelResult.value) {
-          result.channels[channel.toLowerCase() as keyof typeof result.channels] = channelResult.value;
+          // @ts-ignore - Dynamic key assignment
+          result.channels[channelKey] = channelResult.value;
           if (channelResult.value.success) {
             result.success = true;
           }
         } else {
-          result.channels[channel.toLowerCase() as keyof typeof result.channels] = {
+          // @ts-ignore - Dynamic key assignment
+          result.channels[channelKey] = {
             success: false,
             error: channelResult.status === 'rejected' ? (channelResult.reason?.message || 'Unknown error') : 'Unknown error',
           };
@@ -172,20 +181,45 @@ export class NotificationService {
   /**
    * Send email notification
    */
+  /**
+   * Send email notification
+   */
   private static async sendEmailNotification(payload: NotificationPayload) {
     try {
-      // TODO: Implement email service when ready
-      // For now, log the email attempt
-      apiLogger.info({
-        recipientEmail: payload.recipientEmail,
-        subject: payload.subject,
-        message: payload.message,
-      }, 'Email notification (not implemented yet)');
+      // Get recipient email if not provided
+      let email = payload.recipientEmail;
+      if (!email && payload.recipientId) {
+        email = await this.getRecipientEmail(payload.recipientId) || undefined;
+      }
 
-      return {
-        success: true, // Return success for now
-        messageId: 'email-not-implemented',
-      };
+      if (!email) {
+        return {
+          success: false,
+          error: 'Recipient email not found',
+        };
+      }
+
+      // Import dynamically to avoid circular dependencies if any
+      const { emailService } = await import('./email');
+
+      const success = await emailService.sendEmail({
+        to: email,
+        subject: payload.subject || 'Notification from Fleet Manager',
+        html: `<p>${payload.message}</p>`, // Basic HTML wrapper, can be improved with templates
+        text: payload.message,
+      });
+
+      if (success) {
+        return {
+          success: true,
+          messageId: `email-${Date.now()}`,
+        };
+      } else {
+        return {
+          success: false,
+          error: 'Email service returned failure',
+        };
+      }
     } catch (error) {
       return {
         success: false,

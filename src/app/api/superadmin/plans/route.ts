@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { subscriptionService } from "@/services/subscription.service";
+import { apiLogger } from "@/lib/logger";
 
 /**
  * GET /api/superadmin/plans
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
       plans
     });
   } catch (error) {
-    apiLogger.error({ err: error }, '`'');
+    apiLogger.error({ err: error }, 'Error in plans API');
     return NextResponse.json(
       { error: "Failed to fetch plans" },
       { status: 500 }
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
       plan: planConfig
     });
   } catch (error) {
-    apiLogger.error({ err: error }, '`'');
+    apiLogger.error({ err: error }, 'Error in plans API');
     return NextResponse.json(
       { error: "Failed to save plan configuration" },
       { status: 500 }
@@ -100,7 +101,7 @@ export async function PUT(request: NextRequest) {
       message: "Plan configurations seeded successfully"
     });
   } catch (error) {
-    apiLogger.error({ err: error }, '`'');
+    apiLogger.error({ err: error }, 'Error in plans API');
     return NextResponse.json(
       { error: "Failed to seed plan configurations" },
       { status: 500 }

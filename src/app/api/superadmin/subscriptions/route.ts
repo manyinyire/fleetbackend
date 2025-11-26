@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
+import { apiLogger } from "@/lib/logger";
 
 const DEFAULT_LIMIT = 25;
 
@@ -160,7 +161,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    apiLogger.error({ err: error }, '`'');
+    apiLogger.error({ err: error }, 'Failed to load subscriptions');
     return NextResponse.json(
       { error: "Failed to load subscriptions" },
       { status: 500 },
