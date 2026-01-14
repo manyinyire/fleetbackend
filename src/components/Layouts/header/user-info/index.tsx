@@ -37,22 +37,6 @@ export function UserInfo() {
     }
   }, [(user as any)?.tenantId]);
 
-  // Debug logging
-  useEffect(() => {
-    const isDevelopment = typeof window !== 'undefined' && 
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    
-    if (isDevelopment) {
-      console.log('UserInfo render:', {
-        isLoading,
-        hasUser: !!user,
-        userId: user?.id,
-        userName: user?.name,
-        userEmail: user?.email,
-      });
-    }
-  }, [isLoading, user]);
-
   const fetchPlan = async () => {
     try {
       const response = await fetch('/api/tenant/plan');

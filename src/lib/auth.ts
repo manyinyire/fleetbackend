@@ -116,7 +116,7 @@ const nextAuthResult = NextAuth({
       }
     },
   },
-  debug: process.env.NODE_ENV === "development",
+  debug: false,
 })
 
 // Export NextAuth handlers and methods
