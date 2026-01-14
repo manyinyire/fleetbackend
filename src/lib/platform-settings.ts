@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import { prisma } from './prisma';
+import { apiLogger } from './logger';
 
 /**
  * Platform Settings Utility
@@ -18,6 +19,8 @@ export interface PlatformSettings {
   platformName: string;
   platformUrl: string;
   platformLogo: string | null;
+  logoText: string | null;
+  primaryColor: string;
   platformAddress: string | null;
   platformEmail: string | null;
   defaultTimezone: string;
@@ -74,6 +77,8 @@ export const getPlatformSettingsWithDefaults = cache(async (): Promise<PlatformS
     platformName: process.env.PLATFORM_NAME || 'Azaire Fleet Manager',
     platformUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://azaire.com',
     platformLogo: null,
+    logoText: null,
+    primaryColor: '#3b82f6',
     platformAddress: null,
     platformEmail: null,
     defaultTimezone: process.env.DEFAULT_TIMEZONE || 'Africa/Harare',

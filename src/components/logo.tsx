@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 
 export function Logo() {
   const [platformLogo, setPlatformLogo] = useState<string | null>(null);
+  const [logoText, setLogoText] = useState<string | null>(null);
+  const [primaryColor, setPrimaryColor] = useState<string>('#3b82f6');
   const [loading, setLoading] = useState(true);
   const [hasPlatformLogo, setHasPlatformLogo] = useState(false);
 
@@ -49,9 +51,16 @@ export function Logo() {
           return;
         }
 
-        if (data.success && data.url) {
-          setPlatformLogo(data.url);
-          setHasPlatformLogo(true);
+        if (data.success) {
+          if (data.url) {
+            setPlatformLogo(data.url);
+            setHasPlatformLogo(true);
+          } else {
+            setHasPlatformLogo(false);
+          }
+          // Always set text and color for fallback
+          setLogoText(data.logoText || null);
+          setPrimaryColor(data.primaryColor || '#3b82f6');
         } else {
           setHasPlatformLogo(false);
         }
@@ -95,8 +104,21 @@ export function Logo() {
     );
   }
 
-  // Fallback to default logos only if no platform logo exists
-  // Only show default logos after we've confirmed no platform logo
+  // If no logo image but logoText is available, display text logo
+  if (logoText) {
+    return (
+      <div className="relative h-8 flex items-center">
+        <span 
+          className="text-xl font-bold tracking-tight whitespace-nowrap"
+          style={{ color: primaryColor }}
+        >
+          {logoText}
+        </span>
+      </div>
+    );
+  }
+
+  // Fallback to default logos only if no platform logo or text exists
   return (
     <div className="relative h-8 max-w-[10.847rem]">
       <Image

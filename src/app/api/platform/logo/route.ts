@@ -146,17 +146,20 @@ export async function GET(request: NextRequest) {
   try {
     const platformSettings = await prisma.platformSettings.findFirst();
 
-    if (!platformSettings || !platformSettings.platformLogo) {
+    if (!platformSettings) {
       return NextResponse.json(
-        { success: false, error: 'Logo not found' },
+        { success: false, error: 'Settings not found' },
         { status: 404 }
       );
     }
 
-    // Return the logo URL
+    // Return logo URL if available, otherwise return text and color for fallback
     return NextResponse.json({
       success: true,
-      url: platformSettings.platformLogo
+      url: platformSettings.platformLogo || null,
+      logoText: platformSettings.logoText || null,
+      primaryColor: platformSettings.primaryColor || '#3b82f6',
+      hasLogo: !!platformSettings.platformLogo
     });
   } catch (error: any) {
     console.error('Get logo error:', error);
