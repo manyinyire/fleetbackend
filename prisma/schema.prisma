@@ -543,6 +543,8 @@ model PlatformSettings {
   platformName             String   @default("Azaire Fleet Manager")
   platformUrl              String   @default("https://azaire.com")
   platformLogo             String?  // Logo URL or base64
+  logoText                 String?  // Text to display when no logo image uploaded
+  primaryColor             String   @default("#3b82f6") // Primary brand color for logo text
   platformAddress          String?  // Physical address
   platformEmail            String?  // Support/contact email
   defaultTimezone          String   @default("Africa/Harare")
