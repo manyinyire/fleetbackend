@@ -313,11 +313,12 @@ export class RemittanceService {
       }
 
       // Recalculate target if amount changed
-      let updateData: any = { ...data };
-      if (data.amount) {
-        const targetAmount = existing.targetAmount;
-        updateData.targetReached = targetAmount ? data.amount >= Number(targetAmount) : false;
-      }
+      const updateData: any = {
+        ...data,
+        ...(data.amount && {
+          targetReached: existing.targetAmount ? data.amount >= Number(existing.targetAmount) : false
+        })
+      };
 
       // Update remittance
       const remittance = await this.prisma.remittance.update({

@@ -45,7 +45,6 @@ export function Logo() {
         try {
           data = JSON.parse(text);
         } catch (parseError) {
-          console.warn('Failed to parse logo response:', parseError);
           setLoading(false);
           setHasPlatformLogo(false);
           return;
@@ -66,7 +65,6 @@ export function Logo() {
         }
       } catch (error) {
         // Silently handle errors - fallback to default logo
-        console.warn('Failed to fetch platform logo:', error);
         setHasPlatformLogo(false);
       } finally {
         setLoading(false);

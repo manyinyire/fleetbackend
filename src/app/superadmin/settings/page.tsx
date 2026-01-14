@@ -309,8 +309,6 @@ export default function SettingsPage() {
         }
       });
 
-      console.log("Saving settings:", settingsData); // Debug log
-
       const response = await superAdminAPI.updateSettings(settingsData) as { success: boolean; error?: string };
       if (response.success) {
         toast.success("Settings saved successfully");
