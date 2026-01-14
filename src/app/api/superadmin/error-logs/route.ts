@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
+import { apiLogger } from "@/lib/logger";
 
 const DEFAULT_LIMIT = 50;
 
@@ -101,9 +102,9 @@ export async function GET(request: NextRequest) {
         typeof levelFilter === "string"
           ? levelFilter
           : {
-              ...(whereClause.action || {}),
-              ...levelFilter,
-            };
+            ...(whereClause.action || {}),
+            ...levelFilter,
+          };
     } else {
       whereClause.action = {
         in: [
@@ -143,9 +144,9 @@ export async function GET(request: NextRequest) {
 
     const tenantNames = tenantIds.length
       ? await prisma.tenant.findMany({
-          where: { id: { in: tenantIds } },
-          select: { id: true, name: true },
-        })
+        where: { id: { in: tenantIds } },
+        select: { id: true, name: true },
+      })
       : [];
 
     const tenantMap = new Map(tenantNames.map((tenant) => [tenant.id, tenant.name]));
@@ -188,7 +189,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    apiLogger.error({ err: error }, '`'');
+    apiLogger.error({ err: error }, 'Error fetching error logs');
     return NextResponse.json(
       { error: "Failed to fetch error logs" },
       { status: 500 },

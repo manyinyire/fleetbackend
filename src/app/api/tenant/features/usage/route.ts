@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { apiLogger } from '@/lib/logger';
 import { requireTenantForDashboard } from '@/lib/auth-helpers';
-import { apiLogger } from '@/lib/logger';
+
 import { PremiumFeatureService } from '@/lib/premium-features';
-import { apiLogger } from '@/lib/logger';
+
 
 /**
  * GET /api/tenant/features/usage
@@ -20,7 +20,7 @@ export async function GET() {
       data: usageSummary,
     });
   } catch (error) {
-    apiLogger.error({ err, error }, 'Error fetching usage summary:');
+    apiLogger.error({ err: error }, 'Error fetching usage summary');
     return NextResponse.json(
       { error: 'Failed to fetch usage summary' },
       { status: 500 }

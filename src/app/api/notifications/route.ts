@@ -41,7 +41,62 @@ export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
     },
   });
 
-  // Check each assignment for due remittances
+  // Batch load all remittances for active assignments to avoid N+1 queries
+  // Build OR conditions for all driver-vehicle pairs that need remittance checks
+  const remittanceQueries = activeAssignments
+    .filter(assignment => {
+      const vehicle = assignment.vehicle;
+      return vehicle.paymentModel === 'DRIVER_REMITS' || vehicle.paymentModel === 'HYBRID';
+    })
+    .map(assignment => {
+      const vehicle = assignment.vehicle;
+      const paymentConfig = vehicle.paymentConfig as any;
+      const frequency = paymentConfig?.frequency || 'DAILY';
+      
+      if (frequency === 'DAILY' || frequency === 'WEEKLY' || frequency === 'MONTHLY') {
+        const { startDate, endDate } = getPeriodBoundaries(frequency, today);
+        return {
+          driverId: assignment.driver.id,
+          vehicleId: assignment.vehicle.id,
+          startDate,
+          endDate,
+        };
+      }
+      return null;
+    })
+    .filter((q): q is NonNullable<typeof q> => q !== null);
+
+  // Fetch all remittances in a single query
+  const allRemittances = remittanceQueries.length > 0 
+    ? await prisma.remittance.findMany({
+        where: {
+          OR: remittanceQueries.map(({ driverId, vehicleId, startDate, endDate }) => ({
+            driverId,
+            vehicleId,
+            status: 'APPROVED',
+            date: {
+              gte: startDate,
+              lte: endDate,
+            },
+          })),
+        },
+        select: {
+          driverId: true,
+          vehicleId: true,
+          amount: true,
+        },
+      })
+    : [];
+
+  // Group remittances by driver-vehicle pair
+  const remittanceMap = new Map<string, number>();
+  allRemittances.forEach(r => {
+    const key = `${r.driverId}-${r.vehicleId}`;
+    const current = remittanceMap.get(key) || 0;
+    remittanceMap.set(key, current + Number(r.amount));
+  });
+
+  // Check each assignment for due remittances using cached data
   for (const assignment of activeAssignments) {
     const vehicle = assignment.vehicle;
     const driver = assignment.driver;
@@ -60,26 +115,9 @@ export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
         const fullTarget = calculateRemittanceTarget(vehicle.paymentModel, paymentConfig);
 
         if (fullTarget !== null && fullTarget > 0) {
-          // Sum approved remittances for this period
-          const approvedRemittances = await prisma.remittance.findMany({
-            where: {
-              driverId: driver.id,
-              vehicleId: vehicle.id,
-              status: 'APPROVED',
-              date: {
-                gte: startDate,
-                lte: endDate,
-              },
-            },
-            select: {
-              amount: true,
-            },
-          });
-
-          const existingSum = approvedRemittances.reduce(
-            (sum: number, r: any) => sum + Number(r.amount),
-            0
-          );
+          // Get existing sum from cached data
+          const key = `${driver.id}-${vehicle.id}`;
+          const existingSum = remittanceMap.get(key) || 0;
 
           const remainingBalance = calculateRemainingBalance(fullTarget, existingSum);
 

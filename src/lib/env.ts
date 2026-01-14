@@ -128,8 +128,10 @@ export const features = {
   hasCronSecret: () => !!env.CRON_SECRET && env.CRON_SECRET.length >= 32,
 };
 
-// Log feature availability (only in development)
-if (process.env.NODE_ENV === 'development') {
+// Log feature availability (only in development, once per process)
+let hasLoggedConfig = false;
+if (process.env.NODE_ENV === 'development' && !hasLoggedConfig) {
+  hasLoggedConfig = true;
   console.log('🚀 Azaire Fleet Manager - Environment Configuration');
   console.log('├── ✅ Database: Connected');
   console.log(`├── ${features.hasEmail() ? '✅' : '⚠️ '} Email: ${features.hasEmail() ? 'Configured' : 'Not configured'}`);

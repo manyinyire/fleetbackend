@@ -86,7 +86,7 @@
   "devDependencies": {
     "@hookform/resolvers": "^3.9.0",
     "@testing-library/jest-dom": "^6.1.5",
-    "@testing-library/react": "^14.1.2",
+    "@testing-library/react": "^16.3.1",
     "@types/jest": "^29.5.11",
     "@types/node": "^22",
     "@types/qrcode": "^1.5.6",

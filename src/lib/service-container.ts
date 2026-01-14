@@ -148,6 +148,7 @@ export class ServiceContainer {
     this._subscriptionService = undefined;
     this._remittanceService = undefined;
     this._adminService = undefined;
+    this._weeklyTargetService = undefined;
   }
 }
 

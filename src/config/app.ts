@@ -3,6 +3,8 @@
  * Centralized configuration for the application
  */
 
+import { apiLogger } from '@/lib/logger';
+
 /**
  * Validates and returns a URL, ensuring HTTPS in production
  * @param url - The URL to validate
@@ -68,8 +70,9 @@ export const appConfig = {
 
 // Log configuration on startup (development only)
 if (appConfig.isDevelopment) {
-  console.log('🔧 App Configuration:');
-  console.log(`├── Base URL: ${appConfig.baseUrl}`);
-  console.log(`├── Auth URL: ${appConfig.authUrl}`);
-  console.log(`└── Environment: ${process.env.NODE_ENV}`);
+  apiLogger.info({
+    baseUrl: appConfig.baseUrl,
+    authUrl: appConfig.authUrl,
+    environment: process.env.NODE_ENV
+  }, '🔧 App Configuration loaded');
 }

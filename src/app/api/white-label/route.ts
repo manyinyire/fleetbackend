@@ -6,13 +6,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiLogger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
-import { apiLogger } from '@/lib/logger';
+
 import { requireAuth, requireTenant } from '@/lib/auth-helpers';
-import { apiLogger } from '@/lib/logger';
+
 import { SubscriptionPlan } from '@prisma/client';
-import { apiLogger } from '@/lib/logger';
+
 import { rateLimitByPlan } from '@/lib/rate-limit';
-import { apiLogger } from '@/lib/logger';
+
 
 /**
  * GET /api/white-label
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   try {
     await requireAuth();
     const { tenantId } = await requireTenant();
-    
+
     if (!tenantId) {
       return NextResponse.json(
         { error: 'Tenant context required' },
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       data: whiteLabel,
     });
   } catch (error) {
-    apiLogger.error({ err, error }, 'Error fetching white-label settings:');
+    apiLogger.error({ err: error }, 'Error fetching white-label settings');
     return NextResponse.json(
       {
         success: false,
@@ -66,18 +66,18 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth();
     const { tenantId } = await requireTenant();
-    
+
     if (!tenantId) {
       return NextResponse.json(
         { error: 'Tenant context required' },
         { status: 403 }
       );
     }
-    
+
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
     });
-    
+
     if (!tenant) {
       return NextResponse.json(
         { error: 'Tenant not found' },
@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
       message: 'White-label settings created successfully',
     });
   } catch (error) {
-    apiLogger.error({ err, error }, 'Error creating white-label settings:');
+    apiLogger.error({ err: error }, 'Error creating white-label settings');
     return NextResponse.json(
       {
         success: false,
@@ -199,18 +199,18 @@ export async function PATCH(request: NextRequest) {
   try {
     await requireAuth();
     const { tenantId } = await requireTenant();
-    
+
     if (!tenantId) {
       return NextResponse.json(
         { error: 'Tenant context required' },
         { status: 403 }
       );
     }
-    
+
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
     });
-    
+
     if (!tenant) {
       return NextResponse.json(
         { error: 'Tenant not found' },
@@ -268,7 +268,7 @@ export async function PATCH(request: NextRequest) {
       message: 'White-label settings updated successfully',
     });
   } catch (error) {
-    apiLogger.error({ err, error }, 'Error updating white-label settings:');
+    apiLogger.error({ err: error }, 'Error updating white-label settings');
     return NextResponse.json(
       {
         success: false,
@@ -287,7 +287,7 @@ export async function DELETE(request: NextRequest) {
   try {
     await requireAuth();
     const { tenantId } = await requireTenant();
-    
+
     if (!tenantId) {
       return NextResponse.json(
         { error: 'Tenant context required' },
@@ -318,7 +318,7 @@ export async function DELETE(request: NextRequest) {
       message: 'White-label settings deleted successfully',
     });
   } catch (error) {
-    apiLogger.error({ err, error }, 'Error deleting white-label settings:');
+    apiLogger.error({ err: error }, 'Error deleting white-label settings');
     return NextResponse.json(
       {
         success: false,

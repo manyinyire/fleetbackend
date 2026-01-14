@@ -5,6 +5,7 @@ import { getTenantPrisma } from '@/lib/get-tenant-prisma';
 import { setTenantContext } from '@/lib/tenant';
 import { sendBulkDriverSMS } from './notifications';
 import { revalidatePath } from 'next/cache';
+import { apiLogger } from '@/lib/logger';
 
 export async function bulkDeleteVehicles(vehicleIds: string[]) {
   const { user, tenantId } = await requireTenant();
@@ -75,7 +76,7 @@ export async function bulkDeleteVehicles(vehicleIds: string[]) {
     revalidatePath('/vehicles');
     return { success: true, results };
   } catch (error) {
-    console.error('Bulk delete vehicles error:', error);
+    apiLogger.error({ err: error, tenantId }, 'Bulk delete vehicles error');
     throw error;
   }
 }
@@ -149,7 +150,7 @@ export async function bulkDeleteDrivers(driverIds: string[]) {
     revalidatePath('/drivers');
     return { success: true, results };
   } catch (error) {
-    console.error('Bulk delete drivers error:', error);
+    apiLogger.error({ err: error, tenantId }, 'Bulk delete drivers error');
     throw error;
   }
 }
@@ -208,7 +209,7 @@ export async function bulkUpdateVehicleStatus(vehicleIds: string[], status: stri
     revalidatePath('/vehicles');
     return { success: true, results };
   } catch (error) {
-    console.error('Bulk update vehicle status error:', error);
+    apiLogger.error({ err: error, tenantId, status }, 'Bulk update vehicle status error');
     throw error;
   }
 }
@@ -267,7 +268,7 @@ export async function bulkUpdateDriverStatus(driverIds: string[], status: string
     revalidatePath('/drivers');
     return { success: true, results };
   } catch (error) {
-    console.error('Bulk update driver status error:', error);
+    apiLogger.error({ err: error, tenantId, status }, 'Bulk update driver status error');
     throw error;
   }
 }
@@ -279,7 +280,7 @@ export async function bulkSendSMS(driverIds: string[], template: string, message
     const result = await sendBulkDriverSMS(driverIds, template as any, message);
     return result;
   } catch (error) {
-    console.error('Bulk SMS error:', error);
+    apiLogger.error({ err: error, tenantId, driverCount: driverIds.length }, 'Bulk SMS error');
     throw error;
   }
 }
@@ -345,7 +346,7 @@ export async function bulkExportData(entityType: string, entityIds: string[]) {
 
     return { success: true, data };
   } catch (error) {
-    console.error('Bulk export error:', error);
+    apiLogger.error({ err: error, tenantId, entityType, count: entityIds.length }, 'Bulk export error');
     throw error;
   }
 }

@@ -1,5 +1,5 @@
-import { NextRequest } from 'next/server';
-import { withTenantAuth, successResponse, errorResponse } from '@/lib/api-middleware';
+import { withTenantAuth, successResponse } from '@/lib/api-middleware';
+import { NextResponse } from 'next/server';
 
 /**
  * GET /api/invoices/[id]/reminders
@@ -10,7 +10,7 @@ export const GET = withTenantAuth(async ({ prisma, tenantId, params }) => {
         const invoiceId = params?.id as string;
 
         if (!invoiceId) {
-            return errorResponse('Invoice ID is required', 400);
+            return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 });
         }
 
         // Verify the invoice belongs to this tenant
@@ -22,7 +22,7 @@ export const GET = withTenantAuth(async ({ prisma, tenantId, params }) => {
         });
 
         if (!invoice) {
-            return errorResponse('Invoice not found', 404);
+            return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
         }
 
         // Get all reminders for this invoice
@@ -41,6 +41,6 @@ export const GET = withTenantAuth(async ({ prisma, tenantId, params }) => {
         });
     } catch (error) {
         console.error('Error getting invoice reminders:', error);
-        return errorResponse('Failed to get invoice reminders', 500);
+        return NextResponse.json({ error: 'Failed to get invoice reminders' }, { status: 500 });
     }
 });

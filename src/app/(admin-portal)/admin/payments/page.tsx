@@ -88,7 +88,7 @@ export default function PaymentsPage() {
       CANCELLED: { color: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400", label: "Cancelled" },
     };
 
-    const badge = badges[status] || badges.PENDING;
+    const badge = (badges[status] ?? badges.PENDING)!;
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badge.color}`}>
         {badge.label}
@@ -192,41 +192,37 @@ export default function PaymentsPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setFilter("all")}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                filter === "all"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-              }`}
+              className={`px-4 py-2 rounded-lg transition-colors ${filter === "all"
+                ? "bg-indigo-600 text-white"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                }`}
             >
               All
             </button>
             <button
               onClick={() => setFilter("PAID")}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                filter === "PAID"
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-              }`}
+              className={`px-4 py-2 rounded-lg transition-colors ${filter === "PAID"
+                ? "bg-green-600 text-white"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                }`}
             >
               Paid
             </button>
             <button
               onClick={() => setFilter("PENDING")}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                filter === "PENDING"
-                  ? "bg-yellow-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-              }`}
+              className={`px-4 py-2 rounded-lg transition-colors ${filter === "PENDING"
+                ? "bg-yellow-600 text-white"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                }`}
             >
               Pending
             </button>
             <button
               onClick={() => setFilter("unreconciled")}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                filter === "unreconciled"
-                  ? "bg-orange-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-              }`}
+              className={`px-4 py-2 rounded-lg transition-colors ${filter === "unreconciled"
+                ? "bg-orange-600 text-white"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                }`}
             >
               Unreconciled
             </button>

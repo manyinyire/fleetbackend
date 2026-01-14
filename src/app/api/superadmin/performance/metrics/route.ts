@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth-helpers";
 import { getSystemHealthSnapshot } from "@/lib/system-health-data";
+import { apiLogger } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
   try {
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    apiLogger.error({ err: error }, '`'');
+    apiLogger.error({ err: error }, 'Error loading performance metrics');
     return NextResponse.json(
       { error: "Failed to load performance metrics" },
       { status: 500 },

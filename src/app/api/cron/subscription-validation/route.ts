@@ -119,13 +119,13 @@ export async function POST(request: NextRequest) {
 
         // Send email notification to tenant about suspension
         if (tenant.users.length > 0) {
-          const adminUser = tenant.users[0];
+          const adminUser = tenant.users[0]!;
           try {
             await emailService.sendAccountSuspendedEmail(
-              adminUser.email,
+              adminUser?.email || '',
               {
                 tenantName: tenant.name,
-                userName: adminUser.name,
+                userName: adminUser.name || 'Admin',
                 reason: tenant.isInTrial ? 'Trial period expired' : 'Subscription expired',
                 suspendedDate: now.toLocaleDateString(),
                 renewalUrl: `${process.env.NEXT_PUBLIC_APP_URL}/billing/plans`,
@@ -133,12 +133,12 @@ export async function POST(request: NextRequest) {
               }
             );
             apiLogger.info(
-              { email: adminUser.email, tenantId: tenant.id },
+              { email: adminUser?.email, tenantId: tenant.id },
               'Suspension notification email sent successfully'
             );
           } catch (emailError) {
             apiLogger.error(
-              { err: emailError, email: adminUser.email, tenantId: tenant.id },
+              { err: emailError, email: adminUser?.email, tenantId: tenant.id },
               'Failed to send suspension notification email'
             );
           }

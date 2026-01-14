@@ -1,22 +1,29 @@
 /**
  * Queue Configuration for Background Jobs
  * Uses BullMQ with Redis for reliable job processing
- * Redis is disabled by default - queues will not work without Redis
+ * 
+ * Note: Redis is optional. If not configured, queues will use mock implementations
+ * that log warnings but don't fail. This allows the application to run without Redis
+ * in development or when background jobs are not needed.
  */
 
 import { Queue, Worker, QueueEvents } from 'bullmq';
 import Redis from 'ioredis';
+import { apiLogger } from './logger';
 
 // Lazy Redis connection - only connect when actually used
 let connection: Redis | null = null;
 
+/**
+ * Get Redis connection for queue operations
+ * Throws error if Redis is not configured
+ */
 function getConnection(): Redis {
   if (!connection) {
     // Check if Redis is configured
     const redisUrl = process.env.REDIS_URL;
     if (!redisUrl || redisUrl === '' || redisUrl === 'redis://localhost:6379') {
-      console.warn('⚠️  Redis not configured - background jobs are disabled');
-      // Return a mock connection that won't actually connect
+      apiLogger.warn('Redis not configured - background jobs are disabled');
       throw new Error('Redis not configured - background jobs are disabled');
     }
 
@@ -30,30 +37,24 @@ function getConnection(): Redis {
   return connection;
 }
 
-// Export mock queues that warn when used
-export const scheduledReportsQueue = {
-  add: () => {
-    console.warn('⚠️  Redis not configured - scheduled reports queue is disabled');
-    return Promise.resolve({ id: 'mock' } as any);
-  },
-  close: () => Promise.resolve(),
-} as any;
+/**
+ * Create a mock queue that logs warnings when used
+ * Used as fallback when Redis is not configured
+ */
+function createMockQueue(queueName: string) {
+  return {
+    add: (jobName: string, data?: any) => {
+      apiLogger.warn({ queueName, jobName }, 'Redis not configured - queue operation skipped');
+      return Promise.resolve({ id: 'mock-job-id' } as any);
+    },
+    close: () => Promise.resolve(),
+  } as any;
+}
 
-export const emailQueue = {
-  add: () => {
-    console.warn('⚠️  Redis not configured - email queue is disabled');
-    return Promise.resolve({ id: 'mock' } as any);
-  },
-  close: () => Promise.resolve(),
-} as any;
-
-export const smsQueue = {
-  add: () => {
-    console.warn('⚠️  Redis not configured - SMS queue is disabled');
-    return Promise.resolve({ id: 'mock' } as any);
-  },
-  close: () => Promise.resolve(),
-} as any;
+// Export mock queues that warn when used (Redis not configured)
+export const scheduledReportsQueue = createMockQueue('scheduled-reports');
+export const emailQueue = createMockQueue('email');
+export const smsQueue = createMockQueue('sms');
 
 // Export mock queue events
 export const scheduledReportsQueueEvents = {} as any;

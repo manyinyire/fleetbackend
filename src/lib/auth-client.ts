@@ -1,4 +1,5 @@
 import { signOut as nextAuthSignOut } from "next-auth/react";
+import { apiLogger } from '@/lib/logger';
 
 // Re-export NextAuth functions for backward compatibility
 export { useSession, signIn } from "next-auth/react";
@@ -13,11 +14,11 @@ export const signOut = async () => {
 export const authClient = {
   admin: {
     impersonate: async () => {
-      console.warn("Impersonation not yet implemented with Auth.js v5");
+      apiLogger.warn('Impersonation not yet implemented with Auth.js v5');
       return { error: { message: "Feature not yet implemented" } };
     },
     stopImpersonating: async () => {
-      console.warn("Stop impersonation not yet implemented with Auth.js v5");
+      apiLogger.warn('Stop impersonation not yet implemented with Auth.js v5');
       return { error: { message: "Feature not yet implemented" } };
     },
   },
@@ -46,17 +47,17 @@ export const authClient = {
     verifyEmail: async (data: { email: string; otp: string }) => {
       // Note: Current implementation uses token-based verification (link in email)
       // not OTP-based verification. This is a stub for compatibility.
-      console.warn("OTP-based email verification not implemented. Use token-based verification via email link.");
+      apiLogger.warn('OTP-based email verification not implemented. Use token-based verification via email link.');
       return { error: { message: "OTP verification not supported. Please use the link sent to your email." } };
     },
   },
   twoFactor: {
     enable: async () => {
-      console.warn("2FA not yet implemented with Auth.js v5");
+      apiLogger.warn('2FA not yet implemented with Auth.js v5');
       return { error: { message: "Feature not yet implemented" } };
     },
     disable: async () => {
-      console.warn("2FA disable not yet implemented with Auth.js v5");
+      apiLogger.warn('2FA disable not yet implemented with Auth.js v5');
       return { error: { message: "Feature not yet implemented" } };
     },
   },
@@ -83,11 +84,11 @@ export const authClient = {
       }
     },
     changeEmail: async () => {
-      console.warn("Change email not yet implemented with Auth.js v5");
+      apiLogger.warn('Change email not yet implemented with Auth.js v5');
       return { error: { message: "Feature not yet implemented" } };
     },
     deleteAccount: async () => {
-      console.warn("Delete account not yet implemented with Auth.js v5");
+      apiLogger.warn('Delete account not yet implemented with Auth.js v5');
       return { error: { message: "Feature not yet implemented" } };
     },
   },

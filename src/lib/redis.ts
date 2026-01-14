@@ -94,6 +94,3 @@ export async function closeRedis(): Promise<void> {
     apiLogger.info('Redis connection closed');
   }
 }
-
-// Initialize Redis client on import
-getRedisClient();
