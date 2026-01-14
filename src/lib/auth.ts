@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs"
 import { authApi } from "./auth-api-compat"
 
 const nextAuthResult = NextAuth({
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
