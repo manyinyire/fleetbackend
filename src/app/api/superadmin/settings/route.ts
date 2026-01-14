@@ -149,7 +149,7 @@ export async function PUT(request: NextRequest) {
 
     if (Object.keys(platformData).length > 0) {
       // Get or create platform settings
-      let platformSettings = await prisma.platformSettings.findFirst();
+      const platformSettings = await prisma.platformSettings.findFirst();
       
       if (platformSettings) {
         await prisma.platformSettings.update({

@@ -174,7 +174,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get current settings
-    let currentSettings = await prisma.platformSettings.findFirst();
+    const currentSettings = await prisma.platformSettings.findFirst();
 
     // Map security settings to PlatformSettings fields
     const updateData: any = {};

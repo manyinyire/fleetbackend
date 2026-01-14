@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     const publicUrl = `/uploads/logos/${filename}`;
     
     // Update platform settings
-    let platformSettings = await prisma.platformSettings.findFirst();
+    const platformSettings = await prisma.platformSettings.findFirst();
     
     if (platformSettings) {
       // Delete old logo file if it exists

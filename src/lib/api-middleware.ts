@@ -259,24 +259,10 @@ export function withErrorHandler(
     const url = request.url;
 
     try {
-      const response = await handler(request);
-
-      const duration = Date.now() - startTime;
-      apiLogger.info(
-        {
-          method,
-          url,
-          status: response.status,
-          duration,
-        },
-        'API request completed'
-      );
-
-      return response;
-    } catch (error) {
-      // Next.js redirect() throws a special error that should be re-thrown
-      // Check if this is a redirect error (NEXT_REDIRECT)
-      if (error && typeof error === 'object' && 'digest' in error) {
+      return await handler(request);
+    } catch (error: any) {
+      // Check if this is a Next.js redirect
+      if (error && typeof error === 'object') {
         const errorDigest = (error as any).digest;
         if (typeof errorDigest === 'string' && errorDigest.startsWith('NEXT_REDIRECT')) {
           // Re-throw redirect errors so Next.js can handle them properly
@@ -299,3 +285,7 @@ export function withErrorHandler(
     }
   };
 }
+
+// Export aliases for backward compatibility
+export const errorResponse = createErrorResponse;
+export const withAuth = withTenantAuth;
