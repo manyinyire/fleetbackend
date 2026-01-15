@@ -6,15 +6,15 @@ import { WeeklyTargetService } from '@/services/weekly-target.service';
  * GET /api/weekly-targets/history/[driverId]
  * Get weekly target history for a specific driver
  */
-export const GET = withTenantAuth(async ({ tenantId, params, request }) => {
+export const GET = withTenantAuth(async ({ tenantId, request }) => {
     try {
-        const driverId = params?.driverId as string;
+        const url = new URL(request.url);
+        const pathParts = url.pathname.split('/');
+        const driverId = pathParts[pathParts.length - 1];
 
         if (!driverId) {
             return errorResponse('Driver ID is required', 400);
         }
-
-        const url = new URL(request.url);
         const limit = parseInt(url.searchParams.get('limit') || '10');
 
         const service = new WeeklyTargetService(tenantId);

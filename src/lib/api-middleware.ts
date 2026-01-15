@@ -286,6 +286,22 @@ export function withErrorHandler(
   };
 }
 
+/**
+ * Create error response with message and status code
+ */
+export function errorResponse(
+  message: string,
+  status: number = 500,
+  errors?: any
+): NextResponse {
+  return NextResponse.json(
+    {
+      error: message,
+      ...(errors && { errors }),
+    },
+    { status }
+  );
+}
+
 // Export aliases for backward compatibility
-export const errorResponse = createErrorResponse;
 export const withAuth = withTenantAuth;

@@ -5,13 +5,17 @@ import { withTenantAuth, successResponse, errorResponse } from '@/lib/api-middle
  * DELETE /api/notifications/[id]
  * Delete a specific notification
  */
-export const DELETE = withTenantAuth(async ({ prisma, userId, params }) => {
+export const DELETE = withTenantAuth(async ({ prisma, user, request }) => {
     try {
-        const notificationId = params?.id as string;
+        const url = new URL(request.url);
+        const pathParts = url.pathname.split('/');
+        const notificationId = pathParts[pathParts.length - 1];
 
         if (!notificationId) {
             return errorResponse('Notification ID is required', 400);
         }
+
+        const userId = user.id;
 
         // Verify the notification belongs to the user before deleting
         const notification = await prisma.notification.findUnique({

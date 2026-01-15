@@ -6,9 +6,11 @@ import { invoiceReminderService } from '@/lib/invoice-reminder';
  * POST /api/invoices/[id]/send-reminder
  * Manually send a reminder for a specific invoice
  */
-export const POST = withTenantAuth(async ({ tenantId, user, params }) => {
+export const POST = withTenantAuth(async ({ tenantId, user, request }) => {
     try {
-        const invoiceId = params?.id as string;
+        const url = new URL(request.url);
+        const pathParts = url.pathname.split('/');
+        const invoiceId = pathParts[pathParts.length - 2];
 
         if (!invoiceId) {
             return errorResponse('Invoice ID is required', 400);
