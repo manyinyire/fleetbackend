@@ -1,5 +1,6 @@
 import { requireAuth } from '@/lib/auth-helpers';
 import { InvoiceManager } from '@/components/invoices/InvoiceManager';
+import { BillingInfo } from '@/components/billing/BillingInfo';
 
 export const metadata = {
   title: 'Billing & Invoices | Fleet Manager',
@@ -25,23 +26,7 @@ export default async function BillingPage() {
         </div>
 
         {/* Billing Information */}
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Billing Information</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Current Plan</label>
-              <p className="mt-1 text-sm text-gray-900">Free Plan</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Next Billing Date</label>
-              <p className="mt-1 text-sm text-gray-900">Monthly</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Payment Method</label>
-              <p className="mt-1 text-sm text-gray-900">Not configured</p>
-            </div>
-          </div>
-        </div>
+        <BillingInfo />
       </div>
     </div>
   );
