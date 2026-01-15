@@ -5,8 +5,10 @@ import { withTenantAuth, successResponse, errorResponse } from '@/lib/api-middle
  * GET /api/notifications/unread-count
  * Get the count of unread notifications for the current user
  */
-export const GET = withTenantAuth(async ({ prisma, userId }) => {
+export const GET = withTenantAuth(async ({ prisma, user }) => {
     try {
+        const userId = user.id;
+        
         const count = await prisma.notification.count({
             where: {
                 userId,

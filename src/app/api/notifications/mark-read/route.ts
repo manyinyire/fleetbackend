@@ -11,10 +11,12 @@ const markAsReadSchema = z.object({
  * PATCH /api/notifications/mark-read
  * Mark one or more notifications as read
  */
-export const PATCH = withTenantAuth(async ({ prisma, userId, request }) => {
+export const PATCH = withTenantAuth(async ({ prisma, user, request }) => {
     try {
         const body = await request.json();
         const { notificationIds, markAll } = markAsReadSchema.parse(body);
+
+        const userId = user.id;
 
         if (markAll) {
             // Mark all notifications as read for this user
