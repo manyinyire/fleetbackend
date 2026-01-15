@@ -5,9 +5,12 @@ import { NextResponse } from 'next/server';
  * GET /api/invoices/[id]/reminders
  * Get reminder history for a specific invoice
  */
-export const GET = withTenantAuth(async ({ prisma, tenantId, params }) => {
+export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
     try {
-        const invoiceId = params?.id as string;
+        // Extract invoice ID from URL path
+        const url = new URL(request.url);
+        const pathParts = url.pathname.split('/');
+        const invoiceId = pathParts[pathParts.indexOf('invoices') + 1];
 
         if (!invoiceId) {
             return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 });
