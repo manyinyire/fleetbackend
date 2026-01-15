@@ -107,8 +107,7 @@ export function Logo() {
     return (
       <div className="relative h-8 flex items-center">
         <span 
-          className="text-xl font-bold tracking-tight whitespace-nowrap"
-          style={{ color: primaryColor }}
+          className="text-xl font-display font-bold tracking-tight whitespace-nowrap text-gradient-forest dark:text-white"
         >
           {logoText}
         </span>
