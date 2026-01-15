@@ -62,25 +62,28 @@ async function initiatePayment(
   if (invoice.payments.length > 0) {
     // Check if payment is stale (more than 30 minutes old)
     const pendingPayment = invoice.payments[0];
-    const paymentAge = Date.now() - new Date(pendingPayment.createdAt).getTime();
-    const STALE_PAYMENT_THRESHOLD = 30 * 60 * 1000; // 30 minutes
+    
+    if (pendingPayment) {
+      const paymentAge = Date.now() - new Date(pendingPayment.createdAt).getTime();
+      const STALE_PAYMENT_THRESHOLD = 30 * 60 * 1000; // 30 minutes
 
-    if (paymentAge > STALE_PAYMENT_THRESHOLD) {
-      // Cancel stale payment
-      await prisma.payment.update({
-        where: { id: pendingPayment.id },
-        data: {
-          status: "CANCELLED",
-          paymentMetadata: {
-            ...(typeof pendingPayment.paymentMetadata === 'object' && pendingPayment.paymentMetadata !== null ? pendingPayment.paymentMetadata : {}),
-            cancelledReason: "Stale payment (timeout)",
-            cancelledAt: new Date().toISOString(),
+      if (paymentAge > STALE_PAYMENT_THRESHOLD) {
+        // Cancel stale payment
+        await prisma.payment.update({
+          where: { id: pendingPayment.id },
+          data: {
+            status: "CANCELLED",
+            paymentMetadata: {
+              ...(typeof pendingPayment.paymentMetadata === 'object' && pendingPayment.paymentMetadata !== null ? pendingPayment.paymentMetadata : {}),
+              cancelledReason: "Stale payment (timeout)",
+              cancelledAt: new Date().toISOString(),
+            },
           },
-        },
-      });
-    } else {
-      // Payment is still fresh, reject new payment attempt
-      throw Errors.paymentPending(invoice.invoiceNumber);
+        });
+      } else {
+        // Payment is still fresh, reject new payment attempt
+        throw Errors.paymentPending(invoice.invoiceNumber);
+      }
     }
   }
 
