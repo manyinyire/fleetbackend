@@ -188,44 +188,62 @@ export async function createPayment(
 /**
  * Check payment status - CRITICAL for security
  * Always verify payment status from PayNow servers, never trust client-side data
+ * Includes retry logic with exponential backoff for reliability
  */
-export async function checkPaymentStatus(pollUrl: string) {
-  try {
-    const paynow = getPaynowInstance();
-    const status = await paynow.pollTransaction(pollUrl);
+export async function checkPaymentStatus(pollUrl: string, retries = 3) {
+  let lastError: any;
+  
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const paynow = getPaynowInstance();
+      const status = await paynow.pollTransaction(pollUrl);
 
-    apiLogger.debug({ status }, 'PayNow poll transaction raw response');
-    apiLogger.debug({
-      keys: Object.keys(status),
-      paid: status.paid,
-      paidType: typeof status.paid,
-      status: status.status,
-      statusType: typeof status.status,
-      amount: status.amount,
-      amountType: typeof status.amount,
-    }, 'PayNow status details');
+      apiLogger.debug({ status, attempt }, 'PayNow poll transaction raw response');
+      apiLogger.debug({
+        keys: Object.keys(status),
+        paid: status.paid,
+        paidType: typeof status.paid,
+        status: status.status,
+        statusType: typeof status.status,
+        amount: status.amount,
+        amountType: typeof status.amount,
+      }, 'PayNow status details');
 
-    // PayNow returns status as lowercase string like 'paid', 'awaiting delivery', 'cancelled'
-    // We need to check if status is 'paid' or 'Paid' (case insensitive)
-    const isPaid = status.status?.toLowerCase() === 'paid' || status.paid === true;
+      // PayNow returns status as lowercase string like 'paid', 'awaiting delivery', 'cancelled'
+      // We need to check if status is 'paid' or 'Paid' (case insensitive)
+      const isPaid = status.status?.toLowerCase() === 'paid' || status.paid === true;
 
-    return {
-      success: true,
-      paid: isPaid,
-      status: status.status,
-      amount: status.amount,
-      reference: status.reference,
-      paynowReference: status.paynowreference,
-      pollUrl: status.pollurl,
-      hash: status.hash,
-    };
-  } catch (error) {
-    apiLogger.error({ error }, 'PayNow status check error');
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Status check failed",
-    };
+      return {
+        success: true,
+        paid: isPaid,
+        status: status.status,
+        amount: status.amount,
+        reference: status.reference,
+        paynowReference: status.paynowreference,
+        pollUrl: status.pollurl,
+        hash: status.hash,
+        attempts: attempt,
+      };
+    } catch (error) {
+      lastError = error;
+      apiLogger.warn({ error, attempt, retries }, 'PayNow status check failed, retrying...');
+      
+      // Don't retry on last attempt
+      if (attempt < retries) {
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, attempt - 1) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
+  
+  // All retries failed
+  apiLogger.error({ error: lastError, retries }, 'PayNow status check failed after all retries');
+  return {
+    success: false,
+    error: lastError instanceof Error ? lastError.message : "Status check failed after retries",
+    attempts: retries,
+  };
 }
 
 /**
