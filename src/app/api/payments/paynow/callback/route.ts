@@ -341,12 +341,23 @@ async function performAutoActionsInTransaction(tx: any, invoice: any, payment: a
       const oldPlan = tenant.plan;
       actionsPerformed.oldPlan = oldPlan;
 
+      // Calculate billing cycle dates
+      const now = new Date();
+      const billingCycle = tenant.billingCycle || 'MONTHLY';
+      const daysToAdd = billingCycle === 'MONTHLY' ? 30 : 365;
+      const subscriptionEndDate = new Date(now.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+
       await tx.tenant.update({
         where: { id: invoice.tenantId },
         data: {
           plan: invoice.plan,
           monthlyRevenue:
             invoice.plan === 'FREE' ? 0 : invoice.plan === 'BASIC' ? 29.99 : 99.99,
+          subscriptionStartDate: now,
+          subscriptionEndDate: subscriptionEndDate,
+          autoRenew: true,
+          isInTrial: false,
+          status: 'ACTIVE',
         },
       });
 
@@ -382,6 +393,73 @@ async function performAutoActionsInTransaction(tx: any, invoice: any, payment: a
           toPlan: invoice.plan,
         },
         'Auto-upgraded tenant'
+      );
+    }
+  }
+
+  // Handle RENEWAL and SUBSCRIPTION invoices - extend billing cycle
+  if (
+    (invoice.type === "RENEWAL" || invoice.type === "SUBSCRIPTION") &&
+    !payment.renewalActioned
+  ) {
+    const tenant = await tx.tenant.findUnique({
+      where: { id: invoice.tenantId },
+    });
+
+    if (tenant) {
+      const now = new Date();
+      const billingCycle = tenant.billingCycle || 'MONTHLY';
+      const daysToAdd = billingCycle === 'MONTHLY' ? 30 : 365;
+      
+      // If there's an existing end date and it's in the future, extend from that date
+      // Otherwise, start from now
+      const startFrom = tenant.subscriptionEndDate && tenant.subscriptionEndDate > now
+        ? tenant.subscriptionEndDate
+        : now;
+      
+      const newEndDate = new Date(startFrom.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+
+      await tx.tenant.update({
+        where: { id: invoice.tenantId },
+        data: {
+          subscriptionStartDate: tenant.subscriptionStartDate || now,
+          subscriptionEndDate: newEndDate,
+          autoRenew: true,
+          isInTrial: false,
+          status: 'ACTIVE',
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: 'system',
+          tenantId: invoice.tenantId,
+          action: 'SUBSCRIPTION_RENEWED',
+          entityType: 'Tenant',
+          entityId: invoice.tenantId,
+          details: {
+            paymentId: payment?.id || invoice.id,
+            invoiceId: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
+            newEndDate: newEndDate,
+            billingCycle: billingCycle,
+            analytics: {
+              event: 'subscription_renewed',
+              plan: tenant.plan,
+            },
+          },
+          ipAddress: 'system',
+          userAgent: 'auto-action',
+        },
+      });
+
+      apiLogger.info(
+        {
+          tenantId: invoice.tenantId,
+          plan: tenant.plan,
+          newEndDate: newEndDate,
+        },
+        'Subscription renewed'
       );
     }
   }
