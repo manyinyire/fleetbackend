@@ -38,9 +38,9 @@ export const GET = withTenantAuth(async ({ prisma, tenantId, request }) => {
     
     // Determine invoice items based on type
     let items: any[] = [];
-    let subtotal = Number(invoice.amount);
-    let tax = 0;
-    let total = Number(invoice.amount);
+    const subtotal = Number(invoice.amount);
+    const tax = 0;
+    const total = Number(invoice.amount);
 
     if (invoice.type === 'SUBSCRIPTION' || invoice.type === 'RENEWAL') {
       items = [{
