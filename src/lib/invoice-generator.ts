@@ -122,8 +122,8 @@ class InvoiceGenerator {
     // Generate PDF
     const pdf = await this.generatePDF(invoice, tenant, items, subtotal, tax, total);
 
-    // Update invoice with PDF URL (you would upload to S3 in production)
-    const pdfUrl = `invoices/${invoiceNumber}.pdf`;
+    // Update invoice with PDF URL (API endpoint to serve PDF dynamically)
+    const pdfUrl = `/api/invoices/${invoice.id}/pdf`;
     await prisma.invoice.update({
       where: { id: invoice.id },
       data: { pdfUrl }
