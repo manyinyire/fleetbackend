@@ -54,7 +54,7 @@ export function UserInfo() {
     email: user?.email || "admin@azaire.com",
     img: user?.image || "/images/user/user-03.png",
     role: "Platform Owner",
-    initials: getInitials(userName),
+    initials: getInitials(userName || "Admin"),
   };
 
   return (

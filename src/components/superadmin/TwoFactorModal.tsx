@@ -29,6 +29,7 @@ export function TwoFactorModal({ isOpen, onVerify, onCancel }: TwoFactorModalPro
       }, 1000);
       return () => clearInterval(timer);
     }
+    return undefined;
   }, [isOpen]);
 
   const handleChange = (index: number, value: string) => {

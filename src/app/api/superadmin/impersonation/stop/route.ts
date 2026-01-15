@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/auth-helpers';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { apiLogger } from '@/lib/logger';
 
 
 export async function POST(request: NextRequest) {

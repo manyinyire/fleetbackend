@@ -90,7 +90,7 @@ export function UserInfo() {
     name: userName,
     email: user?.email || "",
     img: user?.image || null,
-    initials: getInitials(userName),
+    initials: getInitials(userName || "User"),
   };
 
   return (

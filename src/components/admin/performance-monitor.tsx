@@ -72,6 +72,7 @@ export function PerformanceMonitor() {
       const interval = setInterval(fetchPerformanceData, 30000); // Refresh every 30 seconds
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [timeRange, autoRefresh, fetchPerformanceData]);
 
   const getStatusColor = (status: string) => {

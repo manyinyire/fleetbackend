@@ -42,6 +42,7 @@ export function Sidebar() {
             // Break the loop
             return true;
           }
+          return false;
         });
       });
     });

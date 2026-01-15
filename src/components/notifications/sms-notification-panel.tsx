@@ -68,7 +68,7 @@ export function SMSNotificationPanel({ drivers, selectedDriverIds = [], onClose 
 
     setLoading(true);
     try {
-      if (selectedDrivers.length === 1) {
+      if (selectedDrivers.length === 1 && selectedDrivers[0]) {
         await sendDriverSMS(selectedDrivers[0], data.template, data.customMessage);
         toast.success('SMS sent successfully!');
       } else {

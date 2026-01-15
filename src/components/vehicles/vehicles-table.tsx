@@ -146,10 +146,10 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
                 <div className="flex items-center space-x-2">
                   <div className="text-right">
                     <p className="text-sm text-gray-900">
-                      {vehicle.drivers && vehicle.drivers.length > 0 ? vehicle.drivers[0].driver.fullName : 'No driver'}
+                      {vehicle.drivers && vehicle.drivers.length > 0 && vehicle.drivers[0]?.driver ? vehicle.drivers[0].driver.fullName : 'No driver'}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {vehicle.maintenanceRecords && vehicle.maintenanceRecords.length > 0 && (
+                      {vehicle.maintenanceRecords && vehicle.maintenanceRecords.length > 0 && vehicle.maintenanceRecords[0] && (
                         <>
                           Last service: {formatDate(vehicle.maintenanceRecords[0].date)}
                         </>

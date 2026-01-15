@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
 import { clearOrphanedSessions, clearExpiredSessions } from '@/lib/clear-user-cache';
+import { apiLogger } from '@/lib/logger';
 
 /**
  * Maintenance endpoint to clean up sessions

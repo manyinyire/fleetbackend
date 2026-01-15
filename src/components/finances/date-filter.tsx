@@ -34,8 +34,8 @@ export function DateFilter({ onDateChange, initialStartDate, initialEndDate }: D
     const start = new Date();
     start.setDate(start.getDate() - days);
     
-    const startStr = start.toISOString().split('T')[0];
-    const endStr = end.toISOString().split('T')[0];
+    const startStr = start.toISOString().split('T')[0] || '';
+    const endStr = end.toISOString().split('T')[0] || '';
     
     setStartDate(startStr);
     setEndDate(endStr);

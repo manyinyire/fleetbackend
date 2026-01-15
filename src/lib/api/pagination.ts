@@ -100,11 +100,17 @@ export function buildOrderBy(
     let current = result;
 
     for (let i = 0; i < parts.length - 1; i++) {
-      current[parts[i]] = {};
-      current = current[parts[i]];
+      const part = parts[i];
+      if (part) {
+        current[part] = {};
+        current = current[part];
+      }
     }
 
-    current[parts[parts.length - 1]] = sortOrder;
+    const lastPart = parts[parts.length - 1];
+    if (lastPart) {
+      current[lastPart] = sortOrder;
+    }
     return result;
   }
 

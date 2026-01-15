@@ -174,10 +174,10 @@ export function DriversTable({ drivers }: DriversTableProps) {
                 <div className="flex items-center space-x-2">
                   <div className="text-right">
                     <p className="text-sm text-gray-900">
-                      {driver.vehicles && driver.vehicles.length > 0 ? driver.vehicles[0].vehicle.registrationNumber : 'No vehicle'}
+                      {driver.vehicles && driver.vehicles.length > 0 && driver.vehicles[0]?.vehicle ? driver.vehicles[0].vehicle.registrationNumber : 'No vehicle'}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {driver.remittances && driver.remittances.length > 0 && (
+                      {driver.remittances && driver.remittances.length > 0 && driver.remittances[0] && (
                         <>
                           Last remittance: ${driver.remittances[0].amount} ({formatDate(driver.remittances[0].date)})
                         </>

@@ -54,20 +54,28 @@ export async function POST(
     // Cancel stale pending payments or block retry if payment is still fresh
     if (invoice.payments.length > 0) {
       const pendingPayment = invoice.payments[0];
-      const paymentAge = Date.now() - new Date(pendingPayment.createdAt).getTime();
+      
+      if (pendingPayment) {
+        const paymentAge = Date.now() - new Date(pendingPayment.createdAt).getTime();
 
-      if (paymentAge > STALE_PAYMENT_THRESHOLD) {
-        await prisma.payment.update({
-          where: { id: pendingPayment.id },
-          data: {
-            status: 'CANCELLED',
-            paymentMetadata: {
-              ...(pendingPayment.paymentMetadata as object || {}),
-              cancelledReason: 'Retry initiated by super admin',
-              cancelledAt: new Date().toISOString(),
+        if (paymentAge > STALE_PAYMENT_THRESHOLD) {
+          await prisma.payment.update({
+            where: { id: pendingPayment.id },
+            data: {
+              status: 'CANCELLED',
+              paymentMetadata: {
+                ...(pendingPayment.paymentMetadata as object || {}),
+                cancelledReason: 'Retry initiated by super admin',
+                cancelledAt: new Date().toISOString(),
+              },
             },
-          },
-        });
+          });
+        } else {
+          return NextResponse.json(
+            { error: 'A payment attempt is already pending. Please try again shortly.' },
+            { status: 409 }
+          );
+        }
       } else {
         return NextResponse.json(
           { error: 'A payment attempt is already pending. Please try again shortly.' },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { subscriptionAnalyticsService } from '@/services/subscription-analytics.service';
+import { apiLogger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -75,20 +76,29 @@ export async function GET(request: NextRequest) {
       revenueTrend.push({
         date: new Date().toISOString().slice(0, 10),
         revenue: revenueMetrics.mrr,
-        premiumTenants: planDistribution.premium,
-        basicTenants: planDistribution.basic
+        premiumTenants: planDistribution.premium || 0,
+        basicTenants: planDistribution.basic || 0
       });
     }
 
-    const activeSubscriptions = planDistribution.premium + planDistribution.basic;
+    const activeSubscriptions = (planDistribution.premium || 0) + (planDistribution.basic || 0);
+
+    // Calculate revenue change safely
+    let revenueChange = 0;
+    if (revenueTrend.length > 1) {
+      const firstTrend = revenueTrend[0];
+      const lastTrend = revenueTrend[revenueTrend.length - 1];
+      if (firstTrend && lastTrend && firstTrend.revenue > 0) {
+        revenueChange = ((lastTrend.revenue - firstTrend.revenue) / firstTrend.revenue) * 100;
+      }
+    }
 
     return NextResponse.json({
       success: true,
       data: {
         summary: {
           totalRevenue: revenueMetrics.mrr,
-          revenueChange: revenueTrend.length > 1 ?
-            ((revenueTrend[revenueTrend.length - 1].revenue - revenueTrend[0].revenue) / revenueTrend[0].revenue) * 100 : 0,
+          revenueChange,
           activeSubscriptions,
           subscriptionsChange: newSubscriptions,
           churnRate: churnMetrics.churnRate,

@@ -3,6 +3,8 @@
  * Ensures server/client hydration consistency
  */
 
+import { apiLogger } from '@/lib/logger';
+
 /**
  * Format a date string consistently for display
  * Uses en-US locale to prevent hydration errors between server and client

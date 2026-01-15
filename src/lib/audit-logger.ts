@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+import { apiLogger } from '@/lib/logger';
 
 interface AuditLogData {
   action: string;
