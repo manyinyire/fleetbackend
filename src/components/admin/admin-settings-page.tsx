@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { 
-  ShieldCheckIcon, 
   ClockIcon, 
   UserIcon, 
   ExclamationTriangleIcon,
@@ -198,33 +197,6 @@ export function AdminSettingsPage({ data }: AdminSettingsPageProps) {
           </h3>
         </div>
         <div className="p-6 space-y-6">
-          {/* Two-Factor Authentication */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <ShieldCheckIcon className="h-5 w-5 text-gray-400" />
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  Two-Factor Authentication
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Add an extra layer of security to your account
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                data.adminSettings.twoFactorEnabled 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-gray-100 text-gray-800'
-              }`}>
-                {data.adminSettings.twoFactorEnabled ? 'Enabled' : 'Disabled'}
-              </span>
-              <button className="text-sm text-indigo-600 hover:text-indigo-500">
-                {data.adminSettings.twoFactorEnabled ? 'Manage' : 'Enable'}
-              </button>
-            </div>
-          </div>
-
           {/* Password Change */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
