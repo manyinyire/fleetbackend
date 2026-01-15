@@ -190,8 +190,9 @@ async function generateExcelBuffer(data: { title: string; headers: string[]; row
 
   // Set column widths
   const colWidths = data.headers.map((_, index) => {
+    const headerLength = data.headers[index]?.length || 0;
     const maxLength = Math.max(
-      data.headers[index].length,
+      headerLength,
       ...data.rows.map(row => String(row[index] || '').length)
     );
     return { wch: Math.min(maxLength + 2, 50) };
