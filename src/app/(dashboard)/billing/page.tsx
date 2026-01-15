@@ -1,10 +1,9 @@
 import { requireAuth } from '@/lib/auth-helpers';
 import { InvoiceManager } from '@/components/invoices/InvoiceManager';
-import { TwoFactorSetup } from '@/components/Auth/TwoFactorSetup';
 
 export const metadata = {
   title: 'Billing & Invoices | Fleet Manager',
-  description: 'Manage your billing, invoices, and account security'
+  description: 'Manage your billing and invoices'
 };
 
 export default async function BillingPage() {
@@ -13,9 +12,9 @@ export default async function BillingPage() {
   return (
     <div className="space-y-8 p-8">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Billing & Security</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Billing & Invoices</h1>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          Manage your invoices, billing, and account security settings
+          Manage your invoices and billing information
         </p>
       </div>
 
@@ -23,11 +22,6 @@ export default async function BillingPage() {
         {/* Invoice Management */}
         <div className="lg:col-span-2">
           <InvoiceManager />
-        </div>
-
-        {/* Two-Factor Authentication */}
-        <div>
-          <TwoFactorSetup />
         </div>
 
         {/* Billing Information */}
