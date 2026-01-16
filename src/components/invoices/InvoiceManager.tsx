@@ -198,7 +198,7 @@ export function InvoiceManager({ tenantId }: InvoiceManagerProps = {}) {
                         )}
                         {invoice.pdfUrl && (
                           <a
-                            href={invoice.pdfUrl}
+                            href={invoice.pdfUrl.startsWith('http') || invoice.pdfUrl.startsWith('/') ? invoice.pdfUrl : '#'}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-indigo-600 hover:text-indigo-900"

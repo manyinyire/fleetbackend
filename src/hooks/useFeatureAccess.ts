@@ -64,7 +64,7 @@ export function useFeatureAccess(feature?: keyof typeof PREMIUM_FEATURES) {
         setCurrentPlan(data.plan);
       }
     } catch (error) {
-      console.error('Error fetching plan:', error);
+      // Silent fail
     } finally {
       setLoading(false);
     }
@@ -136,7 +136,7 @@ export function useVehicleLimit() {
         return data.count < limit;
       }
     } catch (error) {
-      console.error('Error checking vehicle limit:', error);
+      // Silent fail
     }
 
     return false;
@@ -174,7 +174,7 @@ export function useUserLimit() {
         return data.count < limit;
       }
     } catch (error) {
-      console.error('Error checking user limit:', error);
+      // Silent fail
     }
 
     return false;

@@ -144,7 +144,7 @@ export function Notification() {
             {notifications.map((notification) => (
               <li key={notification.id} role="menuitem">
                 <Link
-                  href={notification.link}
+                  href={notification.link.startsWith('/') ? notification.link : '#'}
                   onClick={() => setIsOpen(false)}
                   className="flex items-start gap-3 rounded-lg px-2 py-1.5 outline-none hover:bg-gray-2 focus-visible:bg-gray-2 dark:hover:bg-dark-3 dark:focus-visible:bg-dark-3"
                 >

@@ -175,9 +175,7 @@ export default function TenantDetailsPage() {
 
   const handleSaveEdit = async () => {
     try {
-      console.log("Updating tenant with data:", editForm);
       const response = await superAdminAPI.updateTenant(tenantId, editForm) as { success: boolean; error?: string; data?: any };
-      console.log("Update response:", response);
       if (response.success) {
         alert(`Tenant updated successfully! New plan: ${editForm.plan}`);
         setEditing(false);

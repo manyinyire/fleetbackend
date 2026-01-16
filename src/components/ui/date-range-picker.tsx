@@ -18,8 +18,6 @@ export function DateRangePicker() {
   };
 
   const handleApply = () => {
-    // Here you would typically trigger a data refresh with the new date range
-    console.log('Date range changed:', dateRange);
     setIsOpen(false);
   };
 

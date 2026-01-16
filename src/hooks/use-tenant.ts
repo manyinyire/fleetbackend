@@ -42,10 +42,10 @@ export function useTenant() {
             });
           }
         } else {
-          console.error('Failed to fetch tenant settings:', response.status);
+          // Silent fail - settings will use defaults
         }
       } catch (error) {
-        console.error('Error fetching tenant settings:', error);
+        // Silent fail - settings will use defaults
       } finally {
         setIsLoading(false);
       }

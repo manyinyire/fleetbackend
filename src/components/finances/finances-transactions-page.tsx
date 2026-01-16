@@ -94,42 +94,7 @@ export default function FinancesTransactionsPage({
     return dateB - dateA;
   });
 
-  // Debug log
-  console.log('FinancesTransactionsPage props:', { 
-    initialExpenses: initialExpenses?.length, 
-    initialIncomes: initialIncomes?.length,
-    initialRemittances: initialRemittances?.length,
-    initialMaintenance: initialMaintenance?.length,
-    vehicles: vehicles?.length,
-    expenses: expenses?.length,
-    incomes: incomes?.length,
-    remittances: remittances?.length,
-    maintenance: maintenance?.length,
-    transactions: transactions?.length
-  });
-
-  // Debug transaction dates
-  if (transactions.length > 0) {
-    console.log('Sample transaction dates:', transactions.slice(0, 3).map(t => ({
-      id: t.id,
-      type: t.type,
-      date: t.date,
-      dateType: typeof t.date,
-      isValidDate: t.date ? !isNaN(new Date(t.date).getTime()) : false,
-      formattedDate: t.date ? formatDate(t.date) : 'NO DATE'
-    })));
-  }
-
-  // Debug raw data
-  console.log('Raw data sample:', {
-    expenses: safeExpenses.slice(0, 2),
-    incomes: safeIncomes.slice(0, 2),
-    remittances: safeRemittances.slice(0, 2),
-    maintenance: safeMaintenance.slice(0, 2)
-  });
-
   const stats = {
-    // Use same logic as vehicle page
     totalRemittances: safeRemittances.reduce((sum, r) => sum + Number(r.amount), 0),
     totalExpenses: safeExpenses.reduce((sum, e) => sum + Number(e.amount), 0) +
                   safeMaintenance.reduce((sum, m) => sum + Number(m.cost), 0),

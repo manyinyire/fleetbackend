@@ -36,12 +36,11 @@ export function useBackgroundSync() {
 
             await markAsSynced(action.id!);
           } catch (error) {
-            console.error('Sync failed:', error);
             await markAsFailed(action.id!, error instanceof Error ? error.message : 'Unknown error');                                                             
           }
         }
       } catch (error) {
-        console.error('Error loading pending actions:', error);
+        // Silent fail
       }
     }
 

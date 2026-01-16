@@ -48,15 +48,6 @@ interface VehiclesTableProps {
 export function VehiclesTable({ vehicles }: VehiclesTableProps) {
   // Ensure vehicles is always an array
   const vehiclesList = Array.isArray(vehicles) ? vehicles : [];
-  
-  // Debug: Log what we received
-  console.log('VehiclesTable - vehicles prop:', vehicles);
-  console.log('VehiclesTable - vehiclesList:', vehiclesList);
-  console.log('VehiclesTable - vehiclesList.length:', vehiclesList.length);
-  
-  if (!Array.isArray(vehicles)) {
-    console.error('VehiclesTable received non-array:', vehicles);
-  }
 
   const getStatusColor = (status?: string) => {
     switch (status) {

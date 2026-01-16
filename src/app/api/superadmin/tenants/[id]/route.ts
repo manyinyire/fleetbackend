@@ -117,10 +117,6 @@ export async function PUT(
 
     const tenantId = id;
     const data = await request.json();
-    
-    console.log('=== TENANT UPDATE REQUEST ===');
-    console.log('Tenant ID:', tenantId);
-    console.log('Update data received:', data);
 
     // Get current tenant data for audit log
     const currentTenant = await prisma.tenant.findUnique({
@@ -133,8 +129,6 @@ export async function PUT(
         { status: 404 }
       );
     }
-    
-    console.log('Current tenant plan:', currentTenant.plan);
 
     // Update tenant
     const updatedTenant = await prisma.tenant.update({
@@ -156,9 +150,6 @@ export async function PUT(
         }
       }
     });
-    
-    console.log('Updated tenant plan in DB:', updatedTenant.plan);
-    console.log('=== UPDATE COMPLETE ===');
 
     // Log the update
     await prisma.auditLog.create({

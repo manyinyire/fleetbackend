@@ -374,7 +374,7 @@ export function generatePaymentVerificationHash(
 }
 
 /**
- * Verify internal payment hash
+ * Verify internal payment hash using constant-time comparison
  */
 export function verifyPaymentHash(
   paymentId: string,
@@ -387,5 +387,16 @@ export function verifyPaymentHash(
     amount,
     paynowReference
   );
-  return expectedHash === hash;
+  
+  // Use constant-time comparison to prevent timing attacks
+  if (expectedHash.length !== hash.length) {
+    return false;
+  }
+  
+  let result = 0;
+  for (let i = 0; i < expectedHash.length; i++) {
+    result |= expectedHash.charCodeAt(i) ^ hash.charCodeAt(i);
+  }
+  
+  return result === 0;
 }

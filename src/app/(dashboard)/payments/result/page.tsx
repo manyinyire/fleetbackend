@@ -40,7 +40,6 @@ export default function PaymentResultPage() {
           const paymentId = localStorage.getItem('lastPaymentId');
 
           if (paymentId) {
-            console.log('Verifying payment manually:', paymentId);
             const verifyResponse = await fetch('/api/payments/verify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

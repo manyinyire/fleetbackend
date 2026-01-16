@@ -38,8 +38,6 @@ export function ExpressCheckoutModal({
       formattedPhone = '0' + formattedPhone;
     }
 
-    console.log('Submitting express checkout:', { invoiceId, phone: formattedPhone, method });
-
     try {
       const response = await fetch('/api/payments/express-checkout', {
         method: 'POST',
@@ -52,8 +50,6 @@ export function ExpressCheckoutModal({
       });
 
       const data = await response.json();
-      
-      console.log('Express checkout response:', { status: response.status, data });
 
       if (data.success) {
         setPaymentId(data.payment.id);
@@ -64,12 +60,10 @@ export function ExpressCheckoutModal({
         // Start polling for payment status
         startPolling(data.payment.id);
       } else {
-        console.error('Express checkout failed:', data);
         toast.error(data.error || 'Failed to initiate payment');
         setLoading(false);
       }
     } catch (error) {
-      console.error('Express checkout error:', error);
       toast.error('Failed to initiate payment');
       setLoading(false);
     }
@@ -104,7 +98,6 @@ export function ExpressCheckoutModal({
           setLoading(false);
         }
       } catch (error) {
-        console.error('Polling error:', error);
         attempts++;
         if (attempts < maxAttempts) {
           setTimeout(poll, 5000);

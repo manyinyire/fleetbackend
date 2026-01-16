@@ -68,15 +68,6 @@ export default async function TransactionsPage() {
   const safeRemittances = Array.isArray(remittances) ? remittances : [];
   const safeMaintenance = Array.isArray(maintenance) ? maintenance : [];
 
-  // Log if any arrays are empty or invalid
-  console.log('Transactions page data:', {
-    expenses: safeExpenses.length,
-    incomes: safeIncomes.length,
-    vehicles: safeVehicles.length,
-    remittances: safeRemittances.length,
-    maintenance: safeMaintenance.length
-  });
-
   return (
     <FinancesTransactionsPage
       initialExpenses={safeExpenses}

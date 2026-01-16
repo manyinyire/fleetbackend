@@ -51,7 +51,6 @@ export function UpgradePageClient() {
       });
       if (response.ok) {
         const data = await response.json();
-        console.log('Fetched plan info:', data); // Debug log
         if (data.success) {
           setPlanInfo(data);
         }
@@ -78,8 +77,6 @@ export function UpgradePageClient() {
       // Check if response is JSON
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error('Server returned non-JSON response:', text.substring(0, 200));
         toast.error('Server error: Invalid response format');
         return;
       }

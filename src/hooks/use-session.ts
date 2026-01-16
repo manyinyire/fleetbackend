@@ -27,7 +27,7 @@ export function useSession() {
           setSession(data);
         }
       } catch (error) {
-        console.error('Failed to fetch session:', error);
+        // Silent fail
       } finally {
         setLoading(false);
       }

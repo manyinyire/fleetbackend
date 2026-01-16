@@ -47,15 +47,6 @@ interface DriversTableProps {
 export function DriversTable({ drivers }: DriversTableProps) {
   // Ensure drivers is always an array
   const driversList = Array.isArray(drivers) ? drivers : [];
-  
-  // Debug: Log what we received
-  console.log('DriversTable - drivers prop:', drivers);
-  console.log('DriversTable - driversList:', driversList);
-  console.log('DriversTable - driversList.length:', driversList.length);
-  
-  if (!Array.isArray(drivers)) {
-    console.error('DriversTable received non-array:', drivers);
-  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
