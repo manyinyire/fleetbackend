@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from 'next/dynamic';
 import { 
   CurrencyDollarIcon,
   ChartBarIcon,
@@ -14,9 +15,13 @@ import {
   EyeIcon,
   PencilIcon,
   TrashIcon,
-  EllipsisVerticalIcon
+  EllipsisVerticalIcon,
+  ArrowDownTrayIcon
 } from "@heroicons/react/24/outline";
 import { superAdminAPI } from "@/lib/superadmin-api";
+
+// Dynamically import ApexCharts to avoid SSR issues
+const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 interface BillingData {
   summary: {
@@ -70,9 +75,47 @@ export default function BillingPage() {
   const tabs = [
     { id: "overview", name: "Overview" },
     { id: "transactions", name: "Transactions" },
-    { id: "subscriptions", name: "Subscriptions" },
     { id: "failed-payments", name: "Failed Payments" }
   ];
+
+  const handleViewInvoice = (invoiceId: string) => {
+    window.open(`/superadmin/invoices/${invoiceId}`, '_blank');
+  };
+
+  const handleDownloadInvoice = async (invoice: any) => {
+    if (invoice.pdfUrl) {
+      window.open(invoice.pdfUrl, '_blank');
+    } else {
+      alert('PDF not available for this invoice');
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    try {
+      const response = await fetch('/api/superadmin/billing/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ period: '30' })
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `billing-report-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Failed to generate report');
+      }
+    } catch (err) {
+      console.error('Error generating report:', err);
+      alert('Error generating report');
+    }
+  };
 
   useEffect(() => {
     loadBillingData();
@@ -215,8 +258,12 @@ export default function BillingPage() {
           </p>
         </div>
         <div className="flex items-center space-x-4">
-          <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors">
-            Generate Report
+          <button 
+            onClick={handleGenerateReport}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
+          >
+            <ArrowDownTrayIcon className="h-5 w-5" />
+            <span>Generate Report</span>
           </button>
         </div>
       </div>
@@ -277,11 +324,60 @@ export default function BillingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Revenue Trend
+                Revenue Trend (Last 30 Days)
               </h3>
-              <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
-                [Chart Placeholder - Revenue Trend]
-              </div>
+              {billingData.revenueTrend && billingData.revenueTrend.length > 0 ? (
+                <Chart
+                  options={{
+                    chart: {
+                      type: 'line',
+                      toolbar: { show: false },
+                      zoom: { enabled: false }
+                    },
+                    stroke: {
+                      curve: 'smooth',
+                      width: 3
+                    },
+                    colors: ['#6366f1'],
+                    xaxis: {
+                      categories: billingData.revenueTrend.map(d => new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+                      labels: {
+                        style: {
+                          colors: '#9ca3af'
+                        }
+                      }
+                    },
+                    yaxis: {
+                      labels: {
+                        formatter: (value: number) => `$${value.toFixed(0)}`,
+                        style: {
+                          colors: '#9ca3af'
+                        }
+                      }
+                    },
+                    grid: {
+                      borderColor: '#374151',
+                      strokeDashArray: 4
+                    },
+                    tooltip: {
+                      theme: 'dark',
+                      y: {
+                        formatter: (value: number) => `$${value.toFixed(2)}`
+                      }
+                    }
+                  }}
+                  series={[{
+                    name: 'Revenue',
+                    data: billingData.revenueTrend.map(d => d.revenue)
+                  }]}
+                  type="line"
+                  height={250}
+                />
+              ) : (
+                <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
+                  No revenue data available
+                </div>
+              )}
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -358,9 +454,21 @@ export default function BillingPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
-                          <button className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400">View</button>
+                          <button 
+                            onClick={() => handleViewInvoice(invoice.id)}
+                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 flex items-center space-x-1"
+                          >
+                            <EyeIcon className="h-4 w-4" />
+                            <span>View</span>
+                          </button>
                           {invoice.pdfUrl && (
-                            <button className="text-gray-600 hover:text-gray-900 dark:text-gray-400">Download</button>
+                            <button 
+                              onClick={() => handleDownloadInvoice(invoice)}
+                              className="text-gray-600 hover:text-gray-900 dark:text-gray-400 flex items-center space-x-1"
+                            >
+                              <ArrowDownTrayIcon className="h-4 w-4" />
+                              <span>Download</span>
+                            </button>
                           )}
                         </div>
                       </td>
@@ -372,18 +480,6 @@ export default function BillingPage() {
           ) : (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">No invoices found</p>
           )}
-        </div>
-      )}
-
-      {activeTab === "subscriptions" && (
-        <div className="text-center py-12">
-          <ChartBarIcon className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-            Subscriptions
-          </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Subscription management coming soon.
-          </p>
         </div>
       )}
 
