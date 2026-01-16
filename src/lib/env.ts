@@ -88,7 +88,10 @@ const envSchema = z.object({
 // Export the type for use in the application
 export type Env = z.infer<typeof envSchema>;
 
-// Validate environment variables
+// Cache for validated environment
+let cachedEnv: Env | null = null;
+
+// Validate environment variables lazily (only when accessed)
 function validateEnv(): Env {
   try {
     const env = envSchema.parse(process.env);
@@ -114,8 +117,20 @@ function validateEnv(): Env {
   }
 }
 
-// Validate immediately on import
-export const env = validateEnv();
+// Lazy getter function - validates only when called at runtime
+export function getEnv(): Env {
+  if (cachedEnv) return cachedEnv;
+  cachedEnv = validateEnv();
+  return cachedEnv;
+}
+
+// Legacy export for backward compatibility - will validate on first access
+export const env = new Proxy({} as Env, {
+  get(target, prop) {
+    const validatedEnv = getEnv();
+    return validatedEnv[prop as keyof Env];
+  }
+});
 
 // Helper functions for checking optional features
 export const features = {
