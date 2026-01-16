@@ -382,7 +382,7 @@ export default async function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {pricingPlans.map((plan, i) => {
+            {pricingPlans.map((plan: any, i: number) => {
               const features = Array.isArray(plan.features) 
                 ? (plan.features as string[]).filter((f): f is string => typeof f === 'string')
                 : [];
