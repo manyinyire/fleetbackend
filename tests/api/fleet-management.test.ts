@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals'
 import { NextRequest } from 'next/server'
 import { prisma, cleanupDatabase, createTestTenant, createTestUser, createTestVehicle, createTestDriver } from '../setup/test-db'

@@ -28,10 +28,13 @@ export async function getDevicesUsedData(
   ];
 
   if (timeFrame === "yearly") {
-    data[0].amount = 19500;
-    data[1].amount = 3000;
-    data[2].amount = 6000;
-    data[3].amount = 1500;
+    const yearlyAmounts = [19500, 3000, 6000, 1500];
+    data.forEach((item, index) => {
+      const amount = yearlyAmounts[index];
+      if (typeof amount === "number") {
+        item.amount = amount;
+      }
+    });
   }
 
   return data;

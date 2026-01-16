@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals'
+/**
+ * @jest-environment node
+ */
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals'
 import { NextRequest } from 'next/server'
 import { GET, PATCH } from '@/app/api/admin/payments/route'
 import { prisma, cleanupDatabase, createTestTenant, createTestUser } from '../setup/test-db'

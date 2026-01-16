@@ -1,18 +1,20 @@
 import { describe, it, expect, beforeEach } from '@jest/globals'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { SignUpForm } from '@/components/auth/signup-form'
-import { LoginForm } from '@/components/auth/login-form'
+import { toast } from 'react-hot-toast'
+import SignupWithPassword from '@/components/Auth/SignupWithPassword'
+import SigninWithPassword from '@/components/Auth/SigninWithPassword'
+
+const SignUpForm = SignupWithPassword
+const LoginForm = SigninWithPassword
 
 // Mock the auth actions
 jest.mock('@/server/actions/auth', () => ({
   signUp: jest.fn(),
 }))
 
-jest.mock('better-auth/react', () => ({
-  signIn: {
-    email: jest.fn(),
-  },
+jest.mock('next-auth/react', () => ({
+  signIn: jest.fn(),
 }))
 
 describe('Authentication Forms', () => {
@@ -25,7 +27,7 @@ describe('Authentication Forms', () => {
       render(<SignUpForm />)
 
       expect(screen.getByLabelText(/full name/i)).toBeInTheDocument()
-      expect(screen.getByLabelText(/email address/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/company name/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/phone number/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/^password/i)).toBeInTheDocument()
@@ -40,11 +42,7 @@ describe('Authentication Forms', () => {
       const submitButton = screen.getByRole('button', { name: /create account/i })
       await user.click(submitButton)
 
-      expect(screen.getByText(/name must be at least 2 characters/i)).toBeInTheDocument()
-      expect(screen.getByText(/invalid email address/i)).toBeInTheDocument()
-      expect(screen.getByText(/company name must be at least 2 characters/i)).toBeInTheDocument()
-      expect(screen.getByText(/phone number must be at least 10 characters/i)).toBeInTheDocument()
-      expect(screen.getByText(/password must be at least 6 characters/i)).toBeInTheDocument()
+      expect(toast.error).toHaveBeenCalledWith('All fields are required')
     })
 
     it('should validate password confirmation', async () => {
@@ -60,7 +58,7 @@ describe('Authentication Forms', () => {
       const submitButton = screen.getByRole('button', { name: /create account/i })
       await user.click(submitButton)
 
-      expect(screen.getByText(/passwords don't match/i)).toBeInTheDocument()
+      expect(toast.error).toHaveBeenCalledWith("Passwords don't match")
     })
 
     it('should submit form with valid data', async () => {
@@ -71,7 +69,7 @@ describe('Authentication Forms', () => {
       render(<SignUpForm />)
 
       await user.type(screen.getByLabelText(/full name/i), 'John Doe')
-      await user.type(screen.getByLabelText(/email address/i), 'john@example.com')
+      await user.type(screen.getByLabelText(/email/i), 'john@example.com')
       await user.type(screen.getByLabelText(/company name/i), 'Test Company')
       await user.type(screen.getByLabelText(/phone number/i), '+1234567890')
       await user.type(screen.getByLabelText(/^password/i), 'password123')
@@ -93,7 +91,7 @@ describe('Authentication Forms', () => {
       render(<SignUpForm />)
 
       await user.type(screen.getByLabelText(/full name/i), 'John Doe')
-      await user.type(screen.getByLabelText(/email address/i), 'john@example.com')
+      await user.type(screen.getByLabelText(/email/i), 'john@example.com')
       await user.type(screen.getByLabelText(/company name/i), 'Test Company')
       await user.type(screen.getByLabelText(/phone number/i), '+1234567890')
       await user.type(screen.getByLabelText(/^password/i), 'password123')
@@ -103,7 +101,7 @@ describe('Authentication Forms', () => {
       await user.click(submitButton)
 
       await waitFor(() => {
-        expect(screen.getByText(/email already exists/i)).toBeInTheDocument()
+        expect(toast.error).toHaveBeenCalledWith('Email already exists')
       })
     })
 
@@ -112,10 +110,10 @@ describe('Authentication Forms', () => {
       mockSignUp.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 1000)))
 
       const user = userEvent.setup()
-      render(<SignUpForm />)
+      const { container } = render(<SignUpForm />)
 
       await user.type(screen.getByLabelText(/full name/i), 'John Doe')
-      await user.type(screen.getByLabelText(/email address/i), 'john@example.com')
+      await user.type(screen.getByLabelText(/email/i), 'john@example.com')
       await user.type(screen.getByLabelText(/company name/i), 'Test Company')
       await user.type(screen.getByLabelText(/phone number/i), '+1234567890')
       await user.type(screen.getByLabelText(/^password/i), 'password123')
@@ -124,8 +122,8 @@ describe('Authentication Forms', () => {
       const submitButton = screen.getByRole('button', { name: /create account/i })
       await user.click(submitButton)
 
-      expect(screen.getByText(/creating account.../i)).toBeInTheDocument()
       expect(submitButton).toBeDisabled()
+      expect(container.querySelector('.animate-spin')).toBeInTheDocument()
     })
   })
 
@@ -133,11 +131,11 @@ describe('Authentication Forms', () => {
     it('should render login form fields', () => {
       render(<LoginForm />)
 
-      expect(screen.getByLabelText(/email address/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/^password/i)).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
       expect(screen.getByText(/remember me/i)).toBeInTheDocument()
-      expect(screen.getByText(/forgot your password/i)).toBeInTheDocument()
+      expect(screen.getByText(/forgot password/i)).toBeInTheDocument()
     })
 
     it('should validate required fields', async () => {
@@ -147,66 +145,66 @@ describe('Authentication Forms', () => {
       const submitButton = screen.getByRole('button', { name: /sign in/i })
       await user.click(submitButton)
 
-      expect(screen.getByText(/invalid email address/i)).toBeInTheDocument()
-      expect(screen.getByText(/password must be at least 6 characters/i)).toBeInTheDocument()
+      expect(toast.error).toHaveBeenCalledWith('Invalid email address')
     })
 
     it('should submit form with valid data', async () => {
-      const mockSignIn = require('better-auth/react').signIn
-      mockSignIn.email.mockResolvedValue({ error: null })
+      const mockSignIn = require('next-auth/react').signIn
+      mockSignIn.mockResolvedValue({ ok: true, error: null })
 
       const user = userEvent.setup()
       render(<LoginForm />)
 
-      await user.type(screen.getByLabelText(/email address/i), 'john@example.com')
+      await user.type(screen.getByLabelText(/email/i), 'john@example.com')
       await user.type(screen.getByLabelText(/^password/i), 'password123')
 
       const submitButton = screen.getByRole('button', { name: /sign in/i })
       await user.click(submitButton)
 
       await waitFor(() => {
-        expect(mockSignIn.email).toHaveBeenCalledWith({
+        expect(mockSignIn).toHaveBeenCalledWith('credentials', {
           email: 'john@example.com',
           password: 'password123',
+          redirect: false,
         })
       })
     })
 
     it('should handle login errors', async () => {
-      const mockSignIn = require('better-auth/react').signIn
-      mockSignIn.email.mockResolvedValue({ 
-        error: { message: 'Invalid credentials' } 
+      const mockSignIn = require('next-auth/react').signIn
+      mockSignIn.mockResolvedValue({
+        error: 'Invalid credentials',
       })
 
       const user = userEvent.setup()
       render(<LoginForm />)
 
-      await user.type(screen.getByLabelText(/email address/i), 'john@example.com')
+      await user.type(screen.getByLabelText(/email/i), 'john@example.com')
       await user.type(screen.getByLabelText(/^password/i), 'wrongpassword')
 
       const submitButton = screen.getByRole('button', { name: /sign in/i })
       await user.click(submitButton)
 
       await waitFor(() => {
-        expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument()
+        expect(toast.error).toHaveBeenCalledWith('Invalid credentials')
       })
     })
 
     it('should show loading state during submission', async () => {
-      const mockSignIn = require('better-auth/react').signIn
-      mockSignIn.email.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 1000)))
+      const mockSignIn = require('next-auth/react').signIn
+      mockSignIn.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 1000)))
 
       const user = userEvent.setup()
-      render(<LoginForm />)
+      const { container } = render(<LoginForm />)
 
-      await user.type(screen.getByLabelText(/email address/i), 'john@example.com')
+      await user.type(screen.getByLabelText(/email/i), 'john@example.com')
       await user.type(screen.getByLabelText(/^password/i), 'password123')
 
       const submitButton = screen.getByRole('button', { name: /sign in/i })
       await user.click(submitButton)
 
-      expect(screen.getByText(/signing in.../i)).toBeInTheDocument()
       expect(submitButton).toBeDisabled()
+      expect(container.querySelector('.animate-spin')).toBeInTheDocument()
     })
 
     it('should toggle remember me checkbox', async () => {

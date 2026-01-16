@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { emailService } from './email';
+import { apiLogger } from './logger';
 import { randomBytes } from 'crypto';
 
 class EmailVerificationService {

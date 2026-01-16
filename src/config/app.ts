@@ -40,12 +40,17 @@ function validateUrl(url: string | undefined, name: string, allowHttp = true): s
     return 'http://localhost:3000';
   }
 
-  // In production, enforce HTTPS
+  // In production, enforce HTTPS for non-localhost URLs
   if (isProduction && !url.startsWith('https://')) {
-    throw new Error(
-      `${name} must use HTTPS in production. ` +
-      `Current value: ${url}. Update to https://yourdomain.com`
-    );
+    const isLocalhost =
+      url.startsWith('http://localhost') || url.startsWith('https://localhost');
+
+    if (!isLocalhost) {
+      throw new Error(
+        `${name} must use HTTPS in production. ` +
+        `Current value: ${url}. Update to https://yourdomain.com`
+      );
+    }
   }
 
   return url;

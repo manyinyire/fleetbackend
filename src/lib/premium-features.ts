@@ -521,7 +521,8 @@ export class PremiumFeatureService {
     const currentIndex = planOrder.indexOf(currentPlan);
 
     if (currentIndex !== -1 && currentIndex < planOrder.length - 1) {
-      return planOrder[currentIndex + 1];
+      const nextPlan = planOrder[currentIndex + 1];
+      return nextPlan ?? currentPlan;
     }
 
     return currentPlan; // Already on highest plan or not found

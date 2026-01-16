@@ -27,6 +27,17 @@ export default function SigninWithPassword() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (!data.email || !/\S+@\S+\.\S+/.test(data.email)) {
+      toast.error('Invalid email address');
+      return;
+    }
+
+    if (!data.password || data.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
     setLoading(true);
 
     try {

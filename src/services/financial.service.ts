@@ -534,15 +534,21 @@ export class FinancialService {
       const dailyCashFlow = new Map<string, { income: number; expenses: number }>();
 
       income.forEach(i => {
-        const dateKey = i.date.toISOString().split('T')[0];
-        const current = dailyCashFlow.get(dateKey) || { income: 0, expenses: 0 };
+        if (!i.date) {
+          return;
+        }
+        const dateKey = i.date.toISOString().split('T')[0] ?? '';
+        const current = dailyCashFlow.get(dateKey) ?? { income: 0, expenses: 0 };
         current.income += Number(i.amount);
         dailyCashFlow.set(dateKey, current);
       });
 
       expenses.forEach(e => {
-        const dateKey = e.date.toISOString().split('T')[0];
-        const current = dailyCashFlow.get(dateKey) || { income: 0, expenses: 0 };
+        if (!e.date) {
+          return;
+        }
+        const dateKey = e.date.toISOString().split('T')[0] ?? '';
+        const current = dailyCashFlow.get(dateKey) ?? { income: 0, expenses: 0 };
         current.expenses += Number(e.amount);
         dailyCashFlow.set(dateKey, current);
       });

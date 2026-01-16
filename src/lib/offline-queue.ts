@@ -1,4 +1,5 @@
 import Dexie, { Table } from 'dexie';
+import { apiLogger } from '@/lib/logger';
 
 interface QueuedAction {
   id?: number;

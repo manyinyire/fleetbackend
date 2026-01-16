@@ -26,5 +26,7 @@ export function getInitials(name: string): string {
   }
   
   // Multiple words: return first letter of first and last word
-  return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
+  const first = words[0]?.charAt(0) ?? "?";
+  const last = words[words.length - 1]?.charAt(0) ?? "?";
+  return (first + last).toUpperCase();
 }

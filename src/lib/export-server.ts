@@ -68,9 +68,10 @@ export async function exportToExcelServer(
 
   // Set column widths
   const colWidths = data.headers.map((_, index) => {
+    const header = data.headers[index] ?? '';
     const maxLength = Math.max(
-      data.headers[index].length,
-      ...data.rows.map(row => String(row[index] || '').length)
+      header.length,
+      ...data.rows.map(row => String(row[index] ?? '').length)
     );
     return { wch: Math.min(maxLength + 2, 50) };
   });
@@ -236,14 +237,15 @@ export async function exportDataServer(
  * Convert hex color to RGB
  */
 function hexToRgb(hex: string): [number, number, number] {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result
-    ? [
-        parseInt(result[1], 16),
-        parseInt(result[2], 16),
-        parseInt(result[3], 16),
-      ]
-    : [59, 130, 246]; // Default blue
+  const match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!match) {
+    return [59, 130, 246];
+  }
+  return [
+    parseInt(match[1]!, 16),
+    parseInt(match[2]!, 16),
+    parseInt(match[3]!, 16),
+  ];
 }
 
 /**

@@ -12,7 +12,7 @@
 import { PrismaClient, SubscriptionPlan, BillingCycle, SubscriptionChangeType, TenantStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { dbLogger } from '@/lib/logger';
-import { NotFoundError, ValidationError, handlePrismaError } from '@/lib/errors';
+import { AppError, NotFoundError, ValidationError, handlePrismaError } from '@/lib/errors';
 import { invoiceGenerator } from '@/lib/invoice-generator';
 
 // ============================================
@@ -153,12 +153,13 @@ const DEFAULT_PLAN_CONFIGS: Record<SubscriptionPlan, PlanConfig> = {
 // ============================================
 
 export class SubscriptionService {
+  constructor(private readonly client: PrismaClient = prisma) {}
   /**
    * Get plan configuration from database or defaults
    */
   async getPlanConfig(plan: SubscriptionPlan): Promise<PlanConfig> {
     try {
-      const config = await prisma.planConfiguration.findUnique({
+      const config = await this.client.planConfiguration.findUnique({
         where: { plan }
       });
 
@@ -196,7 +197,7 @@ export class SubscriptionService {
    * Get detailed subscription information for a tenant
    */
   async getSubscriptionDetails(tenantId: string): Promise<SubscriptionDetails> {
-    const tenant = await prisma.tenant.findUnique({
+    const tenant = await this.client.tenant.findUnique({
       where: { id: tenantId }
     });
 
@@ -234,7 +235,7 @@ export class SubscriptionService {
       const now = new Date();
       const trialEndDate = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
 
-      await prisma.tenant.update({
+      await this.client.tenant.update({
         where: { id: tenantId },
         data: {
           plan: 'FREE',
@@ -248,7 +249,7 @@ export class SubscriptionService {
       });
 
       // Record in history
-      await prisma.subscriptionHistory.create({
+      await this.client.subscriptionHistory.create({
         data: {
           tenantId,
           fromPlan: 'FREE',
@@ -263,6 +264,7 @@ export class SubscriptionService {
       dbLogger.info({ tenantId, trialDays }, 'Trial subscription started');
     } catch (error) {
       dbLogger.error({ err: error, tenantId }, 'Failed to start trial');
+      if (error instanceof AppError) throw error;
       throw handlePrismaError(error);
     }
   }
@@ -272,7 +274,7 @@ export class SubscriptionService {
    */
   async endTrial(tenantId: string, convertToPlan?: SubscriptionPlan): Promise<void> {
     try {
-      const tenant = await prisma.tenant.findUnique({
+      const tenant = await this.client.tenant.findUnique({
         where: { id: tenantId }
       });
 
@@ -283,7 +285,7 @@ export class SubscriptionService {
       const targetPlan = convertToPlan || 'FREE';
       const now = new Date();
 
-      await prisma.tenant.update({
+      await this.client.tenant.update({
         where: { id: tenantId },
         data: {
           isInTrial: false,
@@ -291,7 +293,7 @@ export class SubscriptionService {
         }
       });
 
-      await prisma.subscriptionHistory.create({
+      await this.client.subscriptionHistory.create({
         data: {
           tenantId,
           fromPlan: tenant.plan,
@@ -306,6 +308,7 @@ export class SubscriptionService {
       dbLogger.info({ tenantId, targetPlan }, 'Trial ended');
     } catch (error) {
       dbLogger.error({ err: error, tenantId }, 'Failed to end trial');
+      if (error instanceof AppError) throw error;
       throw handlePrismaError(error);
     }
   }
@@ -361,7 +364,7 @@ export class SubscriptionService {
     userId: string
   ): Promise<{ invoice: any; proration: ProrationResult | null }> {
     try {
-      const tenant = await prisma.tenant.findUnique({
+      const tenant = await this.client.tenant.findUnique({
         where: { id: tenantId }
       });
 
@@ -414,7 +417,7 @@ export class SubscriptionService {
       });
 
       // Record subscription change in history
-      await prisma.subscriptionHistory.create({
+      await this.client.subscriptionHistory.create({
         data: {
           tenantId,
           fromPlan: tenant.plan,
@@ -431,7 +434,7 @@ export class SubscriptionService {
       });
 
       // Update tenant (plan will be updated upon payment)
-      await prisma.tenant.update({
+      await this.client.tenant.update({
         where: { id: tenantId },
         data: {
           billingCycle: effectiveBillingCycle
@@ -446,6 +449,7 @@ export class SubscriptionService {
       return { invoice: invoice.invoice, proration: prorationResult };
     } catch (error) {
       dbLogger.error({ err: error, tenantId }, 'Failed to change plan');
+      if (error instanceof AppError) throw error;
       throw handlePrismaError(error);
     }
   }
@@ -459,7 +463,7 @@ export class SubscriptionService {
     userId: string
   ): Promise<void> {
     try {
-      const tenant = await prisma.tenant.findUnique({
+      const tenant = await this.client.tenant.findUnique({
         where: { id: tenantId }
       });
 
@@ -472,7 +476,7 @@ export class SubscriptionService {
 
       if (immediate) {
         // Immediate cancellation
-        await prisma.tenant.update({
+        await this.client.tenant.update({
           where: { id: tenantId },
           data: {
             status: 'CANCELED',
@@ -485,7 +489,7 @@ export class SubscriptionService {
         });
       } else {
         // Cancel at end of billing period
-        await prisma.tenant.update({
+        await this.client.tenant.update({
           where: { id: tenantId },
           data: {
             autoRenew: false,
@@ -496,7 +500,7 @@ export class SubscriptionService {
       }
 
       // Record in history
-      await prisma.subscriptionHistory.create({
+      await this.client.subscriptionHistory.create({
         data: {
           tenantId,
           fromPlan: tenant.plan,
@@ -515,6 +519,7 @@ export class SubscriptionService {
       );
     } catch (error) {
       dbLogger.error({ err: error, tenantId }, 'Failed to cancel subscription');
+      if (error instanceof AppError) throw error;
       throw handlePrismaError(error);
     }
   }
@@ -524,7 +529,7 @@ export class SubscriptionService {
    */
   async reactivateSubscription(tenantId: string, plan: SubscriptionPlan, userId: string): Promise<void> {
     try {
-      const tenant = await prisma.tenant.findUnique({
+      const tenant = await this.client.tenant.findUnique({
         where: { id: tenantId }
       });
 
@@ -540,7 +545,7 @@ export class SubscriptionService {
       const config = await this.getPlanConfig(plan);
       const monthlyPrice = config.monthlyPrice;
 
-      await prisma.tenant.update({
+      await this.client.tenant.update({
         where: { id: tenantId },
         data: {
           status: 'ACTIVE',
@@ -552,7 +557,7 @@ export class SubscriptionService {
         }
       });
 
-      await prisma.subscriptionHistory.create({
+      await this.client.subscriptionHistory.create({
         data: {
           tenantId,
           fromPlan: tenant.plan,
@@ -566,6 +571,7 @@ export class SubscriptionService {
       dbLogger.info({ tenantId, plan }, 'Subscription reactivated');
     } catch (error) {
       dbLogger.error({ err: error, tenantId }, 'Failed to reactivate subscription');
+      if (error instanceof AppError) throw error;
       throw handlePrismaError(error);
     }
   }
@@ -575,7 +581,7 @@ export class SubscriptionService {
    */
   async renewSubscription(tenantId: string): Promise<{ invoice: any }> {
     try {
-      const tenant = await prisma.tenant.findUnique({
+      const tenant = await this.client.tenant.findUnique({
         where: { id: tenantId }
       });
 
@@ -602,7 +608,7 @@ export class SubscriptionService {
       });
 
       // Record in history
-      await prisma.subscriptionHistory.create({
+      await this.client.subscriptionHistory.create({
         data: {
           tenantId,
           fromPlan: tenant.plan,
@@ -619,6 +625,7 @@ export class SubscriptionService {
       return { invoice: invoice.invoice };
     } catch (error) {
       dbLogger.error({ err: error, tenantId }, 'Failed to renew subscription');
+      if (error instanceof AppError) throw error;
       throw handlePrismaError(error);
     }
   }
@@ -628,7 +635,7 @@ export class SubscriptionService {
    */
   async getSubscriptionHistory(tenantId: string, limit: number = 50) {
     try {
-      const history = await prisma.subscriptionHistory.findMany({
+      const history = await this.client.subscriptionHistory.findMany({
         where: { tenantId },
         orderBy: { createdAt: 'desc' },
         take: limit
@@ -637,6 +644,7 @@ export class SubscriptionService {
       return history;
     } catch (error) {
       dbLogger.error({ err: error, tenantId }, 'Failed to get subscription history');
+      if (error instanceof AppError) throw error;
       throw handlePrismaError(error);
     }
   }
@@ -662,7 +670,7 @@ export class SubscriptionService {
     violations: string[];
   }> {
     try {
-      const tenant = await prisma.tenant.findUnique({
+      const tenant = await this.client.tenant.findUnique({
         where: { id: tenantId },
         include: {
           _count: {
@@ -703,6 +711,7 @@ export class SubscriptionService {
       };
     } catch (error) {
       dbLogger.error({ err: error, tenantId }, 'Failed to validate plan limits');
+      if (error instanceof AppError) throw error;
       throw handlePrismaError(error);
     }
   }
@@ -713,7 +722,7 @@ export class SubscriptionService {
   async seedPlanConfigurations(): Promise<void> {
     try {
       for (const [plan, config] of Object.entries(DEFAULT_PLAN_CONFIGS)) {
-        await prisma.planConfiguration.upsert({
+        await this.client.planConfiguration.upsert({
           where: { plan: plan as SubscriptionPlan },
           update: {
             displayName: config.displayName,
@@ -739,6 +748,7 @@ export class SubscriptionService {
       dbLogger.info('Plan configurations seeded successfully');
     } catch (error) {
       dbLogger.error({ err: error }, 'Failed to seed plan configurations');
+      if (error instanceof AppError) throw error;
       throw handlePrismaError(error);
     }
   }

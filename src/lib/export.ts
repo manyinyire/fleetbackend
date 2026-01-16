@@ -1,4 +1,5 @@
 // Data export utilities for CSV, Excel, and PDF formats
+import { apiLogger } from '@/lib/logger';
 
 export interface ExportOptions {
   format: 'csv' | 'excel' | 'pdf';
@@ -54,9 +55,10 @@ export async function exportToExcel(data: ExportableData, filename: string = 'ex
 
     // Set column widths
     const colWidths = data.headers.map((_, index) => {
+      const header = data.headers[index] ?? '';
       const maxLength = Math.max(
-        data.headers[index].length,
-        ...data.rows.map(row => String(row[index] || '').length)
+        header.length,
+        ...data.rows.map(row => String(row[index] ?? '').length)
       );
       return { wch: Math.min(maxLength + 2, 50) };
     });

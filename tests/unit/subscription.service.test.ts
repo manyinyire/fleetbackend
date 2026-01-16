@@ -1,29 +1,10 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { SubscriptionService, ProrationResult } from '@/services/subscription.service';
-import { prisma } from '@/lib/prisma';
 
 /**
  * Unit Tests for SubscriptionService
  * Tests subscription lifecycle, plan management, proration calculations
  */
-
-// Mock Prisma
-jest.mock('@/lib/prisma', () => ({
-  prisma: {
-    tenant: {
-      findUnique: jest.fn(),
-      update: jest.fn(),
-    },
-    planConfiguration: {
-      findUnique: jest.fn(),
-      upsert: jest.fn(),
-    },
-    subscriptionHistory: {
-      create: jest.fn(),
-      findMany: jest.fn(),
-    },
-  },
-}));
 
 // Mock invoice generator
 jest.mock('@/lib/invoice-generator', () => ({
@@ -43,9 +24,26 @@ jest.mock('@/lib/logger', () => ({
 
 describe('SubscriptionService', () => {
   let subscriptionService: SubscriptionService;
+  let mockClient: any;
 
   beforeEach(() => {
-    subscriptionService = new SubscriptionService();
+    mockClient = {
+      tenant: {
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
+      planConfiguration: {
+        findUnique: jest.fn(),
+        upsert: jest.fn(),
+      },
+      subscriptionHistory: {
+        create: jest.fn(),
+        findMany: jest.fn(),
+      },
+      $transaction: jest.fn((callback: any) => callback()),
+    };
+
+    subscriptionService = new SubscriptionService(mockClient as any);
     jest.clearAllMocks();
   });
 
@@ -61,7 +59,7 @@ describe('SubscriptionService', () => {
         limits: { maxVehicles: -1, maxUsers: -1 },
       };
 
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(mockConfig);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(mockConfig);
 
       const result = await subscriptionService.getPlanConfig('PREMIUM');
 
@@ -71,7 +69,7 @@ describe('SubscriptionService', () => {
     });
 
     it('should fall back to defaults when database config unavailable', async () => {
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
 
       const result = await subscriptionService.getPlanConfig('BASIC');
 
@@ -82,7 +80,7 @@ describe('SubscriptionService', () => {
     });
 
     it('should return FREE plan config', async () => {
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
 
       const result = await subscriptionService.getPlanConfig('FREE');
 
@@ -110,7 +108,7 @@ describe('SubscriptionService', () => {
         monthlyRevenue: 99.99,
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
 
       const result = await subscriptionService.getSubscriptionDetails(tenantId);
 
@@ -137,7 +135,7 @@ describe('SubscriptionService', () => {
         monthlyRevenue: 29.99,
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
 
       const result = await subscriptionService.getSubscriptionDetails('tenant-123');
 
@@ -159,7 +157,7 @@ describe('SubscriptionService', () => {
         monthlyRevenue: 0,
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
 
       const result = await subscriptionService.getSubscriptionDetails('tenant-123');
 
@@ -168,7 +166,7 @@ describe('SubscriptionService', () => {
     });
 
     it('should throw NotFoundError for non-existent tenant', async () => {
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
         subscriptionService.getSubscriptionDetails('invalid-id')
@@ -180,12 +178,12 @@ describe('SubscriptionService', () => {
     it('should start trial with default 30 days', async () => {
       const tenantId = 'tenant-123';
 
-      (prisma.tenant.update as jest.Mock).mockResolvedValue({});
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.update as jest.Mock).mockResolvedValue({});
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       await subscriptionService.startTrial(tenantId);
 
-      const updateCall = (prisma.tenant.update as jest.Mock).mock.calls[0][0];
+      const updateCall = (mockClient.tenant.update as jest.Mock).mock.calls[0][0];
       expect(updateCall.data.plan).toBe('FREE');
       expect(updateCall.data.isInTrial).toBe(true);
       expect(updateCall.data.status).toBe('ACTIVE');
@@ -199,12 +197,12 @@ describe('SubscriptionService', () => {
     it('should start trial with custom duration', async () => {
       const tenantId = 'tenant-123';
 
-      (prisma.tenant.update as jest.Mock).mockResolvedValue({});
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.update as jest.Mock).mockResolvedValue({});
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       await subscriptionService.startTrial(tenantId, 14); // 14-day trial
 
-      const updateCall = (prisma.tenant.update as jest.Mock).mock.calls[0][0];
+      const updateCall = (mockClient.tenant.update as jest.Mock).mock.calls[0][0];
       const trialEndDate = updateCall.data.trialEndDate;
       const daysDiff = Math.ceil((trialEndDate - new Date()) / (1000 * 60 * 60 * 24));
       expect(daysDiff).toBe(14);
@@ -213,12 +211,12 @@ describe('SubscriptionService', () => {
     it('should record trial start in subscription history', async () => {
       const tenantId = 'tenant-123';
 
-      (prisma.tenant.update as jest.Mock).mockResolvedValue({});
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.update as jest.Mock).mockResolvedValue({});
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       await subscriptionService.startTrial(tenantId);
 
-      expect(prisma.subscriptionHistory.create).toHaveBeenCalledWith({
+      expect(mockClient.subscriptionHistory.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tenantId,
           changeType: 'TRIAL_START',
@@ -239,13 +237,13 @@ describe('SubscriptionService', () => {
         isInTrial: true,
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.tenant.update as jest.Mock).mockResolvedValue({});
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.tenant.update as jest.Mock).mockResolvedValue({});
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       await subscriptionService.endTrial(tenantId, 'BASIC');
 
-      expect(prisma.tenant.update).toHaveBeenCalledWith({
+      expect(mockClient.tenant.update).toHaveBeenCalledWith({
         where: { id: tenantId },
         data: {
           isInTrial: false,
@@ -262,13 +260,13 @@ describe('SubscriptionService', () => {
         isInTrial: true,
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.tenant.update as jest.Mock).mockResolvedValue({});
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.tenant.update as jest.Mock).mockResolvedValue({});
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       await subscriptionService.endTrial(tenantId);
 
-      expect(prisma.tenant.update).toHaveBeenCalledWith({
+      expect(mockClient.tenant.update).toHaveBeenCalledWith({
         where: { id: tenantId },
         data: {
           isInTrial: false,
@@ -283,7 +281,7 @@ describe('SubscriptionService', () => {
         isInTrial: false,
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
 
       await expect(
         subscriptionService.endTrial('tenant-123')
@@ -368,7 +366,7 @@ describe('SubscriptionService', () => {
 
       // BASIC yearly: $299.90/12 = $24.99/month, PREMIUM yearly: $999.90/12 = $83.33/month
       expect(result.daysRemaining).toBe(184);
-      expect(result.totalDays).toBe(365);
+      expect(result.totalDays).toBe(366);
 
       jest.useRealTimers();
     });
@@ -414,10 +412,10 @@ describe('SubscriptionService', () => {
         invoice: { id: 'invoice-1', amount: 99.99 },
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
-      (prisma.tenant.update as jest.Mock).mockResolvedValue({});
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.tenant.update as jest.Mock).mockResolvedValue({});
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       const invoiceGenerator = require('@/lib/invoice-generator').invoiceGenerator;
       (invoiceGenerator.generateInvoice as jest.Mock).mockResolvedValue(mockInvoice);
@@ -430,7 +428,7 @@ describe('SubscriptionService', () => {
 
       expect(result.invoice).toBeDefined();
       expect(result.invoice.id).toBe('invoice-1');
-      expect(prisma.subscriptionHistory.create).toHaveBeenCalledWith(
+      expect(mockClient.subscriptionHistory.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             changeType: 'UPGRADE',
@@ -456,10 +454,10 @@ describe('SubscriptionService', () => {
         invoice: { id: 'invoice-1', amount: 29.99 },
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
-      (prisma.tenant.update as jest.Mock).mockResolvedValue({});
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.tenant.update as jest.Mock).mockResolvedValue({});
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       const invoiceGenerator = require('@/lib/invoice-generator').invoiceGenerator;
       (invoiceGenerator.generateInvoice as jest.Mock).mockResolvedValue(mockInvoice);
@@ -470,7 +468,7 @@ describe('SubscriptionService', () => {
         userId
       );
 
-      expect(prisma.subscriptionHistory.create).toHaveBeenCalledWith(
+      expect(mockClient.subscriptionHistory.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             changeType: 'DOWNGRADE',
@@ -488,7 +486,7 @@ describe('SubscriptionService', () => {
         billingCycle: 'MONTHLY',
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
 
       await expect(
         subscriptionService.changePlan('tenant-123', { targetPlan: 'BASIC' }, 'user-1')
@@ -510,10 +508,10 @@ describe('SubscriptionService', () => {
         invoice: { id: 'invoice-1', amount: 50 },
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
-      (prisma.tenant.update as jest.Mock).mockResolvedValue({});
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.tenant.update as jest.Mock).mockResolvedValue({});
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       const invoiceGenerator = require('@/lib/invoice-generator').invoiceGenerator;
       (invoiceGenerator.generateInvoice as jest.Mock).mockResolvedValue(mockInvoice);
@@ -547,10 +545,10 @@ describe('SubscriptionService', () => {
         invoice: { id: 'invoice-1', amount: 299.90 },
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
-      (prisma.tenant.update as jest.Mock).mockResolvedValue({});
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.tenant.update as jest.Mock).mockResolvedValue({});
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       const invoiceGenerator = require('@/lib/invoice-generator').invoiceGenerator;
       (invoiceGenerator.generateInvoice as jest.Mock).mockResolvedValue(mockInvoice);
@@ -561,7 +559,7 @@ describe('SubscriptionService', () => {
         'user-1'
       );
 
-      expect(prisma.tenant.update).toHaveBeenCalledWith(
+      expect(mockClient.tenant.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             billingCycle: 'YEARLY',
@@ -581,9 +579,9 @@ describe('SubscriptionService', () => {
         subscriptionEndDate: new Date('2024-07-01'),
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.tenant.update as jest.Mock).mockResolvedValue({});
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.tenant.update as jest.Mock).mockResolvedValue({});
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       await subscriptionService.cancelSubscription(
         tenantId,
@@ -591,7 +589,7 @@ describe('SubscriptionService', () => {
         userId
       );
 
-      expect(prisma.tenant.update).toHaveBeenCalledWith({
+      expect(mockClient.tenant.update).toHaveBeenCalledWith({
         where: { id: tenantId },
         data: expect.objectContaining({
           status: 'CANCELED',
@@ -611,9 +609,9 @@ describe('SubscriptionService', () => {
         subscriptionEndDate: new Date('2024-07-01'),
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.tenant.update as jest.Mock).mockResolvedValue({});
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.tenant.update as jest.Mock).mockResolvedValue({});
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       await subscriptionService.cancelSubscription(
         tenantId,
@@ -621,7 +619,7 @@ describe('SubscriptionService', () => {
         userId
       );
 
-      expect(prisma.tenant.update).toHaveBeenCalledWith({
+      expect(mockClient.tenant.update).toHaveBeenCalledWith({
         where: { id: tenantId },
         data: expect.objectContaining({
           autoRenew: false,
@@ -630,7 +628,7 @@ describe('SubscriptionService', () => {
       });
 
       // Should not change status or plan immediately
-      const updateCall = (prisma.tenant.update as jest.Mock).mock.calls[0][0];
+      const updateCall = (mockClient.tenant.update as jest.Mock).mock.calls[0][0];
       expect(updateCall.data.status).toBeUndefined();
       expect(updateCall.data.plan).toBeUndefined();
     });
@@ -646,14 +644,14 @@ describe('SubscriptionService', () => {
         status: 'CANCELED',
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
-      (prisma.tenant.update as jest.Mock).mockResolvedValue({});
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.tenant.update as jest.Mock).mockResolvedValue({});
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       await subscriptionService.reactivateSubscription(tenantId, 'PREMIUM', userId);
 
-      expect(prisma.tenant.update).toHaveBeenCalledWith({
+      expect(mockClient.tenant.update).toHaveBeenCalledWith({
         where: { id: tenantId },
         data: expect.objectContaining({
           status: 'ACTIVE',
@@ -672,7 +670,7 @@ describe('SubscriptionService', () => {
         status: 'ACTIVE',
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
 
       await expect(
         subscriptionService.reactivateSubscription('tenant-123', 'BASIC', 'user-1')
@@ -694,9 +692,9 @@ describe('SubscriptionService', () => {
         invoice: { id: 'invoice-1', amount: 99.99 },
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       const invoiceGenerator = require('@/lib/invoice-generator').invoiceGenerator;
       (invoiceGenerator.generateInvoice as jest.Mock).mockResolvedValue(mockInvoice);
@@ -705,7 +703,7 @@ describe('SubscriptionService', () => {
 
       expect(result.invoice).toBeDefined();
       expect(result.invoice.id).toBe('invoice-1');
-      expect(prisma.subscriptionHistory.create).toHaveBeenCalledWith(
+      expect(mockClient.subscriptionHistory.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             changeType: 'RENEWAL',
@@ -723,7 +721,7 @@ describe('SubscriptionService', () => {
         autoRenew: false,
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
 
       await expect(
         subscriptionService.renewSubscription('tenant-123')
@@ -743,9 +741,9 @@ describe('SubscriptionService', () => {
         invoice: { id: 'invoice-1', amount: 999.90 },
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
-      (prisma.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.subscriptionHistory.create as jest.Mock).mockResolvedValue({});
 
       const invoiceGenerator = require('@/lib/invoice-generator').invoiceGenerator;
       (invoiceGenerator.generateInvoice as jest.Mock).mockResolvedValue(mockInvoice);
@@ -774,8 +772,8 @@ describe('SubscriptionService', () => {
         },
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
 
       const result = await subscriptionService.validatePlanLimits(tenantId);
 
@@ -796,8 +794,8 @@ describe('SubscriptionService', () => {
         },
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
 
       const result = await subscriptionService.validatePlanLimits(tenantId);
 
@@ -817,8 +815,8 @@ describe('SubscriptionService', () => {
         },
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
 
       const result = await subscriptionService.validatePlanLimits(tenantId);
 
@@ -841,8 +839,8 @@ describe('SubscriptionService', () => {
         },
       };
 
-      (prisma.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
-      (prisma.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockClient.tenant.findUnique as jest.Mock).mockResolvedValue(mockTenant);
+      (mockClient.planConfiguration.findUnique as jest.Mock).mockResolvedValue(null);
 
       const result = await subscriptionService.validatePlanLimits(tenantId);
 

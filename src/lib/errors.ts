@@ -16,7 +16,7 @@ import { NextResponse } from 'next/server';
  */
 export class AppError extends Error {
   constructor(
-    public message: string,
+    message: string,
     public statusCode: number = 500,
     public code?: string
   ) {

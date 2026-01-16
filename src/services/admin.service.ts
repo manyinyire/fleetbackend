@@ -567,6 +567,9 @@ export class AdminService {
       }
 
       const tenantUser = tenant.users[0];
+      if (!tenantUser) {
+        throw new NotFoundError('Tenant admin user');
+      }
 
       dbLogger.info(
         {
