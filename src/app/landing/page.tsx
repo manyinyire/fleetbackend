@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Metadata } from "next";
 import { RevenueChart } from "@/components/landing/revenue-chart";
 import { getPlatformSettingsWithDefaults } from "@/lib/platform-settings";
+import { prisma } from "@/lib/prisma";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getPlatformSettingsWithDefaults();
@@ -14,6 +15,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function LandingPage() {
   const settings = await getPlatformSettingsWithDefaults();
+  
+  // Fetch pricing plans from database
+  const pricingPlans = await prisma.planConfiguration.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: 'asc' }
+  });
   return (
     <div className="min-h-screen bg-white bg-atmospheric dark:bg-gray-dark">
       {/* Navigation */}
@@ -85,7 +92,7 @@ export default async function LandingPage() {
               </Link>
 
               <button className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-3.5 border-2 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-base font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all active:scale-[0.98]">
-                Watch demo
+                Contact Us
               </button>
             </div>
 
@@ -122,7 +129,7 @@ export default async function LandingPage() {
                   <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 </div>
                 <div className="flex-1 mx-4 bg-white dark:bg-gray-800 rounded px-3 py-1 text-xs text-gray-600 dark:text-gray-400">
-                  azaire-fleet.com/dashboard
+                  fleetmanager.co.zw/dashboard
                 </div>
               </div>
 
@@ -375,66 +382,22 @@ export default async function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {[
-              {
-                name: "Starter",
-                price: "$0",
-                period: "Forever",
-                description: "Perfect for small fleets",
-                features: [
-                  "Up to 5 vehicles",
-                  "Up to 5 drivers",
-                  "Basic reporting",
-                  "Mobile app access",
-                  "Email support",
-                ],
-                cta: "Start for free",
-                popular: false,
-              },
-              {
-                name: "Professional",
-                price: "$29",
-                period: "per month",
-                description: "For growing fleets",
-                features: [
-                  "Up to 25 vehicles",
-                  "Unlimited drivers",
-                  "Advanced analytics",
-                  "Priority support",
-                  "Offline mode",
-                  "Custom reports",
-                  "API access",
-                ],
-                cta: "Start for free",
-                popular: true,
-              },
-              {
-                name: "Enterprise",
-                price: "$99",
-                period: "per month",
-                description: "For large operations",
-                features: [
-                  "Unlimited vehicles",
-                  "Unlimited drivers",
-                  "White-label option",
-                  "Dedicated support",
-                  "Custom integrations",
-                  "Advanced security",
-                  "SLA guarantee",
-                ],
-                cta: "Contact sales",
-                popular: false,
-              },
-            ].map((plan, i) => (
+            {pricingPlans.map((plan, i) => {
+              const features = Array.isArray(plan.features) ? plan.features : [];
+              const isPopular = plan.displayName === 'Professional';
+              const isFree = Number(plan.monthlyPrice) === 0;
+              const ctaText = plan.displayName === 'Enterprise' ? 'Contact sales' : 'Start for free';
+              
+              return (
               <div
-                key={i}
+                key={plan.id}
                 className={`relative bg-white dark:bg-gray-800 rounded-lg p-6 border-2 ${
-                  plan.popular
+                  isPopular
                     ? "border-primary dark:border-primary-light shadow-md"
                     : "border-gray-200 dark:border-gray-700"
                 }`}
               >
-                {plan.popular && (
+                {isPopular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                     <div className="bg-primary dark:bg-primary-light text-white px-3 py-1 rounded-full text-sm font-medium">
                       Most popular
@@ -443,27 +406,31 @@ export default async function LandingPage() {
                 )}
 
                 <div className="mb-6">
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{plan.name}</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{plan.displayName}</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{plan.description}</p>
                   <div className="flex items-baseline gap-2 mb-1">
-                    <span className="text-4xl font-bold text-gray-900 dark:text-white">{plan.price}</span>
-                    <span className="text-gray-600 dark:text-gray-400">/{plan.period}</span>
+                    <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                      ${Number(plan.monthlyPrice).toFixed(0)}
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      /{isFree ? 'Forever' : 'per month'}
+                    </span>
                   </div>
                 </div>
 
                 <Link
                   href="/auth/sign-up"
                   className={`block w-full text-center py-3 rounded font-medium mb-6 ${
-                    plan.popular
+                    isPopular
                       ? "bg-primary dark:bg-primary-light text-white hover:bg-primary-dark dark:hover:bg-primary"
                       : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600"
                   }`}
                 >
-                  {plan.cta}
+                  {ctaText}
                 </Link>
 
                 <ul className="space-y-3">
-                  {plan.features.map((feature, j) => (
+                  {features.map((feature: string, j: number) => (
                     <li key={j} className="flex items-start gap-3">
                       <svg className="w-5 h-5 text-primary dark:text-primary-light flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -473,7 +440,8 @@ export default async function LandingPage() {
                   ))}
                 </ul>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="mt-12 text-center">

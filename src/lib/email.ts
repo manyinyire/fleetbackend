@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
 import logger from './logger';
+import { EmailType } from '@prisma/client';
+import { emailTemplateService } from './email-template-service';
 
 interface EmailConfig {
   host: string;
@@ -73,6 +75,38 @@ class EmailService {
       return true;
     } catch (error) {
       logger.error({ err: error, to: options.to, subject: options.subject }, 'Failed to send email');
+      return false;
+    }
+  }
+
+  /**
+   * Send email using database template
+   */
+  async sendTemplatedEmail(
+    to: string | string[],
+    templateType: EmailType,
+    variables: Record<string, any>,
+    templateName?: string
+  ): Promise<boolean> {
+    try {
+      const rendered = await emailTemplateService.getRenderedEmail(
+        templateType,
+        variables,
+        templateName
+      );
+
+      if (!rendered) {
+        logger.error({ templateType, templateName }, 'Email template not found');
+        return false;
+      }
+
+      return this.sendEmail({
+        to,
+        subject: rendered.subject,
+        html: rendered.html
+      });
+    } catch (error) {
+      logger.error({ err: error, templateType, templateName }, 'Failed to send templated email');
       return false;
     }
   }

@@ -9,46 +9,48 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BellIcon } from "./icons";
 
-const notificationList = [
-  {
-    image: "/images/user/user-15.png",
-    title: "High CPU Usage Alert",
-    subTitle: "Server-03 at 94% CPU usage",
-    type: "critical",
-  },
-  {
-    image: "/images/user/user-03.png",
-    title: "New Tenant Signup",
-    subTitle: "Doe Transport Ltd registered",
-    type: "success",
-  },
-  {
-    image: "/images/user/user-26.png",
-    title: "Payment Processed",
-    subTitle: "ABC Transport - $45.00",
-    type: "info",
-  },
-  {
-    image: "/images/user/user-28.png",
-    title: "Backup Delayed",
-    subTitle: "Database backup 2 hours late",
-    type: "warning",
-  },
-  {
-    image: "/images/user/user-27.png",
-    title: "System Maintenance",
-    subTitle: "Scheduled for tonight 2AM",
-    type: "info",
-  },
-];
+interface TenantSignup {
+  id: string;
+  name: string;
+  email: string;
+  plan: string;
+  status: string;
+  createdAt: string;
+}
 
 export function Notification() {
   const [isOpen, setIsOpen] = useState(false);
   const [isDotVisible, setIsDotVisible] = useState(true);
   const isMobile = useIsMobile();
+  const [signups, setSignups] = useState<TenantSignup[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchRecentSignups();
+    
+    // Refresh every 2 minutes
+    const interval = setInterval(fetchRecentSignups, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchRecentSignups = async () => {
+    try {
+      const response = await fetch('/api/superadmin/dashboard/activity?limit=5');
+      const result = await response.json();
+      
+      if (result.success && result.data?.recentSignups) {
+        setSignups(result.data.recentSignups);
+        setIsDotVisible(result.data.recentSignups.length > 0);
+      }
+    } catch (error) {
+      console.error('Error fetching signups:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -99,37 +101,53 @@ export function Notification() {
       >
         <div className="mb-1 flex items-center justify-between px-2 py-1.5">
           <span className="text-lg font-medium text-dark dark:text-white">
-            System Alerts
+            New Tenant Sign-ups
           </span>
-          <span className="rounded-md bg-primary px-[9px] py-0.5 text-xs font-medium text-white">
-            3 new
-          </span>
+          {signups.length > 0 && (
+            <span className="rounded-md bg-green-600 px-[9px] py-0.5 text-xs font-medium text-white">
+              {signups.length} new
+            </span>
+          )}
         </div>
 
         <ul className="mb-3 max-h-[23rem] space-y-1.5 overflow-y-auto">
-          {notificationList.map((item, index) => (
-            <li key={index} role="menuitem">
-              <Link
-                href="#"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center gap-4 rounded-lg px-2 py-1.5 outline-none hover:bg-gray-2 focus-visible:bg-gray-2 dark:hover:bg-dark-3 dark:focus-visible:bg-dark-3"
-              >
-                <div className="flex size-14 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
-                  <span className="text-2xl">{getNotificationIcon(item.type)}</span>
-                </div>
-
-                <div>
-                  <strong className="block text-sm font-medium text-dark dark:text-white">
-                    {item.title}
-                  </strong>
-
-                  <span className="truncate text-sm font-medium text-dark-5 dark:text-dark-6">
-                    {item.subTitle}
-                  </span>
-                </div>
-              </Link>
+          {loading ? (
+            <li className="text-center py-4 text-sm text-gray-500 dark:text-gray-400">
+              Loading...
             </li>
-          ))}
+          ) : signups.length > 0 ? (
+            signups.map((signup) => (
+              <li key={signup.id} role="menuitem">
+                <Link
+                  href={`/superadmin/tenants/${signup.id}`}
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-4 rounded-lg px-2 py-1.5 outline-none hover:bg-gray-2 focus-visible:bg-gray-2 dark:hover:bg-dark-3 dark:focus-visible:bg-dark-3"
+                >
+                  <div className="flex size-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
+                    <span className="text-2xl">{getNotificationIcon("success")}</span>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <strong className="block text-sm font-medium text-dark dark:text-white truncate">
+                      {signup.name}
+                    </strong>
+
+                    <span className="block text-sm font-medium text-dark-5 dark:text-dark-6 truncate">
+                      Registered for {signup.plan} plan
+                    </span>
+                    
+                    <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {new Date(signup.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                </Link>
+              </li>
+            ))
+          ) : (
+            <li className="text-center py-4 text-sm text-gray-500 dark:text-gray-400">
+              No new sign-ups
+            </li>
+          )}
         </ul>
 
         <Link

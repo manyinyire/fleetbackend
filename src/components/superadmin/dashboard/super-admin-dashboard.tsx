@@ -375,19 +375,42 @@ export default function SuperAdminDashboard() {
         </div>
       </div>
 
-      {/* System Alerts */}
+      {/* New Tenant Sign-ups */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          System Alerts
-        </h3>
-        <div className="space-y-4">
-          {alerts.length > 0 ? (
-            alerts.map((alert) => (
-              <AlertCard key={alert.id} alert={alert} />
-            ))
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            New Tenant Sign-ups
+          </h3>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+            {recentActivity.filter(a => a.type === 'signup').length} New
+          </span>
+        </div>
+        <div className="space-y-3">
+          {recentActivity.filter(a => a.type === 'signup').length > 0 ? (
+            recentActivity
+              .filter(activity => activity.type === 'signup')
+              .slice(0, 5)
+              .map((activity) => (
+                <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                  <div className="flex-shrink-0">
+                    <BuildingOfficeIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {activity.title}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {activity.description}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      {new Date(activity.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ))
           ) : (
             <p className="text-gray-500 dark:text-gray-400 text-center py-4">
-              No alerts at this time
+              No new sign-ups today
             </p>
           )}
         </div>

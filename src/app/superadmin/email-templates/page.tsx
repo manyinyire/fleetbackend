@@ -15,7 +15,7 @@ interface EmailTemplate {
   description: string;
   subject: string;
   body: string;
-  variables: string[];
+  variables: Record<string, string> | null;
   isActive: boolean;
   category: string;
   createdAt: Date;
@@ -221,14 +221,19 @@ export default function EmailTemplatesPage() {
               <div>
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Variables:</p>
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {template.variables.map((variable) => (
-                    <span
-                      key={variable}
-                      className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                    >
-                      {`{{${variable}}}`}
-                    </span>
-                  ))}
+                  {template.variables && Object.keys(template.variables).length > 0 ? (
+                    Object.keys(template.variables).map((variable) => (
+                      <span
+                        key={variable}
+                        className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                        title={template.variables?.[variable]}
+                      >
+                        {`{{${variable}}}`}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">No variables</span>
+                  )}
                 </div>
               </div>
 

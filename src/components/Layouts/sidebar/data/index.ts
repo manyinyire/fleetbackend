@@ -89,29 +89,6 @@ export const SUPER_ADMIN_NAV_DATA = [
     ],
   },
   {
-    label: "MONITORING",
-    items: [
-      {
-        title: "System Health",
-        icon: Icons.ChartBarIcon,
-        url: "/admin/system-health",
-        items: [],
-      },
-      {
-        title: "Performance",
-        icon: Icons.ChartBarIcon,
-        url: "/admin/performance",
-        items: [],
-      },
-      {
-        title: "Error Logs",
-        icon: Icons.ExclamationTriangleIcon,
-        url: "/admin/error-logs",
-        items: [],
-      },
-    ],
-  },
-  {
     label: "FINANCIAL",
     items: [
       {
