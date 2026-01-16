@@ -39,7 +39,12 @@ export async function GET(request: NextRequest) {
       whereClause.plan = plan as any;
     }
 
-    const [tenants, totalCount, summaryCounts] = await Promise.all([
+    // Run queries in parallel without transaction to avoid timeout issues
+    const now = new Date();
+    const fourteenDays = new Date(now);
+    fourteenDays.setDate(now.getDate() + 14);
+
+    const [tenants, totalCount, activeCount, trialCount, cancelledCount, expiringCount] = await Promise.all([
       prisma.tenant.findMany({
         where: whereClause,
         orderBy: { createdAt: "desc" },
@@ -61,63 +66,56 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.tenant.count({ where: whereClause }),
-      prisma.$transaction(async (tx) => {
-        const now = new Date();
-        const fourteenDays = new Date(now);
-        fourteenDays.setDate(now.getDate() + 14);
-
-        const [activeCount, trialCount, cancelledCount, expiringCount] = await Promise.all([
-          tx.tenant.count({
-            where: {
-              status: "ACTIVE",
-              plan: { not: "FREE" },
-            },
-          }),
-          tx.tenant.count({
-            where: {
-              isInTrial: true,
-            },
-          }),
-          tx.tenant.count({
-            where: { status: "CANCELED" },
-          }),
-          tx.tenant.count({
-            where: {
-              status: "ACTIVE",
-              plan: { not: "FREE" },
-              subscriptionEndDate: {
-                gte: now,
-                lte: fourteenDays,
-              },
-            },
-          }),
-        ]);
-
-        return {
-          activeCount,
-          trialCount,
-          cancelledCount,
-          expiringCount,
-        };
+      prisma.tenant.count({
+        where: {
+          status: "ACTIVE",
+          plan: { not: "FREE" },
+        },
+      }),
+      prisma.tenant.count({
+        where: {
+          isInTrial: true,
+        },
+      }),
+      prisma.tenant.count({
+        where: { status: "CANCELED" },
+      }),
+      prisma.tenant.count({
+        where: {
+          status: "ACTIVE",
+          plan: { not: "FREE" },
+          subscriptionEndDate: {
+            gte: now,
+            lte: fourteenDays,
+          },
+        },
       }),
     ]);
 
+    const summaryCounts = {
+      activeCount,
+      trialCount,
+      cancelledCount,
+      expiringCount,
+    };
+
     const subscriptionItems = tenants.map((tenant) => {
-      // Free subscriptions: Show only Start Date, no Next Billing
-      // Paid subscriptions: Calculate Next Billing as one month from Start Date
+      // Calculate next billing date (monthly billing cycle)
       let nextBilling = null;
 
-      if (tenant.plan !== 'FREE' && tenant.subscriptionStartDate) {
-        // For paid subscriptions, calculate next billing as one month from start date
+      if (tenant.subscriptionStartDate) {
         const startDate = new Date(tenant.subscriptionStartDate);
+        const now = new Date();
+        
+        // Calculate next billing as the next month anniversary from start date
         const nextBillingDate = new Date(startDate);
-        nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
-        nextBilling = nextBillingDate.toISOString();
-
-        // If subscriptionEndDate exists and is set, use it instead
-        if (tenant.subscriptionEndDate) {
-          nextBilling = tenant.subscriptionEndDate.toISOString();
+        
+        // Keep adding months until we get a future date
+        while (nextBillingDate <= now) {
+          nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
         }
+        
+        nextBilling = nextBillingDate.toISOString();
       }
 
       return {

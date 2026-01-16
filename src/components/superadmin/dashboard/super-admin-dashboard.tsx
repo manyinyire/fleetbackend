@@ -76,10 +76,10 @@ export default function SuperAdminDashboard() {
   useEffect(() => {
     loadDashboardData();
     
-    // Set up polling for real-time updates (every 30 seconds)
+    // Set up polling for real-time updates (every 5 minutes instead of 30 seconds)
     const interval = setInterval(() => {
       loadDashboardData();
-    }, 30000);
+    }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(interval);
   }, []);

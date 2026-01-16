@@ -212,7 +212,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     );
   }
 
-  // Create tenant
+  // Create tenant with subscription dates
+  const now = new Date();
+  const oneYearFromNow = new Date(now);
+  oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
   const tenant = await prisma.tenant.create({
     data: {
       name: validatedData.name,
@@ -223,6 +227,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       plan: validatedData.plan,
       monthlyRevenue: 0,
       autoRenew: true,
+      subscriptionStartDate: now,
+      subscriptionEndDate: oneYearFromNow,
     },
   });
 

@@ -1,8 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
 }
 
@@ -11,129 +8,82 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// CENTRAL TABLES (No tenant scoping)
-// ============================================
-
 model Tenant {
-  id             String           @id @default(cuid())
-  name           String
-  slug           String           @unique
-  email          String
-  phone          String?
-  status         TenantStatus     @default(ACTIVE)
-  plan           SubscriptionPlan @default(FREE)
-  monthlyRevenue Decimal          @default(0) @db.Decimal(10, 2)
-  suspendedAt    DateTime?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-
-  // Billing fields
+  id                    String                @id @default(cuid())
+  name                  String
+  slug                  String                @unique
+  email                 String
+  phone                 String?
+  status                TenantStatus          @default(ACTIVE)
+  plan                  SubscriptionPlan      @default(FREE)
+  monthlyRevenue        Decimal               @default(0) @db.Decimal(10, 2)
+  suspendedAt           DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
   subscriptionStartDate DateTime?
   subscriptionEndDate   DateTime?
-  autoRenew             Boolean          @default(true)
-  billingCycle          BillingCycle     @default(MONTHLY)
+  autoRenew             Boolean               @default(true)
+  billingCycle          BillingCycle          @default(MONTHLY)
   trialStartDate        DateTime?
   trialEndDate          DateTime?
-  isInTrial             Boolean          @default(false)
+  isInTrial             Boolean               @default(false)
   canceledAt            DateTime?
   cancelReason          String?
-
-  // Relationships
-  users                User[]
-  vehicles             Vehicle[]
-  drivers              Driver[]
-  settings             TenantSettings?
-  invoices             Invoice[]
-  invoiceReminders     InvoiceReminder[]
-  payments             Payment[]
-  subscriptionHistory  SubscriptionHistory[]
-  whiteLabel           WhiteLabel?
+  drivers               Driver[]
+  invoiceReminders      InvoiceReminder[]
+  invoices              Invoice[]
+  payments              Payment[]
+  subscriptionHistory   SubscriptionHistory[]
+  settings              TenantSettings?
+  users                 User[]
+  vehicles              Vehicle[]
+  whiteLabel            WhiteLabel?
 
   @@map("tenants")
 }
 
-enum TenantStatus {
-  ACTIVE
-  SUSPENDED
-  CANCELED
-}
-
-enum SubscriptionPlan {
-  FREE
-  BASIC
-  PREMIUM
-}
-
-enum BillingCycle {
-  MONTHLY
-  YEARLY
-}
-
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String
-  emailVerified Boolean   @default(false)
-  image         String?
-  role          String?   @default("user") // BetterAuth admin plugin uses string (can be comma-separated for multiple roles)
-  tenantId      String? // null for super_admin
-  password      String? // Hashed password for email/password auth
-  lastLoginAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // BetterAuth Admin plugin fields
-  banned     Boolean   @default(false)
-  banReason  String?
-  banExpires DateTime?
-
-  // 2FA fields
-  twoFactorEnabled Boolean @default(false)
-  twoFactorSecret  String?
-
-  // Relationships
-  tenant    Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sessions  Session[]
-  accounts  Account[]
-  auditLogs AuditLog[]
-  notifications Notification[]
-
-  // Email verification
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  name               String
+  emailVerified      Boolean             @default(false)
+  image              String?
+  role               String?             @default("user")
+  tenantId           String?
+  password           String?
+  lastLoginAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  banned             Boolean             @default(false)
+  banReason          String?
+  banExpires         DateTime?
+  twoFactorEnabled   Boolean             @default(false)
+  twoFactorSecret    String?
+  accounts           Account[]
+  adminIpWhitelist   AdminIpWhitelist[]
+  adminSessions      AdminSession[]
+  adminSettings      AdminSettings?
+  auditLogs          AuditLog[]
   emailVerifications EmailVerification[]
-
-  // Admin relationships
-  adminSettings    AdminSettings?
-  adminSessions    AdminSession[]
-  adminIpWhitelist AdminIpWhitelist[]
+  notifications      Notification[]
+  sessions           Session[]
+  tenant             Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@map("users")
 }
 
-enum UserRole {
-  SUPER_ADMIN
-  TENANT_ADMIN
-  FLEET_MANAGER
-  ACCOUNTANT
-  DRIVER
-  USER
-}
-
 model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // BetterAuth Admin plugin field
+  id             String   @id @default(cuid())
+  userId         String
+  token          String   @unique
+  expiresAt      DateTime
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
   impersonatedBy String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("sessions")
@@ -150,11 +100,10 @@ model Account {
   refreshTokenExpiresAt DateTime?
   scope                 String?
   idToken               String?
-  password              String? // Hashed password for email/password auth
+  password              String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("accounts")
@@ -171,57 +120,38 @@ model Verification {
   @@map("verifications")
 }
 
-// ============================================
-// TENANT-SCOPED TABLES (Include tenantId)
-// ============================================
-
 model Vehicle {
-  id                 String        @id @default(cuid())
-  tenantId           String // MANDATORY for RLS
+  id                 String                    @id @default(cuid())
+  tenantId           String
   registrationNumber String
   make               String
   model              String
   year               Int
   type               VehicleType
-  initialCost        Decimal       @db.Decimal(10, 2)
-  currentMileage     Int           @default(0)
-  status             VehicleStatus @default(ACTIVE)
-  // Payment Configuration - drivers assigned to this vehicle inherit these settings
+  initialCost        Decimal                   @db.Decimal(10, 2)
+  currentMileage     Int                       @default(0)
+  status             VehicleStatus             @default(ACTIVE)
   paymentModel       PaymentModel
-  paymentConfig      Json // Stores model-specific config
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-
-  // Relationships
-  tenant             Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  paymentConfig      Json
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
   drivers            DriverVehicleAssignment[]
-  remittances        Remittance[]
-  maintenanceRecords MaintenanceRecord[]
   expenses           Expense[]
   incomes            Income[]
+  maintenanceRecords MaintenanceRecord[]
+  remittances        Remittance[]
+  tenant             Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   weeklyTargets      WeeklyTarget[]
 
-  @@unique([tenantId, registrationNumber]) // Unique per tenant
+  @@unique([tenantId, registrationNumber])
   @@index([tenantId, type])
   @@index([tenantId, status])
   @@map("vehicles")
 }
 
-enum VehicleType {
-  CAR
-  OMNIBUS
-  BIKE
-}
-
-enum VehicleStatus {
-  ACTIVE
-  UNDER_MAINTENANCE
-  DECOMMISSIONED
-}
-
 model Driver {
-  id                     String       @id @default(cuid())
-  tenantId               String // MANDATORY for RLS
+  id                     String                    @id @default(cuid())
+  tenantId               String
   fullName               String
   nationalId             String
   licenseNumber          String
@@ -230,80 +160,60 @@ model Driver {
   homeAddress            String
   nextOfKin              String
   nextOfKinPhone         String
-  // Defensive license for commuter omnibus
-  hasDefensiveLicense    Boolean      @default(false)
+  hasDefensiveLicense    Boolean                   @default(false)
   defensiveLicenseNumber String?
   defensiveLicenseExpiry DateTime?
-  // Payment configuration is now on Vehicle - drivers inherit it when assigned
-  debtBalance            Decimal      @default(0) @db.Decimal(10, 2)
-  status                 DriverStatus @default(ACTIVE)
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
-
-  // Relationships
-  tenant      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  vehicles    DriverVehicleAssignment[]
-  remittances Remittance[]
-  contracts   Contract[]
-  weeklyTargets WeeklyTarget[]
+  debtBalance            Decimal                   @default(0) @db.Decimal(10, 2)
+  status                 DriverStatus              @default(ACTIVE)
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  contracts              Contract[]
+  vehicles               DriverVehicleAssignment[]
+  tenant                 Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  remittances            Remittance[]
+  weeklyTargets          WeeklyTarget[]
 
   @@unique([tenantId, nationalId])
   @@index([tenantId, status])
   @@map("drivers")
 }
 
-enum PaymentModel {
-  OWNER_PAYS // Model A: Percentage-based
-  DRIVER_REMITS // Model B: Fixed target
-  HYBRID // Model C: Base + performance
-}
-
-enum DriverStatus {
-  ACTIVE
-  INACTIVE
-  TERMINATED
-}
-
 model DriverVehicleAssignment {
   id        String    @id @default(cuid())
-  tenantId  String // MANDATORY for RLS
+  tenantId  String
   driverId  String
   vehicleId String
   isPrimary Boolean   @default(true)
   startDate DateTime
   endDate   DateTime?
   createdAt DateTime  @default(now())
-
-  // Relationships
-  driver  Driver  @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driver    Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle   Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@unique([driverId, vehicleId, startDate])
   @@index([tenantId])
-  @@index([vehicleId, endDate]) // Index for efficient querying of active assignments
+  @@index([vehicleId, endDate])
   @@map("driver_vehicle_assignments")
 }
 
 model Remittance {
   id             String           @id @default(cuid())
-  tenantId       String // MANDATORY for RLS
+  tenantId       String
   driverId       String
   vehicleId      String
   amount         Decimal          @db.Decimal(10, 2)
-  targetAmount   Decimal?         @db.Decimal(10, 2) // Target amount from vehicle's paymentConfig (for DRIVER_REMITS)
-  targetReached  Boolean          @default(false) // Whether the remittance amount meets or exceeds the target
+  targetAmount   Decimal?         @db.Decimal(10, 2)
+  targetReached  Boolean          @default(false)
   date           DateTime
   status         RemittanceStatus @default(PENDING)
-  proofOfPayment String? // S3 URL
+  proofOfPayment String?
   notes          String?
   approvedBy     String?
   approvedAt     DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
-
-  // Relationships
-  driver  Driver  @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driver         Driver           @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle        Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, status])
   @@index([tenantId, date])
@@ -313,32 +223,24 @@ model Remittance {
   @@map("remittances")
 }
 
-enum RemittanceStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
 model WeeklyTarget {
-  id           String   @id @default(cuid())
-  tenantId     String // MANDATORY for RLS
-  driverId     String
-  vehicleId    String
-  weekStart    DateTime // Sunday
-  weekEnd      DateTime // Saturday
-  baseTarget   Decimal  @db.Decimal(10, 2) // Base weekly target from payment config
-  carriedDebt  Decimal  @default(0) @db.Decimal(10, 2) // Debt from previous week
-  totalTarget  Decimal  @db.Decimal(10, 2) // baseTarget + carriedDebt
-  totalRemitted Decimal @default(0) @db.Decimal(10, 2) // Sum of remittances for this week
-  shortfall    Decimal  @default(0) @db.Decimal(10, 2) // Uncleared balance (totalTarget - totalRemitted)
-  status       String   @default("ACTIVE") // ACTIVE or CLOSED
-  closedAt     DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Relationships
-  driver  Driver  @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  id            String    @id @default(cuid())
+  tenantId      String
+  driverId      String
+  vehicleId     String
+  weekStart     DateTime
+  weekEnd       DateTime
+  baseTarget    Decimal   @db.Decimal(10, 2)
+  carriedDebt   Decimal   @default(0) @db.Decimal(10, 2)
+  totalTarget   Decimal   @db.Decimal(10, 2)
+  totalRemitted Decimal   @default(0) @db.Decimal(10, 2)
+  shortfall     Decimal   @default(0) @db.Decimal(10, 2)
+  status        String    @default("ACTIVE")
+  closedAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  driver        Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle       Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@unique([driverId, weekStart])
   @@index([tenantId])
@@ -351,7 +253,7 @@ model WeeklyTarget {
 
 model MaintenanceRecord {
   id          String          @id @default(cuid())
-  tenantId    String // MANDATORY for RLS
+  tenantId    String
   vehicleId   String
   date        DateTime
   mileage     Int
@@ -359,12 +261,10 @@ model MaintenanceRecord {
   description String
   cost        Decimal         @db.Decimal(10, 2)
   provider    String
-  invoice     String? // S3 URL
+  invoice     String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
-
-  // Relationships
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([vehicleId])
@@ -372,58 +272,38 @@ model MaintenanceRecord {
   @@map("maintenance_records")
 }
 
-enum MaintenanceType {
-  ROUTINE_SERVICE
-  TIRE_REPLACEMENT
-  BRAKE_SERVICE
-  ENGINE_REPAIR
-  ELECTRICAL
-  BODY_WORK
-  OTHER
-}
-
 model Contract {
   id             String         @id @default(cuid())
-  tenantId       String // MANDATORY for RLS
+  tenantId       String
   driverId       String
   contractNumber String         @unique
   status         ContractStatus @default(DRAFT)
   signedAt       DateTime?
-  signatureData  String? // Base64 signature
-  pdfUrl         String? // S3 URL of signed PDF
+  signatureData  String?
+  pdfUrl         String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-
-  // Relationships
-  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  driver         Driver         @relation(fields: [driverId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([driverId])
   @@map("contracts")
 }
 
-enum ContractStatus {
-  DRAFT
-  ACTIVE
-  TERMINATED
-}
-
 model Expense {
   id          String          @id @default(cuid())
-  tenantId    String // MANDATORY for RLS
+  tenantId    String
   vehicleId   String?
   category    ExpenseCategory
   amount      Decimal         @db.Decimal(10, 2)
   date        DateTime
   description String
-  receipt     String? // S3 URL
+  receipt     String?
   status      ExpenseStatus   @default(PENDING)
   approvedBy  String?
   approvedAt  DateTime?
   createdAt   DateTime        @default(now())
-
-  // Relationships
-  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  vehicle     Vehicle?        @relation(fields: [vehicleId], references: [id])
 
   @@index([tenantId])
   @@index([tenantId, category])
@@ -431,35 +311,16 @@ model Expense {
   @@map("expenses")
 }
 
-enum ExpenseCategory {
-  FUEL
-  MAINTENANCE
-  INSURANCE
-  LICENSE
-  SALARY
-  ADMINISTRATIVE
-  LOAN_PAYMENT
-  OTHER
-}
-
-enum ExpenseStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
 model Income {
   id          String       @id @default(cuid())
-  tenantId    String // MANDATORY for RLS
+  tenantId    String
   vehicleId   String?
   source      IncomeSource
   amount      Decimal      @db.Decimal(10, 2)
   date        DateTime
   description String?
   createdAt   DateTime     @default(now())
-
-  // Relationships
-  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  vehicle     Vehicle?     @relation(fields: [vehicleId], references: [id])
 
   @@index([tenantId])
   @@index([tenantId, source])
@@ -467,47 +328,29 @@ model Income {
   @@map("incomes")
 }
 
-enum IncomeSource {
-  REMITTANCE
-  OTHER
-}
-
 model TenantSettings {
-  id       String @id @default(cuid())
-  tenantId String @unique // MANDATORY for RLS
-
-  // Branding
-  companyName  String
-  logoUrl      String? // S3 URL
-  primaryColor String  @default("#1e3a8a")
-
-  // Contact Information
-  email   String
-  phone   String
-  address String?
-  city    String?
-  country String  @default("Zimbabwe")
-
-  // Invoice Settings
-  invoicePrefix String  @default("INV")
-  invoiceFooter String?
-  taxNumber     String?
-  bankDetails   String? // JSON with bank account info
-
-  // Notification Settings
-  emailNotifications Boolean @default(true)
-  smsNotifications   Boolean @default(false)
-
-  // Business Settings
-  currency   String @default("USD")
-  timezone   String @default("Africa/Harare")
-  dateFormat String @default("YYYY-MM-DD")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relationships
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  tenantId           String   @unique
+  companyName        String
+  logoUrl            String?
+  primaryColor       String   @default("#1e3a8a")
+  email              String
+  phone              String
+  address            String?
+  city               String?
+  country            String   @default("Zimbabwe")
+  invoicePrefix      String   @default("INV")
+  invoiceFooter      String?
+  taxNumber          String?
+  bankDetails        String?
+  emailNotifications Boolean  @default(true)
+  smsNotifications   Boolean  @default(false)
+  currency           String   @default("USD")
+  timezone           String   @default("Africa/Harare")
+  dateFormat         String   @default("YYYY-MM-DD")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@map("tenant_settings")
@@ -515,7 +358,7 @@ model TenantSettings {
 
 model AuditLog {
   id         String   @id @default(cuid())
-  tenantId   String? // null for system-wide actions
+  tenantId   String?
   userId     String
   action     String
   entityType String
@@ -526,8 +369,7 @@ model AuditLog {
   ipAddress  String
   userAgent  String
   createdAt  DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([userId])
@@ -535,19 +377,15 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-// ============================================
-// SUPER ADMIN TABLES
-// ============================================
-
 model PlatformSettings {
   id                       String   @id @default(cuid())
   platformName             String   @default("Azaire Fleet Manager")
   platformUrl              String   @default("https://azaire.com")
-  platformLogo             String?  // Logo URL or base64
-  logoText                 String?  // Text to display when no logo image uploaded
-  primaryColor             String   @default("#3b82f6") // Primary brand color for logo text
-  platformAddress          String?  // Physical address
-  platformEmail            String?  // Support/contact email
+  platformLogo             String?
+  logoText                 String?
+  primaryColor             String   @default("#3b82f6")
+  platformAddress          String?
+  platformEmail            String?
   defaultTimezone          String   @default("Africa/Harare")
   defaultCurrency          String   @default("USD")
   defaultDateFormat        String   @default("YYYY-MM-DD")
@@ -563,11 +401,10 @@ model PlatformSettings {
   webhookUrl               String?
   alertFrequency           String   @default("immediate")
   maintenanceMode          Boolean  @default(false)
-  // Invoice Settings
   invoicePrefix            String   @default("INV")
   invoiceFooter            String?
   taxNumber                String?
-  bankDetails              String?  // JSON with bank account info
+  bankDetails              String?
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
@@ -575,29 +412,18 @@ model PlatformSettings {
 }
 
 model AdminSettings {
-  id     String @id @default(cuid())
-  userId String @unique
-
-  // 2FA Settings
-  twoFactorEnabled Boolean @default(false)
-  twoFactorSecret  String?
-
-  // IP Whitelist
-  ipWhitelistEnabled Boolean @default(false)
-
-  // Session Management
-  maxConcurrentSessions Int @default(2)
-  sessionTimeout        Int @default(30) // minutes
-
-  // Security Settings
-  requirePasswordChange Boolean @default(false)
-  passwordChangeDays    Int     @default(90)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relationships
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  twoFactorEnabled      Boolean  @default(false)
+  twoFactorSecret       String?
+  ipWhitelistEnabled    Boolean  @default(false)
+  maxConcurrentSessions Int      @default(2)
+  sessionTimeout        Int      @default(30)
+  requirePasswordChange Boolean  @default(false)
+  passwordChangeDays    Int      @default(90)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("admin_settings")
 }
@@ -610,9 +436,7 @@ model AdminSession {
   expiresAt      DateTime
   rememberDevice Boolean  @default(false)
   createdAt      DateTime @default(now())
-
-  // Relationships
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -626,9 +450,7 @@ model AdminIpWhitelist {
   description String
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
-
-  // Relationships
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("admin_ip_whitelist")
@@ -665,21 +487,6 @@ model SystemAlert {
   @@map("system_alerts")
 }
 
-enum AlertType {
-  SYSTEM_HEALTH
-  SECURITY
-  PERFORMANCE
-  BILLING
-  USER_ACTIVITY
-}
-
-enum AlertSeverity {
-  CRITICAL
-  WARNING
-  INFO
-  SUCCESS
-}
-
 model PlatformMetrics {
   id          String   @id @default(cuid())
   metricName  String
@@ -698,7 +505,7 @@ model EmailTemplate {
   type      EmailType
   subject   String
   body      String
-  variables Json? // Available template variables
+  variables Json?
   isActive  Boolean   @default(true)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -706,6 +513,392 @@ model EmailTemplate {
   @@index([type])
   @@index([isActive])
   @@map("email_templates")
+}
+
+model FeatureFlag {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String?
+  isEnabled         Boolean  @default(false)
+  rolloutPercentage Int      @default(0)
+  targetTenants     Json?
+  environments      Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([isEnabled])
+  @@map("feature_flags")
+}
+
+model EmailVerification {
+  id        String           @id @default(cuid())
+  userId    String
+  token     String           @unique
+  type      VerificationType
+  expiresAt DateTime
+  used      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("email_verifications")
+}
+
+model Invoice {
+  id               String            @id @default(cuid())
+  tenantId         String
+  invoiceNumber    String            @unique
+  type             InvoiceType
+  status           InvoiceStatus     @default(PENDING)
+  amount           Decimal           @db.Decimal(10, 2)
+  currency         String            @default("USD")
+  dueDate          DateTime
+  paidAt           DateTime?
+  paymentReference String?
+  paymentMethod    String?
+  plan             SubscriptionPlan
+  billingPeriod    String?
+  description      String?
+  pdfUrl           String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  reminders        InvoiceReminder[]
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payments         Payment[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([type])
+  @@map("invoices")
+}
+
+model InvoiceReminder {
+  id        String       @id @default(cuid())
+  invoiceId String
+  tenantId  String
+  sentAt    DateTime
+  type      ReminderType
+  createdAt DateTime     @default(now())
+  invoice   Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([tenantId])
+  @@index([sentAt])
+  @@map("invoice_reminders")
+}
+
+model Payment {
+  id                  String        @id @default(cuid())
+  tenantId            String
+  invoiceId           String
+  amount              Decimal       @db.Decimal(10, 2)
+  currency            String        @default("USD")
+  status              PaymentStatus @default(PENDING)
+  paymentMethod       String        @default("paynow")
+  paynowReference     String?       @unique
+  pollUrl             String?
+  redirectUrl         String?
+  verified            Boolean       @default(false)
+  verifiedAt          DateTime?
+  verificationHash    String?
+  paymentMetadata     Json?
+  errorMessage        String?
+  upgradeActioned     Boolean       @default(false)
+  unsuspendActioned   Boolean       @default(false)
+  emailSent           Boolean       @default(false)
+  adminNotified       Boolean       @default(false)
+  reconciled          Boolean       @default(false)
+  reconciledAt        DateTime?
+  reconciledBy        String?
+  reconciliationNotes String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  invoice             Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tenant              Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@index([status])
+  @@index([paynowReference])
+  @@map("payments")
+}
+
+model SubscriptionHistory {
+  id             String                 @id @default(cuid())
+  tenantId       String
+  fromPlan       SubscriptionPlan
+  toPlan         SubscriptionPlan
+  fromCycle      BillingCycle?
+  toCycle        BillingCycle?
+  changeType     SubscriptionChangeType
+  changeReason   String?
+  proratedAmount Decimal?               @db.Decimal(10, 2)
+  effectiveDate  DateTime
+  changedBy      String
+  metadata       Json?
+  createdAt      DateTime               @default(now())
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([effectiveDate])
+  @@index([changeType])
+  @@map("subscription_history")
+}
+
+model PlanConfiguration {
+  id           String           @id @default(cuid())
+  plan         SubscriptionPlan @unique
+  displayName  String
+  description  String?
+  monthlyPrice Decimal          @db.Decimal(10, 2)
+  yearlyPrice  Decimal          @db.Decimal(10, 2)
+  currency     String           @default("USD")
+  features     Json
+  limits       Json
+  isActive     Boolean          @default(true)
+  sortOrder    Int              @default(0)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@map("plan_configurations")
+}
+
+model SubscriptionMetrics {
+  id                    String   @id @default(cuid())
+  date                  DateTime @unique @db.Date
+  mrr                   Decimal  @db.Decimal(15, 2)
+  arr                   Decimal  @db.Decimal(15, 2)
+  totalSubscriptions    Int      @default(0)
+  activeSubscriptions   Int      @default(0)
+  trialSubscriptions    Int      @default(0)
+  canceledSubscriptions Int      @default(0)
+  freeCount             Int      @default(0)
+  basicCount            Int      @default(0)
+  premiumCount          Int      @default(0)
+  churnedCount          Int      @default(0)
+  churnRate             Decimal  @db.Decimal(5, 2)
+  trialToBasic          Int      @default(0)
+  trialToPremium        Int      @default(0)
+  basicToPremium        Int      @default(0)
+  newRevenue            Decimal  @db.Decimal(15, 2)
+  churnedRevenue        Decimal  @db.Decimal(15, 2)
+  expansionRevenue      Decimal  @db.Decimal(15, 2)
+  createdAt             DateTime @default(now())
+
+  @@index([date])
+  @@map("subscription_metrics")
+}
+
+model WhiteLabel {
+  id               String    @id @default(cuid())
+  tenantId         String    @unique
+  companyName      String
+  logo             String?
+  favicon          String?
+  primaryColor     String    @default("#3b82f6")
+  secondaryColor   String    @default("#1e40af")
+  accentColor      String    @default("#10b981")
+  customDomain     String?   @unique
+  domainVerified   Boolean   @default(false)
+  domainVerifiedAt DateTime?
+  emailFromName    String?
+  emailFromAddress String?
+  supportEmail     String?
+  supportPhone     String?
+  termsUrl         String?
+  privacyUrl       String?
+  customCss        String?
+  customFooter     String?
+  customHeader     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([customDomain])
+  @@map("white_label")
+}
+
+model Notification {
+  id        String               @id @default(cuid())
+  userId    String
+  tenantId  String?
+  type      NotificationType     @default(INFO)
+  title     String
+  message   String
+  priority  NotificationPriority @default(NORMAL)
+  read      Boolean              @default(false)
+  readAt    DateTime?
+  metadata  Json?
+  actionUrl String?
+  createdAt DateTime             @default(now())
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model ScheduledReport {
+  id          String          @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  reportType  ReportType
+  frequency   ReportFrequency
+  format      ReportFormat[]
+  recipients  String[]
+  filters     Json?
+  dayOfWeek   Int?
+  dayOfMonth  Int?
+  timeOfDay   String?
+  timezone    String          @default("UTC")
+  isActive    Boolean         @default(true)
+  nextRunAt   DateTime
+  lastRunAt   DateTime?
+  createdBy   String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  runs        ReportRun[]
+
+  @@index([tenantId])
+  @@index([nextRunAt, isActive])
+  @@index([createdBy])
+  @@map("scheduled_reports")
+}
+
+model ReportRun {
+  id                String          @id @default(cuid())
+  scheduledReportId String
+  status            ReportRunStatus @default(PENDING)
+  startedAt         DateTime        @default(now())
+  completedAt       DateTime?
+  error             String?
+  files             Json?
+  recordCount       Int?
+  emailsSent        Int             @default(0)
+  emailsFailed      Int             @default(0)
+  createdAt         DateTime        @default(now())
+  scheduledReport   ScheduledReport @relation(fields: [scheduledReportId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledReportId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("report_runs")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELED
+}
+
+enum SubscriptionPlan {
+  FREE
+  BASIC
+  PREMIUM
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  FLEET_MANAGER
+  ACCOUNTANT
+  DRIVER
+  USER
+}
+
+enum VehicleType {
+  CAR
+  OMNIBUS
+  BIKE
+}
+
+enum VehicleStatus {
+  ACTIVE
+  UNDER_MAINTENANCE
+  DECOMMISSIONED
+}
+
+enum PaymentModel {
+  OWNER_PAYS
+  DRIVER_REMITS
+  HYBRID
+}
+
+enum DriverStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+}
+
+enum RemittanceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MaintenanceType {
+  ROUTINE_SERVICE
+  TIRE_REPLACEMENT
+  BRAKE_SERVICE
+  ENGINE_REPAIR
+  ELECTRICAL
+  BODY_WORK
+  OTHER
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  TERMINATED
+}
+
+enum ExpenseCategory {
+  FUEL
+  MAINTENANCE
+  INSURANCE
+  LICENSE
+  SALARY
+  ADMINISTRATIVE
+  LOAN_PAYMENT
+  OTHER
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum IncomeSource {
+  REMITTANCE
+  OTHER
+}
+
+enum AlertType {
+  SYSTEM_HEALTH
+  SECURITY
+  PERFORMANCE
+  BILLING
+  USER_ACTIVITY
+}
+
+enum AlertSeverity {
+  CRITICAL
+  WARNING
+  INFO
+  SUCCESS
 }
 
 enum EmailType {
@@ -719,82 +912,10 @@ enum EmailType {
   ADMIN_NOTIFICATION
 }
 
-model FeatureFlag {
-  id                String   @id @default(cuid())
-  name              String   @unique
-  description       String?
-  isEnabled         Boolean  @default(false)
-  rolloutPercentage Int      @default(0) // 0-100
-  targetTenants     Json? // Array of tenant IDs or conditions
-  environments      Json? // Array of environments (prod, staging, dev)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@index([isEnabled])
-  @@map("feature_flags")
-}
-
-// ============================================
-// EMAIL AND VERIFICATION TABLES
-// ============================================
-
-model EmailVerification {
-  id        String           @id @default(cuid())
-  userId    String
-  token     String           @unique
-  type      VerificationType
-  expiresAt DateTime
-  used      Boolean          @default(false)
-  createdAt DateTime         @default(now())
-
-  // Relationships
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([token])
-  @@index([expiresAt])
-  @@map("email_verifications")
-}
-
 enum VerificationType {
   EMAIL_VERIFICATION
   PASSWORD_RESET
   TWO_FACTOR
-}
-
-// ============================================
-// INVOICE AND BILLING TABLES
-// ============================================
-
-model Invoice {
-  id               String           @id @default(cuid())
-  tenantId         String
-  invoiceNumber    String           @unique
-  type             InvoiceType
-  status           InvoiceStatus    @default(PENDING)
-  amount           Decimal          @db.Decimal(10, 2)
-  currency         String           @default("USD")
-  dueDate          DateTime
-  paidAt           DateTime?
-  paymentReference String? // Transaction reference from payment gateway
-  paymentMethod    String? // Payment method used (PAYNOW, CARD, etc.)
-  plan             SubscriptionPlan
-  billingPeriod    String? // e.g., "2024-01-01 to 2024-01-31"
-  description      String?
-  pdfUrl           String? // S3 URL for generated PDF
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-
-  // Relationships
-  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  reminders InvoiceReminder[]
-  payments  Payment[]
-
-  @@index([tenantId])
-  @@index([status])
-  @@index([dueDate])
-  @@index([type])
-  @@map("invoices")
 }
 
 enum InvoiceType {
@@ -813,82 +934,11 @@ enum InvoiceStatus {
   REFUNDED
 }
 
-model InvoiceReminder {
-  id        String       @id @default(cuid())
-  invoiceId String
-  tenantId  String
-  sentAt    DateTime
-  type      ReminderType
-  createdAt DateTime     @default(now())
-
-  // Relationships
-  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([invoiceId])
-  @@index([tenantId])
-  @@index([sentAt])
-  @@map("invoice_reminders")
-}
-
 enum ReminderType {
   SEVEN_DAYS
   THREE_DAYS
   ONE_DAY
   OVERDUE
-}
-
-// ============================================
-// PAYMENT AND SUBSCRIPTION TABLES
-// ============================================
-
-model Payment {
-  id                String        @id @default(cuid())
-  tenantId          String
-  invoiceId         String
-  amount            Decimal       @db.Decimal(10, 2)
-  currency          String        @default("USD")
-  status            PaymentStatus @default(PENDING)
-  paymentMethod     String        @default("paynow")
-
-  // Payment gateway fields
-  paynowReference   String?       @unique
-  pollUrl           String?
-  redirectUrl       String?
-
-  // Verification
-  verified          Boolean       @default(false)
-  verifiedAt        DateTime?
-  verificationHash  String?
-
-  // Metadata
-  paymentMetadata   Json?
-  errorMessage      String?
-
-  // Action tracking
-  upgradeActioned   Boolean       @default(false)
-  unsuspendActioned Boolean       @default(false)
-  emailSent         Boolean       @default(false)
-  adminNotified     Boolean       @default(false)
-
-  // Admin reconciliation
-  reconciled        Boolean       @default(false)
-  reconciledAt      DateTime?
-  reconciledBy      String?
-  reconciliationNotes String?
-
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-
-  // Relationships
-  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([invoiceId])
-  @@index([status])
-  @@index([paynowReference])
-  @@map("payments")
 }
 
 enum PaymentStatus {
@@ -897,30 +947,6 @@ enum PaymentStatus {
   FAILED
   REFUNDED
   CANCELLED
-}
-
-model SubscriptionHistory {
-  id            String           @id @default(cuid())
-  tenantId      String
-  fromPlan      SubscriptionPlan
-  toPlan        SubscriptionPlan
-  fromCycle     BillingCycle?
-  toCycle       BillingCycle?
-  changeType    SubscriptionChangeType
-  changeReason  String?
-  proratedAmount Decimal?        @db.Decimal(10, 2)
-  effectiveDate DateTime
-  changedBy     String           // userId or "system"
-  metadata      Json?
-  createdAt     DateTime         @default(now())
-
-  // Relationships
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([effectiveDate])
-  @@index([changeType])
-  @@map("subscription_history")
 }
 
 enum SubscriptionChangeType {
@@ -932,146 +958,6 @@ enum SubscriptionChangeType {
   RENEWAL
   CANCELLATION
   REACTIVATION
-}
-
-model PlanConfiguration {
-  id                String           @id @default(cuid())
-  plan              SubscriptionPlan @unique
-  displayName       String
-  description       String?
-  monthlyPrice      Decimal          @db.Decimal(10, 2)
-  yearlyPrice       Decimal          @db.Decimal(10, 2)
-  currency          String           @default("USD")
-  features          Json             // Array of feature strings
-  limits            Json             // Vehicle limits, user limits, etc.
-  isActive          Boolean          @default(true)
-  sortOrder         Int              @default(0)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-
-  @@map("plan_configurations")
-}
-
-model SubscriptionMetrics {
-  id                    String   @id @default(cuid())
-  date                  DateTime @unique @db.Date
-
-  // Revenue metrics
-  mrr                   Decimal  @db.Decimal(15, 2) // Monthly Recurring Revenue
-  arr                   Decimal  @db.Decimal(15, 2) // Annual Recurring Revenue
-
-  // Subscription counts
-  totalSubscriptions    Int      @default(0)
-  activeSubscriptions   Int      @default(0)
-  trialSubscriptions    Int      @default(0)
-  canceledSubscriptions Int      @default(0)
-
-  // Plan distribution
-  freeCount             Int      @default(0)
-  basicCount            Int      @default(0)
-  premiumCount          Int      @default(0)
-
-  // Churn metrics
-  churnedCount          Int      @default(0)
-  churnRate             Decimal  @db.Decimal(5, 2) // Percentage
-
-  // Conversion metrics
-  trialToBasic          Int      @default(0)
-  trialToPremium        Int      @default(0)
-  basicToPremium        Int      @default(0)
-
-  // Financial metrics
-  newRevenue            Decimal  @db.Decimal(15, 2)
-  churnedRevenue        Decimal  @db.Decimal(15, 2)
-  expansionRevenue      Decimal  @db.Decimal(15, 2) // From upgrades
-
-  createdAt             DateTime @default(now())
-
-  @@index([date])
-  @@map("subscription_metrics")
-}
-
-// ============================================
-// WHITE-LABEL & CUSTOM BRANDING (PREMIUM)
-// ============================================
-
-model WhiteLabel {
-  id                String   @id @default(cuid())
-  tenantId          String   @unique
-
-  // Branding
-  companyName       String
-  logo              String?   // S3 URL
-  favicon           String?   // S3 URL
-  primaryColor      String   @default("#3b82f6")
-  secondaryColor    String   @default("#1e40af")
-  accentColor       String   @default("#10b981")
-
-  // Custom domain
-  customDomain      String?  @unique
-  domainVerified    Boolean  @default(false)
-  domainVerifiedAt  DateTime?
-
-  // Email customization
-  emailFromName     String?
-  emailFromAddress  String?
-
-  // Contact customization
-  supportEmail      String?
-  supportPhone      String?
-
-  // Legal pages
-  termsUrl          String?
-  privacyUrl        String?
-
-  // Advanced customization
-  customCss         String?  @db.Text
-  customFooter      String?  @db.Text
-  customHeader      String?  @db.Text
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Relationships
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([customDomain])
-  @@map("white_label")
-}
-
-// ============================================
-// NOTIFICATIONS
-// ============================================
-
-model Notification {
-  id        String              @id @default(cuid())
-  userId    String
-  tenantId  String?
-
-  // Notification content
-  type      NotificationType    @default(INFO)
-  title     String
-  message   String              @db.Text
-  priority  NotificationPriority @default(NORMAL)
-
-  // Status
-  read      Boolean             @default(false)
-  readAt    DateTime?
-
-  // Additional data
-  metadata  Json?
-  actionUrl String?             // Link to relevant page
-
-  createdAt DateTime            @default(now())
-
-  // Relationships
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, read])
-  @@index([tenantId])
-  @@index([createdAt])
-  @@map("notifications")
 }
 
 enum NotificationType {
@@ -1090,81 +976,6 @@ enum NotificationPriority {
   NORMAL
   HIGH
   URGENT
-}
-
-// ============================================
-// SCHEDULED REPORTS (PREMIUM)
-// ============================================
-
-model ScheduledReport {
-  id           String            @id @default(cuid())
-  tenantId     String
-
-  // Report configuration
-  name         String
-  description  String?
-  reportType   ReportType
-  frequency    ReportFrequency
-  format       ReportFormat[]
-
-  // Delivery
-  recipients   String[]          // Array of email addresses
-
-  // Filters
-  filters      Json?             // Date ranges, vehicle IDs, etc.
-
-  // Schedule
-  dayOfWeek    Int?              // 0-6 for weekly reports
-  dayOfMonth   Int?              // 1-31 for monthly reports
-  timeOfDay    String?           // HH:MM format
-  timezone     String            @default("UTC")
-
-  // Status
-  isActive     Boolean           @default(true)
-  nextRunAt    DateTime
-  lastRunAt    DateTime?
-
-  // Metadata
-  createdBy    String            // userId
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-
-  // Relationships
-  runs ReportRun[]
-
-  @@index([tenantId])
-  @@index([nextRunAt, isActive])
-  @@index([createdBy])
-  @@map("scheduled_reports")
-}
-
-model ReportRun {
-  id                String              @id @default(cuid())
-  scheduledReportId String
-
-  // Execution status
-  status            ReportRunStatus     @default(PENDING)
-  startedAt         DateTime            @default(now())
-  completedAt       DateTime?
-
-  // Results
-  error             String?             @db.Text
-  files             Json?               // { pdf: "s3://...", csv: "s3://...", excel: "s3://..." }
-  recordCount       Int?                // Number of records in report
-
-  // Delivery status
-  emailsSent        Int                 @default(0)
-  emailsFailed      Int                 @default(0)
-
-  createdAt         DateTime            @default(now())
-
-  // Relationships
-  scheduledReport ScheduledReport @relation(fields: [scheduledReportId], references: [id], onDelete: Cascade)
-
-  @@index([scheduledReportId])
-  @@index([status])
-  @@index([startedAt])
-  @@map("report_runs")
 }
 
 enum ReportType {

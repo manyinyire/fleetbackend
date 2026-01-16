@@ -257,7 +257,7 @@ export default function SubscriptionsPage() {
                       {sub.subscriptionStart ? new Date(sub.subscriptionStart).toLocaleDateString() : "—"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                      {sub.plan !== 'FREE' && sub.nextBilling ? new Date(sub.nextBilling).toLocaleDateString() : "—"}
+                      {sub.nextBilling ? new Date(sub.nextBilling).toLocaleDateString() : "—"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                       {sub.trialEndsAt ? new Date(sub.trialEndsAt).toLocaleDateString() : "—"}

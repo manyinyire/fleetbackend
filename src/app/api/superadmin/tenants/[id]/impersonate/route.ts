@@ -90,11 +90,51 @@ export async function POST(
       }
     }
 
-    // TODO: Implement impersonation when BetterAuth supports it
+    // Create impersonation session
+    const session = await prisma.session.create({
+      data: {
+        userId: targetUser.id,
+        token: `imp_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+        expiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours
+        impersonatedBy: adminUser.id,
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent') || 'unknown'
+      }
+    });
+
+    // Log impersonation in audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: adminUser.id,
+        tenantId: tenantId,
+        action: 'IMPERSONATE_START',
+        entityType: 'User',
+        entityId: targetUser.id,
+        details: {
+          reason,
+          targetUserEmail: targetUser.email,
+          targetUserRole: targetUser.role,
+          tenantName: tenant.name
+        },
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent') || 'unknown'
+      }
+    });
+
+    // Track active impersonation
+    if (!activeImpersonations.has(adminUser.id)) {
+      activeImpersonations.set(adminUser.id, new Set());
+    }
+    activeImpersonations.get(adminUser.id)!.add(tenantId);
+
     return NextResponse.json({
-      success: false,
-      error: 'Impersonation feature not yet implemented'
-    }, { status: 501 });
+      success: true,
+      data: {
+        sessionToken: session.token,
+        redirectUrl: '/dashboard',
+        message: `Now impersonating ${targetUser.name} (${targetUser.email})`
+      }
+    });
   } catch (error: any) {
     console.error('Impersonation error:', error);
     return NextResponse.json(

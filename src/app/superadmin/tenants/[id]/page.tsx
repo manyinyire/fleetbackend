@@ -71,6 +71,13 @@ export default function TenantDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    plan: "",
+    status: ""
+  });
 
   useEffect(() => {
     loadTenant();
@@ -83,6 +90,13 @@ export default function TenantDetailsPage() {
       const response = await superAdminAPI.getTenant(tenantId) as { success: boolean; data?: any };
       if (response.success && response.data) {
         setTenant(response.data);
+        setEditForm({
+          name: response.data.name || "",
+          email: response.data.email || "",
+          phone: response.data.phone || "",
+          plan: response.data.plan || "FREE",
+          status: response.data.status || "ACTIVE"
+        });
       } else {
         setError("Failed to load tenant");
       }
@@ -95,9 +109,9 @@ export default function TenantDetailsPage() {
   };
 
   const handleImpersonate = async () => {
-    const reason = prompt(`Enter reason for impersonating ${tenant?.name}:`);
-    if (!reason || reason.trim().length === 0) {
-      alert("Reason is required for impersonation");
+    const reason = prompt(`Enter reason for impersonating ${tenant?.name} (minimum 10 characters):`);
+    if (!reason || reason.trim().length < 10) {
+      alert("Detailed reason is required (minimum 10 characters)");
       return;
     }
 
@@ -106,16 +120,20 @@ export default function TenantDetailsPage() {
     }
 
     try {
-      const response = await superAdminAPI.impersonateTenant(tenantId, reason) as { success: boolean; data?: { redirectUrl?: string }; error?: string };
+      const response = await superAdminAPI.impersonateTenant(tenantId, reason) as { success: boolean; data?: { sessionToken?: string; redirectUrl?: string; message?: string }; error?: string };
       if (response.success && response.data) {
+        // Store impersonation flag
+        sessionStorage.setItem('impersonating', 'true');
+        sessionStorage.setItem('impersonation_message', response.data.message || 'Impersonating tenant');
+        
         // Redirect to tenant dashboard
         window.location.href = response.data.redirectUrl || '/dashboard';
       } else {
-        alert("Failed to start impersonation");
+        alert(response.error || "Failed to start impersonation");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Impersonation error:", err);
-      alert("Failed to start impersonation");
+      alert(err.message || "Failed to start impersonation");
     }
   };
 
@@ -140,6 +158,47 @@ export default function TenantDetailsPage() {
       loadTenant();
     } catch (err) {
       alert("Failed to cancel tenant");
+    }
+  };
+
+  const handleActivate = async () => {
+    if (!confirm(`Are you sure you want to activate ${tenant?.name}?`)) {
+      return;
+    }
+    try {
+      await superAdminAPI.updateTenant(tenantId, { status: "ACTIVE" });
+      loadTenant();
+    } catch (err) {
+      alert("Failed to activate tenant");
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      const response = await superAdminAPI.updateTenant(tenantId, editForm) as { success: boolean; error?: string };
+      if (response.success) {
+        alert("Tenant updated successfully");
+        setEditing(false);
+        loadTenant();
+      } else {
+        alert(response.error || "Failed to update tenant");
+      }
+    } catch (err: any) {
+      console.error("Error updating tenant:", err);
+      alert(err.message || "Failed to update tenant");
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditing(false);
+    if (tenant) {
+      setEditForm({
+        name: tenant.name,
+        email: tenant.email,
+        phone: tenant.phone || "",
+        plan: tenant.plan,
+        status: tenant.status
+      });
     }
   };
 
@@ -200,6 +259,24 @@ export default function TenantDetailsPage() {
             <UserIcon className="h-4 w-4 mr-2" />
             Impersonate
           </button>
+          {tenant?.status === "SUSPENDED" && (
+            <button
+              onClick={handleActivate}
+              className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
+            >
+              <CheckCircleIcon className="h-4 w-4 mr-2" />
+              Activate
+            </button>
+          )}
+          {tenant?.status === "ACTIVE" && (
+            <button
+              onClick={handleSuspend}
+              className="inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800"
+            >
+              <XCircleIcon className="h-4 w-4 mr-2" />
+              Suspend
+            </button>
+          )}
           <button
             onClick={() => setEditing(!editing)}
             className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
@@ -209,6 +286,80 @@ export default function TenantDetailsPage() {
           </button>
         </div>
       </div>
+
+      {/* Edit Form */}
+      {editing && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-indigo-200 dark:border-indigo-700 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Edit Tenant Details</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Name</label>
+              <input
+                type="text"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
+              <input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone</label>
+              <input
+                type="text"
+                value={editForm.phone}
+                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Plan</label>
+              <select
+                value={editForm.plan}
+                onChange={(e) => setEditForm({ ...editForm, plan: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              >
+                <option value="FREE">Free</option>
+                <option value="BASIC">Basic</option>
+                <option value="PREMIUM">Premium</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+              <select
+                value={editForm.status}
+                onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              >
+                <option value="ACTIVE">Active</option>
+                <option value="SUSPENDED">Suspended</option>
+                <option value="CANCELED">Canceled</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-3 mt-6">
+            <button
+              onClick={handleCancelEdit}
+              className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveEdit}
+              className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tenant Info Header */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
@@ -232,6 +383,38 @@ export default function TenantDetailsPage() {
                 Created: {new Date(tenant.createdAt).toLocaleDateString()}
               </div>
             </div>
+            {/* Subscription Period */}
+            {(tenant.subscriptionStartDate || tenant.subscriptionEndDate) && (
+              <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-indigo-900 dark:text-indigo-300 uppercase tracking-wide">Subscription Period</p>
+                    <div className="flex items-center space-x-4 mt-1">
+                      {tenant.subscriptionStartDate && (
+                        <div className="text-sm text-indigo-700 dark:text-indigo-400">
+                          <span className="font-medium">Start:</span> {new Date(tenant.subscriptionStartDate).toLocaleDateString()}
+                        </div>
+                      )}
+                      {tenant.subscriptionEndDate && (
+                        <div className="text-sm text-indigo-700 dark:text-indigo-400">
+                          <span className="font-medium">End:</span> {new Date(tenant.subscriptionEndDate).toLocaleDateString()}
+                        </div>
+                      )}
+                      {tenant.subscriptionEndDate && (
+                        <div className="text-xs text-indigo-600 dark:text-indigo-400">
+                          ({Math.ceil((new Date(tenant.subscriptionEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days remaining)
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {tenant.autoRenew && (
+                    <div className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">
+                      Auto-renew enabled
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex flex-col items-end space-y-2">
             <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${statusColors[tenant.status as keyof typeof statusColors]}`}>
@@ -505,16 +688,31 @@ export default function TenantDetailsPage() {
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment Method</h3>
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <div className="flex items-center justify-between">
+                {tenant.invoices && tenant.invoices.length > 0 && tenant.invoices[0]?.paymentMethod ? (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <CreditCardIcon className="h-6 w-6 text-gray-400 mr-3" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                          {tenant.invoices[0].paymentMethod === 'PAYNOW' ? 'PayNow' : 
+                           tenant.invoices[0].paymentMethod === 'CARD' ? 'Credit/Debit Card' : 
+                           tenant.invoices[0].paymentMethod}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Last used: {new Date(tenant.invoices[0].paidAt || tenant.invoices[0].createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
                   <div className="flex items-center">
                     <CreditCardIcon className="h-6 w-6 text-gray-400 mr-3" />
                     <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">Card ending in 4242</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Expires 12/2026</p>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No payment method on file</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Payment method will be recorded after first payment</p>
                     </div>
                   </div>
-                  <button className="text-sm text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">Update</button>
-                </div>
+                )}
               </div>
             </div>
 

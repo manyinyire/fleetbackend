@@ -101,6 +101,23 @@ const nextAuthResult = NextAuth({
         session.user.role = token.role as string
         session.user.tenantId = token.tenantId as string | null
         session.user.emailVerified = token.emailVerified as Date | null
+        
+        // Fetch fresh tenant data to ensure users see latest plan/status
+        if (token.tenantId) {
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: token.tenantId as string },
+            select: { 
+              id: true, 
+              name: true, 
+              plan: true, 
+              status: true,
+              slug: true
+            }
+          });
+          if (tenant) {
+            session.user.tenant = tenant;
+          }
+        }
       }
       return session
     },

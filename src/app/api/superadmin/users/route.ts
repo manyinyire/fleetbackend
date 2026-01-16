@@ -79,24 +79,29 @@ export async function GET(request: NextRequest) {
 
     // Transform users with calculated fields
     const usersWithMetrics = usersWithTenant.map(user => {
-      const lastLogin = user.sessions[0]?.createdAt || null;
-      const isActive = lastLogin && new Date(lastLogin) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const lastLoginAt = user.sessions[0]?.createdAt || null;
+      const isActive = lastLoginAt && new Date(lastLoginAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
       return {
         id: user.id,
         email: user.email,
         name: user.name,
+        image: user.image,
         role: user.role,
         emailVerified: user.emailVerified,
         createdAt: user.createdAt,
-        lastLogin,
+        lastLoginAt,
         isActive,
         banned: user.banned,
         banReason: user.banReason,
+        banExpires: user.banExpires,
         tenantId: user.tenantId,
-        tenantName: user.tenant?.name || 'No Tenant',
-        tenantSlug: user.tenant?.slug || null,
-        tenantStatus: user.tenant?.status || null,
+        tenant: user.tenant ? {
+          id: user.tenant.id,
+          name: user.tenant.name,
+          slug: user.tenant.slug,
+          status: user.tenant.status,
+        } : null,
         totalSessions: user._count.sessions,
       };
     });
@@ -129,14 +134,24 @@ export async function GET(request: NextRequest) {
     ]);
 
     return NextResponse.json({
-      users: usersWithMetrics,
-      total,
-      page,
-      limit,
-      stats: {
-        roleDistribution: roleStats,
-        activeUsers: activeUsersCount,
-        bannedUsers: bannedUsersCount,
+      success: true,
+      data: {
+        users: usersWithMetrics,
+        stats: {
+          total,
+          active: activeUsersCount,
+          superAdmins: roleStats.find(r => r.role === 'SUPER_ADMIN')?._count.role || 0,
+          suspended: bannedUsersCount,
+          roleDistribution: roleStats,
+          activeUsers: activeUsersCount,
+          bannedUsers: bannedUsersCount,
+        },
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit)
+        }
       }
     });
   } catch (error) {

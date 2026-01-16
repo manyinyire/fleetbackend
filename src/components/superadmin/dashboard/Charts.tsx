@@ -44,10 +44,16 @@ export function RevenueTrendChart({ data }: RevenueTrendChartProps) {
         return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
       }),
       labels: {
+        rotate: -45,
+        rotateAlways: true,
+        hideOverlappingLabels: true,
+        trim: false,
         style: {
-          colors: "#6B7280"
+          colors: "#6B7280",
+          fontSize: '11px'
         }
-      }
+      },
+      tickAmount: Math.min(data.length, 12)
     },
     yaxis: {
       labels: {
@@ -122,10 +128,16 @@ export function TenantGrowthChart({ data }: TenantGrowthChartProps) {
         return date.toLocaleDateString('en-US', { month: 'short' });
       }),
       labels: {
+        rotate: -45,
+        rotateAlways: true,
+        hideOverlappingLabels: true,
+        trim: false,
         style: {
-          colors: "#6B7280"
+          colors: "#6B7280",
+          fontSize: '11px'
         }
-      }
+      },
+      tickAmount: Math.min(data.length, 12)
     },
     yaxis: {
       labels: {
