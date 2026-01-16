@@ -47,7 +47,7 @@ export function UserInfo() {
         }
       }
     } catch (error) {
-      console.error('Error fetching plan:', error);
+      // Removed console.error statement
     } finally {
       setLoadingPlan(false);
     }

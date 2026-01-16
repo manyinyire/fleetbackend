@@ -183,7 +183,7 @@ export function ExpressCheckoutModal({
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                   >
-                    <div className="font-semibold text-gray-900 dark:text-white">O'mari</div>
+                    <div className="font-semibold text-gray-900 dark:text-white">O&apos;mari</div>
                   </button>
                 </div>
               </div>
@@ -236,7 +236,7 @@ export function ExpressCheckoutModal({
               </div>
 
               <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-                This may take a few moments. Please don't close this window.
+                This may take a few moments. Please don&apos;t close this window.
               </p>
             </div>
           )}

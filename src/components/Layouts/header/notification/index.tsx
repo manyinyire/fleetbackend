@@ -54,7 +54,6 @@ export function Notification() {
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         // Not JSON response, likely an error page or redirect
-        console.warn('Notifications API did not return JSON');
         return;
       }
 
@@ -64,8 +63,7 @@ export function Notification() {
         setIsDotVisible((data.notifications || []).length > 0);
       }
     } catch (error) {
-      // Silently fail for notifications - they're not critical
-      console.warn('Error fetching notifications:', error);
+      // Silent fail
     } finally {
       setLoading(false);
     }

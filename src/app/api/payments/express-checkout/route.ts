@@ -107,7 +107,7 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
       data: {
         status: 'FAILED',
         paymentMetadata: {
-          ...payment.paymentMetadata,
+          ...(payment.paymentMetadata as object || {}),
           error: paynowResponse.error,
         },
       },
