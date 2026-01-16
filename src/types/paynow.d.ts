@@ -6,6 +6,7 @@ declare module "paynow" {
     
     createPayment(reference: string, authEmail: string): Payment;
     send(payment: Payment): Promise<InitResponse>;
+    sendMobile(payment: Payment, phone: string, method: string): Promise<InitResponse>;
     pollTransaction(pollUrl: string): Promise<StatusResponse>;
   }
 
@@ -17,8 +18,10 @@ declare module "paynow" {
     success: boolean;
     pollUrl?: string;
     redirectUrl?: string;
+    instructions?: string;
     hash?: string;
     error?: string;
+    status?: string;
   }
 
   export interface StatusResponse {

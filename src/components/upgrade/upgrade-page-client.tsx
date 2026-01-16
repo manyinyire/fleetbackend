@@ -9,6 +9,7 @@ import {
   ArrowUpIcon,
   CurrencyDollarIcon 
 } from '@heroicons/react/24/outline';
+import { ExpressCheckoutModal } from '@/components/payments/express-checkout-modal';
 
 interface Plan {
   id: string;
@@ -26,6 +27,12 @@ export function UpgradePageClient() {
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState<string | null>(null);
   const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
+  const [showExpressCheckout, setShowExpressCheckout] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<{
+    id: string;
+    number: string;
+    amount: number;
+  } | null>(null);
 
   useEffect(() => {
     fetchPlanInfo();
@@ -33,9 +40,18 @@ export function UpgradePageClient() {
 
   const fetchPlanInfo = async () => {
     try {
-      const response = await fetch('/api/tenant/plan');
+      // Add cache-busting with timestamp to ensure fresh data
+      const timestamp = new Date().getTime();
+      const response = await fetch(`/api/tenant/plan?_t=${timestamp}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        }
+      });
       if (response.ok) {
         const data = await response.json();
+        console.log('Fetched plan info:', data); // Debug log
         if (data.success) {
           setPlanInfo(data);
         }
@@ -71,39 +87,16 @@ export function UpgradePageClient() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        toast.success(`Upgrade invoice created and sent! Check your email for invoice ${data.invoice.invoiceNumber}`);
+        toast.success(`Upgrade invoice created! Invoice ${data.invoice.invoiceNumber}`);
         
-        // Initiate payment
-        try {
-          const paymentResponse = await fetch('/api/payments/initiate', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ invoiceId: data.invoice.id }),
-          });
-
-          // Check if payment response is JSON
-          const paymentContentType = paymentResponse.headers.get('content-type');
-          if (!paymentContentType || !paymentContentType.includes('application/json')) {
-            const text = await paymentResponse.text();
-            console.error('Payment server returned non-JSON response:', text.substring(0, 200));
-            toast.error('Payment error: Invalid response format');
-            return;
-          }
-
-          const paymentData = await paymentResponse.json();
-
-          if (paymentResponse.ok && paymentData.success) {
-            // Redirect to Paynow payment page
-            window.location.href = paymentData.redirectUrl;
-          } else {
-            toast.error(paymentData.error || 'Failed to initiate payment');
-          }
-        } catch (error) {
-          console.error('Error initiating payment:', error);
-          toast.error('Failed to initiate payment');
-        }
+        // Open Express Checkout modal
+        setSelectedInvoice({
+          id: data.invoice.id,
+          number: data.invoice.invoiceNumber,
+          amount: Number(data.invoice.amount),
+        });
+        setShowExpressCheckout(true);
+        setUpgrading(null);
       } else {
         toast.error(data.error || 'Failed to create upgrade invoice');
       }
@@ -163,11 +156,22 @@ export function UpgradePageClient() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Upgrade Your Plan</h1>
-        <p className="mt-2 text-gray-600">
-          Choose a plan that fits your fleet management needs
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Upgrade Your Plan</h1>
+          <p className="mt-2 text-gray-600">
+            Choose a plan that fits your fleet management needs
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            setLoading(true);
+            fetchPlanInfo();
+          }}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          Refresh Plans
+        </button>
       </div>
 
       {/* Current Plan Display */}
@@ -285,13 +289,33 @@ export function UpgradePageClient() {
             <h4 className="font-semibold text-gray-900 mb-1">How Upgrades Work</h4>
             <ul className="text-sm text-gray-600 space-y-1">
               <li>• An invoice will be generated for the upgrade amount</li>
-              <li>• The invoice will be sent to your email immediately</li>
+              <li>• Pay instantly with mobile money (EcoCash, OneMoney, etc.)</li>
               <li>• Your plan will be upgraded automatically once payment is confirmed</li>
               <li>• You&apos;ll be charged the difference between your current and new plan</li>
             </ul>
           </div>
         </div>
       </div>
+
+      {/* Express Checkout Modal */}
+      {showExpressCheckout && selectedInvoice && (
+        <ExpressCheckoutModal
+          invoiceId={selectedInvoice.id}
+          amount={selectedInvoice.amount}
+          invoiceNumber={selectedInvoice.number}
+          onSuccess={() => {
+            setShowExpressCheckout(false);
+            setSelectedInvoice(null);
+            toast.success('Payment successful! Your plan has been upgraded.');
+            router.push('/billing');
+          }}
+          onClose={() => {
+            setShowExpressCheckout(false);
+            setSelectedInvoice(null);
+            setUpgrading(null);
+          }}
+        />
+      )}
     </div>
   );
 }

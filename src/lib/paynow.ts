@@ -73,7 +73,71 @@ export function verifyInitiationHash(
 }
 
 /**
- * Create a payment for an invoice
+ * Express Checkout - Process mobile money payment without browser redirect
+ * Supports: ecocash, onemoney, innbucks, omari
+ */
+export async function createExpressCheckout(
+  invoiceId: string,
+  amount: number,
+  email: string,
+  phone: string,
+  method: 'ecocash' | 'onemoney' | 'innbucks' | 'omari',
+  description: string
+) {
+  const paynow = getPaynowInstance();
+  
+  // Use merchant email for auth
+  const authEmail = process.env.PAYNOW_MERCHANT_EMAIL?.trim() || email;
+  
+  apiLogger.info({
+    invoiceId,
+    method,
+    phone,
+    authEmail,
+  }, 'Express Checkout initiation');
+
+  try {
+    // Create payment
+    const payment = paynow.createPayment(invoiceId, authEmail);
+    payment.add(description, amount);
+
+    // Send mobile payment (express checkout)
+    const response = await paynow.sendMobile(payment, phone, method);
+
+    apiLogger.info({ response }, 'Express Checkout response');
+
+    if (response.success) {
+      return {
+        success: true,
+        pollUrl: response.pollUrl,
+        instructions: response.instructions, // USSD code for mobile money
+        status: response.status,
+        error: null,
+      };
+    } else {
+      apiLogger.error({ error: response.error }, 'Express Checkout failed');
+      return {
+        success: false,
+        error: response.error || 'Express checkout failed',
+        pollUrl: null,
+        instructions: null,
+        status: null,
+      };
+    }
+  } catch (error) {
+    apiLogger.error({ err: error }, 'Express Checkout exception');
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+      pollUrl: null,
+      instructions: null,
+      status: null,
+    };
+  }
+}
+
+/**
+ * Create a payment for an invoice (Standard redirect flow)
  */
 export async function createPayment(
   invoiceId: string,
@@ -190,7 +254,7 @@ export async function createPayment(
  * Always verify payment status from PayNow servers, never trust client-side data
  * Includes retry logic with exponential backoff for reliability
  */
-export async function checkPaymentStatus(pollUrl: string, retries = 3) {
+export async function checkPaymentStatus(pollUrl: string, retries = 2) {
   let lastError: any;
   
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -230,8 +294,8 @@ export async function checkPaymentStatus(pollUrl: string, retries = 3) {
       
       // Don't retry on last attempt
       if (attempt < retries) {
-        // Exponential backoff: 1s, 2s, 4s
-        const delay = Math.pow(2, attempt - 1) * 1000;
+        // Reduced delay: 500ms for faster verification
+        const delay = 500;
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { DocumentTextIcon, PaperAirplaneIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
+import { ExpressCheckoutModal } from '@/components/payments/express-checkout-modal';
 
 interface Invoice {
   id: string;
@@ -26,6 +27,12 @@ export function InvoiceManager({ tenantId }: InvoiceManagerProps = {}) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
+  const [showExpressCheckout, setShowExpressCheckout] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<{
+    id: string;
+    number: string;
+    amount: number;
+  } | null>(null);
 
   useEffect(() => {
     fetchInvoices();
@@ -50,36 +57,13 @@ export function InvoiceManager({ tenantId }: InvoiceManagerProps = {}) {
     }
   };
 
-  const handlePayNow = async (invoiceId: string) => {
-    setPayingInvoiceId(invoiceId);
-    try {
-      const response = await fetch('/api/payments/initiate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ invoiceId }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.redirectUrl) {
-        // Store payment ID in localStorage for verification later
-        if (data.paymentId) {
-          localStorage.setItem('lastPaymentId', data.paymentId);
-        }
-
-        // Redirect to PayNow payment page
-        window.location.href = data.redirectUrl;
-      } else {
-        toast.error(data.error || 'Failed to initiate payment');
-        setPayingInvoiceId(null);
-      }
-    } catch (error) {
-      console.error('Payment error:', error);
-      toast.error('Error initiating payment');
-      setPayingInvoiceId(null);
-    }
+  const handlePayNow = (invoice: Invoice) => {
+    setSelectedInvoice({
+      id: invoice.id,
+      number: invoice.invoiceNumber,
+      amount: Number(invoice.amount),
+    });
+    setShowExpressCheckout(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -206,18 +190,10 @@ export function InvoiceManager({ tenantId }: InvoiceManagerProps = {}) {
                       <div className="flex space-x-2 items-center">
                         {invoice.status === 'PENDING' && (
                           <button
-                            onClick={() => handlePayNow(invoice.id)}
-                            disabled={payingInvoiceId === invoice.id}
-                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => handlePayNow(invoice)}
+                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                           >
-                            {payingInvoiceId === invoice.id ? (
-                              <>
-                                <span className="inline-block h-3 w-3 mr-1.5 animate-spin rounded-full border-2 border-solid border-white border-t-transparent" />
-                                Processing...
-                              </>
-                            ) : (
-                              'Pay Now'
-                            )}
+                            Pay Now
                           </button>
                         )}
                         {invoice.pdfUrl && (
@@ -240,6 +216,25 @@ export function InvoiceManager({ tenantId }: InvoiceManagerProps = {}) {
           </div>
         )}
       </div>
+
+      {/* Express Checkout Modal */}
+      {showExpressCheckout && selectedInvoice && (
+        <ExpressCheckoutModal
+          invoiceId={selectedInvoice.id}
+          amount={selectedInvoice.amount}
+          invoiceNumber={selectedInvoice.number}
+          onSuccess={() => {
+            setShowExpressCheckout(false);
+            setSelectedInvoice(null);
+            toast.success('Payment successful!');
+            fetchInvoices(); // Refresh invoice list
+          }}
+          onClose={() => {
+            setShowExpressCheckout(false);
+            setSelectedInvoice(null);
+          }}
+        />
+      )}
     </div>
   );
 }

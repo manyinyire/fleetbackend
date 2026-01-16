@@ -115,7 +115,7 @@ const nextAuthResult = NextAuth({
             }
           });
           if (tenant) {
-            session.user.tenant = tenant;
+            (session.user as any).tenant = tenant;
           }
         }
       }

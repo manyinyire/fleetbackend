@@ -232,37 +232,40 @@ export const POST = withTenantAuth(async ({ prisma, tenantId, user, request }) =
     }
   }
 
-  // Send payment success notification
-  await NotificationService.notifyPaymentSuccess(
-    payment.tenantId,
-    user.id,
-    Number(payment.amount),
-    payment.invoice.invoiceNumber
-  ).catch((err) => {
-    apiLogger.error({ err }, 'Payment notification failed');
-    // Don't fail the payment if notification fails
-  });
-
-  // Notify about upgrade if applicable
-  if (payment.invoice.type === 'UPGRADE' && payment.invoice.plan) {
-    await NotificationService.notifyUpgradeSuccess(
+  // Send notifications in background (fire-and-forget for faster response)
+  Promise.all([
+    NotificationService.notifyPaymentSuccess(
       payment.tenantId,
       user.id,
-      payment.invoice.plan
+      Number(payment.amount),
+      payment.invoice.invoiceNumber
     ).catch((err) => {
-      apiLogger.error({ err }, 'Upgrade notification failed');
-    });
-  }
-
-  // Notify about account reactivation if applicable
-  if (payment.invoice.tenant.status === 'ACTIVE' && payment.invoice.tenant.suspendedAt === null) {
-    await NotificationService.notifyAccountReactivated(
-      payment.tenantId,
-      payment.invoice.tenant.name
-    ).catch((err) => {
-      apiLogger.error({ err }, 'Reactivation notification failed');
-    });
-  }
+      apiLogger.error({ err }, 'Payment notification failed');
+    }),
+    
+    // Notify about upgrade if applicable
+    payment.invoice.type === 'UPGRADE' && payment.invoice.plan
+      ? NotificationService.notifyUpgradeSuccess(
+          payment.tenantId,
+          user.id,
+          payment.invoice.plan
+        ).catch((err) => {
+          apiLogger.error({ err }, 'Upgrade notification failed');
+        })
+      : Promise.resolve(),
+    
+    // Notify about account reactivation if applicable
+    payment.invoice.tenant.status === 'ACTIVE' && payment.invoice.tenant.suspendedAt === null
+      ? NotificationService.notifyAccountReactivated(
+          payment.tenantId,
+          payment.invoice.tenant.name
+        ).catch((err) => {
+          apiLogger.error({ err }, 'Reactivation notification failed');
+        })
+      : Promise.resolve(),
+  ]).catch(() => {
+    // Ignore notification errors - they're logged above
+  });
 
   apiLogger.info({ paymentId }, 'Payment verification complete');
 

@@ -175,9 +175,11 @@ export default function TenantDetailsPage() {
 
   const handleSaveEdit = async () => {
     try {
-      const response = await superAdminAPI.updateTenant(tenantId, editForm) as { success: boolean; error?: string };
+      console.log("Updating tenant with data:", editForm);
+      const response = await superAdminAPI.updateTenant(tenantId, editForm) as { success: boolean; error?: string; data?: any };
+      console.log("Update response:", response);
       if (response.success) {
-        alert("Tenant updated successfully");
+        alert(`Tenant updated successfully! New plan: ${editForm.plan}`);
         setEditing(false);
         loadTenant();
       } else {
@@ -847,7 +849,10 @@ export default function TenantDetailsPage() {
                     </dd>
                   </div>
                   <div className="flex items-end">
-                    <button className="px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400">
+                    <button 
+                      onClick={() => setEditing(true)}
+                      className="px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400"
+                    >
                       Change Plan
                     </button>
                   </div>
