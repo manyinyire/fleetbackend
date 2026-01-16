@@ -7,6 +7,13 @@ declare module "next-auth" {
       role: string
       tenantId: string | null
       emailVerified: Date | null
+      tenant?: {
+        id: string
+        name: string
+        plan: string
+        status: string
+        slug: string
+      }
     } & DefaultSession["user"]
   }
 
