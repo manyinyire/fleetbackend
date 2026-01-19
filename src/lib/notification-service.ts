@@ -1,11 +1,11 @@
 /**
  * Centralized Notification Service
  *
- * Handles all notifications across the system (SMS, Email, In-app)
+ * Handles all notifications across the system (Email, In-app)
  * Provides consistent notification templates and delivery mechanisms
  */
 
-import { sendSMS, getSMSTemplate, SMSTemplateType } from './sms';
+// SMS functionality temporarily disabled
 // import { sendEmail } from './email'; // TODO: Implement when email service is ready
 import { prisma } from './prisma';
 import { apiLogger } from './logger';
@@ -32,7 +32,7 @@ export interface NotificationPayload {
   recipientEmail?: string;
   subject?: string;
   message: string;
-  template?: SMSTemplateType;
+  template?: string;
   templateParams?: Record<string, any>;
   tenantId?: string;
   metadata?: Record<string, any>;
@@ -134,48 +134,14 @@ export class NotificationService {
   }
 
   /**
-   * Send SMS notification
+   * Send SMS notification (temporarily disabled)
    */
   private static async sendSMS(payload: NotificationPayload) {
-    try {
-      let message = payload.message;
-
-      // Use template if provided
-      if (payload.template && payload.templateParams) {
-        message = getSMSTemplate(payload.template, payload.templateParams);
-      }
-
-      // Get recipient phone
-      let phone = payload.recipientPhone;
-      if (!phone && payload.recipientId) {
-        phone = await this.getRecipientPhone(payload.recipientId) || undefined;
-      }
-
-      if (!phone) {
-        return {
-          success: false,
-          error: 'Recipient phone number not found',
-        };
-      }
-
-      const result = await sendSMS({
-        to: phone,
-        message,
-        tenantId: payload.tenantId,
-        metadata: payload.metadata,
-      });
-
-      return {
-        success: result.success,
-        messageId: result.messageId,
-        error: result.error,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'SMS send failed',
-      };
-    }
+    // SMS functionality temporarily disabled
+    return {
+      success: false,
+      error: 'SMS functionality is currently disabled',
+    };
   }
 
   /**
