@@ -21,7 +21,6 @@ export const metadata: Metadata = {
   },
   description:
     "Super Admin portal for Azaire Fleet Manager - manage tenants, monitor system health, and oversee platform operations.",
-  manifest: "/manifest.json",
   themeColor: "#1e3a8a",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
   appleWebApp: {

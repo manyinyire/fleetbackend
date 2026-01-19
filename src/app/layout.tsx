@@ -24,7 +24,6 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description:
       `Manage your fleet, drivers, and finances efficiently with ${settings.platformName} - the complete fleet management solution.`,
-    manifest: "/manifest.json",
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",

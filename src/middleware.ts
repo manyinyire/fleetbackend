@@ -28,9 +28,6 @@ const publicApiRoutes = [
 // Static assets
 const staticRoutes = [
   '/_next',
-  '/manifest.json',
-  '/sw.js',
-  '/workbox-',
   '/icons/',
   '/favicon.ico',
 ];

@@ -1,13 +1,16 @@
-import AT from 'africastalking-ts';
+import africastalking from 'africastalking';
 import { prisma } from './prisma';
 import { smsQueue } from './queue';
 import { apiLogger } from './logger';
 
 // Initialize Africa's Talking
-const at = new (AT as any)({
+const credentials = {
   apiKey: process.env.AFRICAS_TALKING_API_KEY || '',
   username: process.env.AFRICAS_TALKING_USERNAME || '',
-});
+};
+
+const AT = africastalking(credentials);
+const sms = AT.SMS;
 
 export interface SMSMessage {
   to: string;
@@ -61,7 +64,7 @@ export async function sendSMS({
     // Format phone number for Africa's Talking
     const formattedNumber = cleanNumber.startsWith('263') ? `+${cleanNumber}` : `+${cleanNumber}`;
 
-    const result = await at.sms.send({
+    const result = await sms.send({
       to: [formattedNumber],
       message,
       from

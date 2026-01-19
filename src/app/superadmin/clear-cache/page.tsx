@@ -13,11 +13,11 @@ export default function ClearCachePage() {
       try {
         setStatus('Clearing cookies...');
         
-        // Clear all cookies
+        // Clear all cookies with Secure attribute
         document.cookie.split(";").forEach((c) => {
           document.cookie = c
             .replace(/^ +/, "")
-            .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+            .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/;Secure;SameSite=Strict");
         });
 
         setStatus('Clearing local storage...');

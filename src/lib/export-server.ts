@@ -3,7 +3,7 @@
  * For generating exports in scheduled reports and API endpoints
  */
 
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -64,40 +64,40 @@ export async function exportToExcelServer(
   data: ExportableData,
   filename?: string
 ): Promise<string> {
-  const worksheet = XLSX.utils.aoa_to_sheet([data.headers, ...data.rows]);
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Data');
+
+  // Add headers with styling
+  worksheet.addRow(data.headers);
+  const headerRow = worksheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF3B82F6' }
+  };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  // Add data rows
+  data.rows.forEach(row => {
+    worksheet.addRow(row);
+  });
 
   // Set column widths
-  const colWidths = data.headers.map((_, index) => {
-    const header = data.headers[index] ?? '';
+  worksheet.columns = data.headers.map((header, index) => {
     const maxLength = Math.max(
       header.length,
       ...data.rows.map(row => String(row[index] ?? '').length)
     );
-    return { wch: Math.min(maxLength + 2, 50) };
+    return { width: Math.min(maxLength + 2, 50) };
   });
-  worksheet['!cols'] = colWidths;
-
-  // Style header row
-  const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
-  for (let col = range.s.c; col <= range.e.c; col++) {
-    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
-    if (!worksheet[cellAddress]) continue;
-    worksheet[cellAddress].s = {
-      font: { bold: true, color: { rgb: 'FFFFFF' } },
-      fill: { fgColor: { rgb: '3B82F6' } },
-      alignment: { horizontal: 'center', vertical: 'center' },
-    };
-  }
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
 
   const filepath = join(
     tmpdir(),
     filename || `export_${Date.now()}.xlsx`
   );
 
-  XLSX.writeFile(workbook, filepath);
+  await workbook.xlsx.writeFile(filepath);
 
   return filepath;
 }

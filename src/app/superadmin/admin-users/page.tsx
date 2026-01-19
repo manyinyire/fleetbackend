@@ -249,8 +249,8 @@ export default function AdminUsersPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
-                        {admin.image ? (
-                          <img className="h-10 w-10 rounded-full" src={admin.image} alt={admin.name} />
+                        {admin.image && (admin.image.startsWith('http://') || admin.image.startsWith('https://') || admin.image.startsWith('/')) ? (
+                          <img className="h-10 w-10 rounded-full" src={admin.image} alt={admin.name || 'Admin'} />
                         ) : (
                           <div className="h-10 w-10 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
                             <UserIcon className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />

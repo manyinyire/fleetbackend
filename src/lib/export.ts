@@ -42,32 +42,51 @@ export function exportToCSV(data: ExportableData, filename: string = 'export.csv
   document.body.removeChild(link);
 }
 
-// Excel Export (using SheetJS)
+// Excel Export (using ExcelJS)
 export async function exportToExcel(data: ExportableData, filename: string = 'export.xlsx'): Promise<void> {
   try {
     // Dynamic import to avoid bundling issues
-    const XLSX = await import('xlsx');
+    const ExcelJS = await import('exceljs');
     
-    const worksheet = XLSX.utils.aoa_to_sheet([
-      data.headers,
-      ...data.rows
-    ]);
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Data');
+
+    // Add headers with styling
+    worksheet.addRow(data.headers);
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF3B82F6' }
+    };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // Add data rows
+    data.rows.forEach(row => {
+      worksheet.addRow(row);
+    });
 
     // Set column widths
-    const colWidths = data.headers.map((_, index) => {
-      const header = data.headers[index] ?? '';
+    worksheet.columns = data.headers.map((header, index) => {
       const maxLength = Math.max(
         header.length,
         ...data.rows.map(row => String(row[index] ?? '').length)
       );
-      return { wch: Math.min(maxLength + 2, 50) };
+      return { width: Math.min(maxLength + 2, 50) };
     });
-    worksheet['!cols'] = colWidths;
 
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
-
-    XLSX.writeFile(workbook, filename);
+    // Generate buffer and download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   } catch (error) {
     apiLogger.error({ err: error }, 'Excel export error:');
     throw new Error('Failed to export to Excel. Please try CSV format instead.');

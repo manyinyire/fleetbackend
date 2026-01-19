@@ -180,30 +180,37 @@ async function generatePDFBuffer(data: { title: string; headers: string[]; rows:
 }
 
 async function generateExcelBuffer(data: { title: string; headers: string[]; rows: any[][] }): Promise<Buffer> {
-  const XLSX = await import('xlsx');
+  const ExcelJS = await import('exceljs');
 
-  // Create worksheet from data
-  const worksheet = XLSX.utils.aoa_to_sheet([
-    data.headers,
-    ...data.rows
-  ]);
+  const workbook = new ExcelJS.default.Workbook();
+  const worksheet = workbook.addWorksheet(data.title.slice(0, 31)); // Excel limits sheet names to 31 chars
+
+  // Add headers with styling
+  worksheet.addRow(data.headers);
+  const headerRow = worksheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF3B82F6' }
+  };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  // Add data rows
+  data.rows.forEach(row => {
+    worksheet.addRow(row);
+  });
 
   // Set column widths
-  const colWidths = data.headers.map((_, index) => {
-    const headerLength = data.headers[index]?.length || 0;
+  worksheet.columns = data.headers.map((header, index) => {
     const maxLength = Math.max(
-      headerLength,
-      ...data.rows.map(row => String(row[index] || '').length)
+      header.length,
+      ...data.rows.map(row => String(row[index] ?? '').length)
     );
-    return { wch: Math.min(maxLength + 2, 50) };
+    return { width: Math.min(maxLength + 2, 50) };
   });
-  worksheet['!cols'] = colWidths;
 
-  // Create workbook
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, data.title.slice(0, 31)); // Excel limits sheet names to 31 chars
-
-  // Write to buffer
-  const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-  return Buffer.from(excelBuffer);
+  // Generate buffer
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
 }

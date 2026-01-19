@@ -406,7 +406,7 @@ export default function SettingsPage() {
         if (setting.key === "platformLogo") {
           return (
             <div className="space-y-4">
-              {logoPreview && (
+              {logoPreview && (logoPreview.startsWith('http://') || logoPreview.startsWith('https://') || logoPreview.startsWith('/') || logoPreview.startsWith('data:image/')) && (
                 <div className="relative">
                   <img
                     src={logoPreview}
