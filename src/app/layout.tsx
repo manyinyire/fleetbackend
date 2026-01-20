@@ -8,10 +8,9 @@ import type { Metadata, Viewport } from "next";
 import NextTopLoader from "nextjs-toploader";
 import type { PropsWithChildren } from "react";
 import { Providers } from "./providers";
-import Script from "next/script";
-import { GA_MEASUREMENT_ID } from "@/lib/gtag";
 import { Suspense } from 'react';
 import { AnalyticsTracker } from "@/components/analytics-tracker";
+import { GoogleAnalytics } from "@/components/google-analytics";
 import { getPlatformSettingsWithDefaults } from "@/lib/platform-settings";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -24,10 +23,20 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description:
       `Manage your fleet, drivers, and finances efficiently with ${settings.platformName} - the complete fleet management solution.`,
+    icons: {
+      icon: "/favicon.ico",
+      apple: "/icons/icon-192x192.png",
+    },
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",
       title: settings.platformName,
+    },
+    manifest: "/manifest.json",
+    other: {
+      "mobile-web-app-capable": "yes",
+      "msapplication-TileColor": "#1e3a8a",
+      "msapplication-tap-highlight": "no",
     },
   };
 }
@@ -45,45 +54,14 @@ export default async function RootLayout({ children }: PropsWithChildren) {
   
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="icon" href="/favicon.ico" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content={settings.platformName} />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#1e3a8a" />
-        <meta name="msapplication-tap-highlight" content="no" />
-
-        {/* Google Analytics */}
-        {GA_MEASUREMENT_ID && (
-          <>
-            <Script
-              strategy="afterInteractive"
-              src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-            />
-            <Script
-              id="google-analytics"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-                  window.dataLayer = window.dataLayer || [];
-                  function gtag(){dataLayer.push(arguments);}
-                  gtag('js', new Date());
-                  gtag('config', '${GA_MEASUREMENT_ID}', {
-                    page_path: window.location.pathname,
-                  });
-                `,
-              }}
-            />
-          </>
-        )}
-      </head>
       <body>
         <Providers>
           <NextTopLoader color="#1e3a8a" showSpinner={false} />
           <Suspense fallback={null}>
             <AnalyticsTracker />
+          </Suspense>
+          <Suspense fallback={null}>
+            <GoogleAnalytics />
           </Suspense>
           {children}
         </Providers>
