@@ -4,7 +4,7 @@ import { SidebarProvider } from "@/components/superadmin/Layouts/sidebar/sidebar
 import { ImpersonationBanner } from "@/components/superadmin/ImpersonationBanner";
 import { ToastProvider } from "@/components/ui/toast";
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import NextTopLoader from "nextjs-toploader";
 import type { PropsWithChildren } from "react";
 import Script from "next/script";
@@ -21,13 +21,19 @@ export const metadata: Metadata = {
   },
   description:
     "Super Admin portal for Azaire Fleet Manager - manage tenants, monitor system health, and oversee platform operations.",
-  themeColor: "#1e3a8a",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Azaire Super Admin",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#1e3a8a",
 };
 
 export default function SuperAdminLayout({ children }: PropsWithChildren) {

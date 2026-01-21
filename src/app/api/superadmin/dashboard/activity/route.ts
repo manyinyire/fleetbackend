@@ -11,78 +11,79 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '10');
 
-    // Get recent audit logs for activity feed
-    const recentActivities = await prisma.auditLog.findMany({
-      where: {
-        action: {
-          in: [
-            'TENANT_CREATED',
-            'TENANT_UPDATED',
-            'USER_CREATED',
-            'USER_UPDATED',
-            'PAYMENT_PROCESSED',
-            'PAYMENT_FAILED',
-            'LOGIN',
-            'LOGOUT',
-            'SETTINGS_UPDATED'
-          ]
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true
-          }
-        }
-      }
-    });
-
-    // Get recent tenant signups
-    const recentSignups = await prisma.tenant.findMany({
-      where: {
-        createdAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        plan: true,
-        status: true,
-        createdAt: true
-      }
-    });
-
-    // Get recent payment failures from actual payment gateway data
-    const recentPaymentFailures = await prisma.payment.findMany({
-      where: {
-        status: 'FAILED',
-        createdAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      include: {
-        tenant: {
-          select: {
-            name: true,
-            email: true
+    // Fetch all data in parallel with reduced limits
+    const [recentActivities, recentSignups, recentPaymentFailures] = await Promise.all([
+      // Get recent audit logs for activity feed
+      prisma.auditLog.findMany({
+        where: {
+          action: {
+            in: ['TENANT_CREATED', 'USER_CREATED', 'PAYMENT_PROCESSED', 'PAYMENT_FAILED']
           }
         },
-        invoice: {
-          select: {
-            invoiceNumber: true
+        orderBy: { createdAt: 'desc' },
+        take: Math.min(limit, 5),
+        select: {
+          id: true,
+          action: true,
+          entityType: true,
+          entityId: true,
+          ipAddress: true,
+          createdAt: true,
+          user: {
+            select: {
+              name: true,
+              email: true
+            }
           }
         }
-      }
-    });
+      }),
+      // Get recent tenant signups
+      prisma.tenant.findMany({
+        where: {
+          createdAt: {
+            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          plan: true,
+          status: true,
+          createdAt: true
+        }
+      }),
+      // Get recent payment failures
+      prisma.payment.findMany({
+        where: {
+          status: 'FAILED',
+          createdAt: {
+            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+        select: {
+          id: true,
+          amount: true,
+          errorMessage: true,
+          createdAt: true,
+          tenant: {
+            select: {
+              name: true,
+              email: true
+            }
+          },
+          invoice: {
+            select: {
+              invoiceNumber: true
+            }
+          }
+        }
+      })
+    ]);
 
     const paymentFailures = recentPaymentFailures.map(payment => ({
       id: payment.id,

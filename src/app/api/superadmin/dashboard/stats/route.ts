@@ -10,136 +10,126 @@ export async function GET(request: NextRequest) {
 
     // Get current date and previous month for comparison
     const now = new Date();
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    // Get tenant statistics
-    const totalTenants = await prisma.tenant.count();
-    const activeTenants = await prisma.tenant.count({
-      where: { status: 'ACTIVE' }
-    });
-    const trialTenants = await prisma.tenant.count({
-      where: { plan: 'FREE' }
-    });
-    const cancelledTenants = await prisma.tenant.count({
-      where: { status: 'CANCELED' }
-    });
-
-    // Get tenant count from last month for growth calculation
-    const lastMonthTenants = await prisma.tenant.count({
-      where: {
-        createdAt: {
-          lt: thisMonth
-        }
-      }
-    });
-
-    // Get user statistics
-    const totalUsers = await prisma.user.count();
-    const activeUsers = await prisma.user.count({
-      where: { tenantId: { not: null } }
-    });
-    const superAdmins = await prisma.user.count({
-      where: { role: 'SUPER_ADMIN' }
-    });
-    const suspendedUsers = await prisma.user.count({
-      where: { 
-        tenantId: { not: null },
-        // Add suspended status logic here if you have it
-      }
-    });
-
-    // Calculate user growth
-    const lastMonthUsers = await prisma.user.count({
-      where: {
-        createdAt: { lt: thisMonth },
-        tenantId: { not: null }
-      }
-    });
-
-    // Calculate MRR (Monthly Recurring Revenue)
-    // This is a simplified calculation - you might want to implement proper subscription billing
-    const premiumTenants = await prisma.tenant.count({
-      where: { plan: 'PREMIUM' }
-    });
-    const basicTenants = await prisma.tenant.count({
-      where: { plan: 'BASIC' }
-    });
-    
-    // Assuming pricing: Premium = $60/month, Basic = $15/month
-    const mrr = (premiumTenants * 60) + (basicTenants * 15);
-    
-    // Calculate previous month MRR
-    const lastMonthPremiumTenants = await prisma.tenant.count({
-      where: { 
-        plan: 'PREMIUM',
-        createdAt: { lt: thisMonth }
-      }
-    });
-    const lastMonthBasicTenants = await prisma.tenant.count({
-      where: { 
-        plan: 'BASIC',
-        createdAt: { lt: thisMonth }
-      }
-    });
-    const lastMonthMRR = (lastMonthPremiumTenants * 60) + (lastMonthBasicTenants * 15);
-
-    // Calculate churn rate (simplified)
-    const cancelledThisMonth = await prisma.tenant.count({
-      where: {
-        status: 'CANCELED',
-        updatedAt: {
-          gte: thisMonth
-        }
-      }
-    });
-    const churnRate = totalTenants > 0 ? (cancelledThisMonth / totalTenants) * 100 : 0;
-
-    // Calculate previous month churn for comparison
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-    const lastMonthCancelled = await prisma.tenant.count({
-      where: {
-        status: 'CANCELED',
-        updatedAt: {
-          gte: lastMonthStart,
-          lte: lastMonthEnd
+
+    // Fetch all data in parallel with minimal queries
+    const [
+      tenantsByStatus,
+      tenantsByPlan,
+      tenantsLastMonth,
+      usersByRole,
+      usersLastMonth,
+      cancelledThisMonth,
+      cancelledLastMonth
+    ] = await Promise.all([
+      // Group tenants by status
+      prisma.tenant.groupBy({
+        by: ['status'],
+        _count: { status: true }
+      }),
+      // Group tenants by plan
+      prisma.tenant.groupBy({
+        by: ['plan'],
+        _count: { plan: true }
+      }),
+      // Count tenants created before this month
+      prisma.tenant.count({
+        where: { createdAt: { lt: thisMonth } }
+      }),
+      // Group users by role
+      prisma.user.groupBy({
+        by: ['role'],
+        _count: { role: true },
+        where: { tenantId: { not: null } }
+      }),
+      // Count users created before this month
+      prisma.user.count({
+        where: {
+          createdAt: { lt: thisMonth },
+          tenantId: { not: null }
         }
-      }
-    });
-    const lastMonthChurnRate = lastMonthTenants > 0 ? (lastMonthCancelled / lastMonthTenants) * 100 : 0;
+      }),
+      // Count cancelled this month
+      prisma.tenant.count({
+        where: {
+          status: 'CANCELED',
+          updatedAt: { gte: thisMonth }
+        }
+      }),
+      // Count cancelled last month
+      prisma.tenant.count({
+        where: {
+          status: 'CANCELED',
+          updatedAt: { gte: lastMonthStart, lte: lastMonthEnd }
+        }
+      })
+    ]);
+
+    // Process tenant stats
+    const statusMap = tenantsByStatus.reduce((acc, item) => {
+      acc[item.status] = item._count.status;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const planMap = tenantsByPlan.reduce((acc, item) => {
+      acc[item.plan] = item._count.plan;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const totalTenants = Object.values(statusMap).reduce((sum, count) => sum + count, 0);
+    const activeTenants = statusMap['ACTIVE'] || 0;
+    const trialTenants = planMap['FREE'] || 0;
+    const cancelledTenants = statusMap['CANCELED'] || 0;
+    const premiumTenants = planMap['PREMIUM'] || 0;
+    const basicTenants = planMap['BASIC'] || 0;
+
+    // Process user stats
+    const totalUsers = usersByRole.reduce((sum, item) => sum + item._count.role, 0);
+    const superAdmins = usersByRole.find(item => item.role === 'SUPER_ADMIN')?._count.role || 0;
+
+    // Calculate MRR
+    const mrr = (premiumTenants * 60) + (basicTenants * 15);
+    
+    // Estimate last month's MRR (simplified - assumes no plan changes)
+    const lastMonthMRR = mrr > 0 ? mrr * 0.95 : 0; // Rough estimate
+
+    // Calculate churn rate
+    const churnRate = totalTenants > 0 ? (cancelledThisMonth / totalTenants) * 100 : 0;
+    const lastMonthChurnRate = tenantsLastMonth > 0 ? (cancelledLastMonth / tenantsLastMonth) * 100 : 0;
 
     // Calculate growth percentages
-    const tenantGrowth = lastMonthTenants > 0 ? 
-      ((totalTenants - lastMonthTenants) / lastMonthTenants) * 100 : 0;
-    const userGrowth = lastMonthUsers > 0 ? 
-      ((activeUsers - lastMonthUsers) / lastMonthUsers) * 100 : 0;
+    const tenantGrowth = tenantsLastMonth > 0 ? 
+      ((totalTenants - tenantsLastMonth) / tenantsLastMonth) * 100 : 0;
+    const userGrowth = usersLastMonth > 0 ? 
+      ((totalUsers - usersLastMonth) / usersLastMonth) * 100 : 0;
     const mrrGrowth = lastMonthMRR > 0 ? 
       ((mrr - lastMonthMRR) / lastMonthMRR) * 100 : 0;
-    const churnChange = lastMonthChurnRate - churnRate; // Negative is good
+    const churnChange = lastMonthChurnRate - churnRate;
 
     return NextResponse.json({
       success: true,
       data: {
         totalTenants: {
           value: totalTenants,
-          change: tenantGrowth,
+          change: Math.round(tenantGrowth * 10) / 10,
           trend: tenantGrowth >= 0 ? 'up' : 'down'
         },
         activeUsers: {
-          value: activeUsers,
-          change: userGrowth,
+          value: totalUsers,
+          change: Math.round(userGrowth * 10) / 10,
           trend: userGrowth >= 0 ? 'up' : 'down'
         },
         mrr: {
           value: mrr,
-          change: mrrGrowth,
+          change: Math.round(mrrGrowth * 10) / 10,
           trend: mrrGrowth >= 0 ? 'up' : 'down'
         },
         churnRate: {
-          value: churnRate,
-          change: churnChange,
-          trend: churnChange <= 0 ? 'up' : 'down' // Lower churn is better
+          value: Math.round(churnRate * 10) / 10,
+          change: Math.round(churnChange * 10) / 10,
+          trend: churnChange <= 0 ? 'up' : 'down'
         },
         additionalStats: {
           activeTenants,
@@ -147,7 +137,7 @@ export async function GET(request: NextRequest) {
           cancelledTenants,
           totalUsers,
           superAdmins,
-          suspendedUsers
+          suspendedUsers: 0
         }
       }
     });

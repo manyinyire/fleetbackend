@@ -28,55 +28,97 @@ export default async function DashboardPage() {
     console.error('Failed to fetch tenant:', error);
   }
 
-  // Fetch dashboard data
+  // Fetch dashboard data with optimized queries
   const [
     vehicles,
     drivers,
     recentRemittances,
     recentMaintenance,
     totalExpenses,
-    totalIncome
+    totalIncome,
+    vehicleCounts,
+    driverCounts
   ] = await Promise.all([
+    // Get vehicles with minimal data - only what's needed for overview
     prisma.vehicle.findMany({
-      include: {
-        drivers: {
-          include: {
-            driver: true
-          }
-        }
+      select: {
+        id: true,
+        make: true,
+        model: true,
+        licensePlate: true,
+        status: true,
+        fuelType: true,
+        createdAt: true
       },
       where: {
         tenantId: tenantId
-      }
+      },
+      take: 100, // Limit to prevent huge loads
+      orderBy: { createdAt: 'desc' }
     }),
+    // Get drivers with minimal data
     prisma.driver.findMany({
-      include: {
-        vehicles: {
-          include: {
-            vehicle: true
-          }
-        }
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        licenseNumber: true,
+        status: true,
+        createdAt: true
       },
       where: {
         tenantId: tenantId
-      }
+      },
+      take: 100, // Limit to prevent huge loads
+      orderBy: { createdAt: 'desc' }
     }),
+    // Get recent remittances with essential relations
     prisma.remittance.findMany({
       take: 5,
       orderBy: { createdAt: 'desc' },
-      include: {
-        driver: true,
-        vehicle: true
+      select: {
+        id: true,
+        amount: true,
+        status: true,
+        createdAt: true,
+        driver: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true
+          }
+        },
+        vehicle: {
+          select: {
+            id: true,
+            licensePlate: true,
+            make: true,
+            model: true
+          }
+        }
       },
       where: {
         tenantId: tenantId
       }
     }),
+    // Get recent maintenance with essential vehicle info
     prisma.maintenanceRecord.findMany({
       take: 5,
       orderBy: { date: 'desc' },
-      include: {
-        vehicle: true
+      select: {
+        id: true,
+        type: true,
+        cost: true,
+        date: true,
+        createdAt: true,
+        vehicle: {
+          select: {
+            id: true,
+            licensePlate: true,
+            make: true,
+            model: true
+          }
+        }
       },
       where: {
         tenantId: tenantId
@@ -94,17 +136,26 @@ export default async function DashboardPage() {
       where: {
         tenantId: tenantId
       }
+    }),
+    // Get counts for pagination info
+    prisma.vehicle.count({
+      where: { tenantId: tenantId }
+    }),
+    prisma.driver.count({
+      where: { tenantId: tenantId }
     })
   ]);
 
   const stats = serializePrismaData({
-    totalVehicles: vehicles.length,
+    totalVehicles: vehicleCounts,
     activeVehicles: vehicles.filter((v: any) => v.status === 'ACTIVE').length,
-    totalDrivers: drivers.length,
+    totalDrivers: driverCounts,
     activeDrivers: drivers.filter((d: any) => d.status === 'ACTIVE').length,
     totalExpenses: totalExpenses._sum.amount || 0,
     totalIncome: totalIncome._sum.amount || 0,
-    pendingRemittances: recentRemittances.filter((r: any) => r.status === 'PENDING').length
+    pendingRemittances: recentRemittances.filter((r: any) => r.status === 'PENDING').length,
+    hasMoreVehicles: vehicleCounts > 100,
+    hasMoreDrivers: driverCounts > 100
   });
 
   return (

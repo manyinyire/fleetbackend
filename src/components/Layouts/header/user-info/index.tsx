@@ -54,8 +54,17 @@ export function UserInfo() {
   };
 
   const handleLogout = async () => {
-    await signOut();
-    router.push('/login');
+    try {
+      // Close dropdown immediately
+      setIsOpen(false);
+      
+      // Clear session and let NextAuth handle redirect
+      await signOut();
+    } catch (error) {
+      // Fallback: force redirect if signOut fails
+      console.error('Logout error:', error);
+      window.location.href = '/auth/sign-in';
+    }
   };
 
   // Show loading state while session is being fetched

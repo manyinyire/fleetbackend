@@ -17,27 +17,33 @@ export async function GET(request: NextRequest) {
     const startDate = new Date();
     startDate.setMonth(endDate.getMonth() - months);
 
-    // Get revenue trend data
+    // Fetch ALL tenants once with their creation dates and plans
+    const allTenants = await prisma.tenant.findMany({
+      select: {
+        createdAt: true,
+        plan: true,
+        status: true
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    // Process data in memory instead of multiple DB queries
     const revenueData = [];
+    const tenantGrowthData = [];
+
     for (let i = months - 1; i >= 0; i--) {
       const date = new Date();
       date.setMonth(date.getMonth() - i);
       const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
       const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-      // Count tenants by plan for this month
-      const premiumTenants = await prisma.tenant.count({
-        where: {
-          plan: 'PREMIUM',
-          createdAt: { lte: monthEnd }
-        }
-      });
-      const basicTenants = await prisma.tenant.count({
-        where: {
-          plan: 'BASIC',
-          createdAt: { lte: monthEnd }
-        }
-      });
+      // Filter tenants created up to this month end
+      const tenantsUpToDate = allTenants.filter(t => new Date(t.createdAt) <= monthEnd);
+      
+      // Count by plan
+      const premiumTenants = tenantsUpToDate.filter(t => t.plan === 'PREMIUM').length;
+      const basicTenants = tenantsUpToDate.filter(t => t.plan === 'BASIC').length;
+      const freeTenants = tenantsUpToDate.filter(t => t.plan === 'FREE').length;
 
       const revenue = (premiumTenants * 60) + (basicTenants * 15);
 
@@ -47,90 +53,39 @@ export async function GET(request: NextRequest) {
         premiumTenants,
         basicTenants
       });
-    }
-
-    // Get tenant growth data
-    const tenantGrowthData = [];
-    for (let i = months - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-
-      // Count new tenants in this month
-      const newTenants = await prisma.tenant.count({
-        where: {
-          createdAt: {
-            gte: monthStart,
-            lte: monthEnd
-          }
-        }
-      });
-
-      // Count total tenants up to this month
-      const totalTenants = await prisma.tenant.count({
-        where: {
-          createdAt: { lte: monthEnd }
-        }
-      });
-
-      // Count tenants by plan at this point in time
-      const freeAtDate = await prisma.tenant.count({
-        where: {
-          plan: 'FREE',
-          createdAt: { lte: monthEnd }
-        }
-      });
-      const basicAtDate = await prisma.tenant.count({
-        where: {
-          plan: 'BASIC',
-          createdAt: { lte: monthEnd }
-        }
-      });
-      const premiumAtDate = await prisma.tenant.count({
-        where: {
-          plan: 'PREMIUM',
-          createdAt: { lte: monthEnd }
-        }
-      });
 
       tenantGrowthData.push({
         date: monthStart.toISOString(),
-        free: freeAtDate,
-        basic: basicAtDate,
-        premium: premiumAtDate,
-        total: totalTenants
+        free: freeTenants,
+        basic: basicTenants,
+        premium: premiumTenants,
+        total: tenantsUpToDate.length
       });
     }
 
-    // Get plan distribution
-    const planDistribution = await prisma.tenant.groupBy({
-      by: ['plan'],
-      _count: {
-        plan: true
-      }
-    });
+    // Get current plan and status distribution
+    const planDistribution = allTenants.reduce((acc, tenant) => {
+      acc[tenant.plan] = (acc[tenant.plan] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
 
-    // Get status distribution
-    const statusDistribution = await prisma.tenant.groupBy({
-      by: ['status'],
-      _count: {
-        status: true
-      }
-    });
+    const statusDistribution = allTenants.reduce((acc, tenant) => {
+      acc[tenant.status] = (acc[tenant.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
 
     return NextResponse.json({
       success: true,
       data: {
         revenueTrend: revenueData,
         tenantGrowth: tenantGrowthData,
-        planDistribution: planDistribution.map(item => ({
-          plan: item.plan,
-          count: item._count.plan
+        planDistribution: Object.entries(planDistribution).map(([plan, count]) => ({
+          plan,
+          count
         })),
-        statusDistribution: statusDistribution.map(item => ({
-          status: item.status,
-          count: item._count.status
+        statusDistribution: Object.entries(statusDistribution).map(([status, count]) => ({
+          status,
+          count
         }))
       }
     });
@@ -141,6 +96,5 @@ export async function GET(request: NextRequest) {
       { error: 'Failed to fetch chart data' },
       { status: 500 }
     );
-  } finally {
   }
 }

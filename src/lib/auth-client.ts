@@ -6,7 +6,11 @@ export { useSession, signIn } from "next-auth/react";
 
 // Custom signOut wrapper
 export const signOut = async () => {
-  await nextAuthSignOut({ callbackUrl: "/auth/sign-in" });
+  // Clear session and redirect to sign-in
+  await nextAuthSignOut({ 
+    callbackUrl: "/auth/sign-in",
+    redirect: true
+  });
 };
 
 // Stub authClient for features that need to be re-implemented

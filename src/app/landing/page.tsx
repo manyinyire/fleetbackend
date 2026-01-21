@@ -462,7 +462,7 @@ export default async function LandingPage() {
       </section>
 
       {/* Final CTA Section */}
-      <section className="py-16 px-4 sm:px-6 bg-forest-amber dark:bg-primary-dark">
+      <section className="py-16 px-4 sm:px-6 bg-primary dark:bg-primary-dark">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
             Ready to get started?
