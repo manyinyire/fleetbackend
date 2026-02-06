@@ -505,11 +505,15 @@ export class PremiumFeatureService {
       };
     }
 
-    // TODO: Implement actual rate limiting with Redis or similar
-    // For now, just check if they have API access
+    // Check rate limit with Redis
+    const { checkRateLimit } = await import('./rate-limiter');
+    const rateLimitResult = await checkRateLimit(tenantId, tenant.plan);
+    
     return {
-      allowed: true,
-      limit: limits.apiRequestsPerDay
+      allowed: rateLimitResult.allowed,
+      remaining: rateLimitResult.remaining,
+      resetAt: rateLimitResult.resetAt,
+      limit: rateLimitResult.limit,
     };
   }
 

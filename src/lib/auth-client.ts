@@ -57,12 +57,66 @@ export const authClient = {
   },
   twoFactor: {
     enable: async () => {
-      apiLogger.warn('2FA not yet implemented with Auth.js v5');
-      return { error: { message: "Feature not yet implemented" } };
+      try {
+        const response = await fetch("/api/auth/2fa/enable", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          return { error: { message: result.error || "Failed to enable 2FA" } };
+        }
+
+        return { data: result };
+      } catch (error: any) {
+        return { error: { message: error.message || "Failed to enable 2FA" } };
+      }
     },
-    disable: async () => {
-      apiLogger.warn('2FA disable not yet implemented with Auth.js v5');
-      return { error: { message: "Feature not yet implemented" } };
+    verify: async (token: string) => {
+      try {
+        const response = await fetch("/api/auth/2fa/verify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ token }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          return { error: { message: result.error || "Failed to verify 2FA" } };
+        }
+
+        return { data: result };
+      } catch (error: any) {
+        return { error: { message: error.message || "Failed to verify 2FA" } };
+      }
+    },
+    disable: async (password: string, token?: string) => {
+      try {
+        const response = await fetch("/api/auth/2fa/disable", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ password, token }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          return { error: { message: result.error || "Failed to disable 2FA" } };
+        }
+
+        return { data: result };
+      } catch (error: any) {
+        return { error: { message: error.message || "Failed to disable 2FA" } };
+      }
     },
   },
   user: {
