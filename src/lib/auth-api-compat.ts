@@ -94,14 +94,22 @@ export async function sendVerificationOTP(params: {
     });
 
     // Send OTP via email
-    const { sendEmail, getOTPEmail } = await import('./email');
-    const emailTemplate = getOTPEmail(otp, type);
+    const { sendEmail } = await import('./email');
+    const typeText = type === 'password-reset' ? 'Password Reset' : 'Email Verification';
     
     const emailSent = await sendEmail({
       to: email,
-      subject: emailTemplate.subject,
-      html: emailTemplate.html,
-      text: emailTemplate.text,
+      subject: `Your ${typeText} Code`,
+      html: `
+        <h1>Your ${typeText} Code</h1>
+        <p>Use the following code to complete your ${typeText.toLowerCase()}:</p>
+        <div style="background-color: #F3F4F6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0;">
+          ${otp}
+        </div>
+        <p>This code will expire in 10 minutes.</p>
+        <p>If you didn't request this code, please ignore this email.</p>
+      `,
+      text: `Your ${typeText} Code: ${otp}\n\nThis code will expire in 10 minutes.`,
     });
 
     if (!emailSent) {
@@ -317,15 +325,11 @@ export async function changePassword(params: {
 
     // Revoke other sessions if requested
     if (revokeOtherSessions) {
+      // Delete all sessions for this user (they'll need to re-login)
       await prisma.session.deleteMany({
-        where: {
-          userId,
-          NOT: {
-            sessionToken: (session as any).sessionToken || '',
-          },
-        },
+        where: { userId },
       });
-      apiLogger.info({ userId }, 'Other sessions revoked after password change');
+      apiLogger.info({ userId }, 'All sessions revoked after password change');
     }
 
     return { success: true };

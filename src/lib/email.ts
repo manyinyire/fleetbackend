@@ -3,6 +3,14 @@ import logger from './logger';
 import { EmailType } from '@prisma/client';
 import { emailTemplateService } from './email-template-service';
 
+// Environment variables
+const SMTP_HOST = process.env.SMTP_HOST;
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
+const SMTP_SECURE = process.env.SMTP_SECURE === 'true';
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
+const SMTP_FROM_NAME = process.env.SMTP_FROM_NAME || 'Azaire Fleet Manager';
+
 interface EmailConfig {
   host: string;
   port: number;
@@ -13,11 +21,13 @@ interface EmailConfig {
   };
 }
 
-interface EmailOptions {
+export interface EmailOptions {
   to: string | string[];
   subject: string;
   html?: string;
   text?: string;
+  from?: string;
+  replyTo?: string;
   attachments?: Array<{
     filename: string;
     content: Buffer | string;
@@ -40,6 +50,12 @@ class EmailService {
   }
 
   private initializeTransporter() {
+    // Skip if no SMTP config
+    if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+      logger.warn('SMTP configuration incomplete. Email service will not work.');
+      return;
+    }
+
     const config: EmailConfig = {
       host: SMTP_HOST,
       port: SMTP_PORT,
@@ -50,21 +66,13 @@ class EmailService {
       },
     };
 
-    // Validate configuration
-    if (!config.auth.user || !config.auth.pass) {
-      logger.warn('SMTP configuration incomplete. Email service will not work.');
-      return;
-    }
-
     this.config = config;
-    this.transporter = transporter;
+    this.transporter = nodemailer.createTransport(config);
   }
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
-      if (USE_RESEND && resend) {
-        return await this.sendViaResend(options);
-      } else if (this.transporter) {
+      if (this.transporter) {
         return await this.sendViaSMTP(options);
       } else {
         logger.warn('No email service configured. Email not sent.');
@@ -72,32 +80,6 @@ class EmailService {
       }
     } catch (error) {
       logger.error({ error, to: options.to }, 'Failed to send email');
-      return false;
-    }
-  }
-
-  private async sendViaResend(options: EmailOptions): Promise<boolean> {
-    try {
-      const from = options.from || `${SMTP_FROM_NAME} <${SMTP_USER}>`;
-      
-      const { data, error } = await resend!.emails.send({
-        from,
-        to: Array.isArray(options.to) ? options.to : [options.to],
-        subject: options.subject,
-        html: options.html || options.text || '',
-        text: options.text,
-        reply_to: options.replyTo,
-      });
-
-      if (error) {
-        logger.error({ error, to: options.to }, 'Resend email failed');
-        return false;
-      }
-
-      logger.info({ emailId: data?.id, to: options.to }, 'Email sent via Resend');
-      return true;
-    } catch (error) {
-      logger.error({ error, to: options.to }, 'Resend email error');
       return false;
     }
   }
@@ -923,4 +905,9 @@ export async function sendAdminPaymentAlert(
 }
 
 export const emailService = new EmailService();
+
+// Export sendEmail function for backward compatibility
+export async function sendEmail(options: EmailOptions): Promise<boolean> {
+  return emailService.sendEmail(options);
+}
 export default emailService;

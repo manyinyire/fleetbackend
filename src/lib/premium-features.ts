@@ -244,6 +244,8 @@ export interface FeatureCheckResult {
   limit?: number | "unlimited";
   suggestedPlan?: SubscriptionPlan;
   upgradeMessage?: string;
+  remaining?: number;
+  resetAt?: Date;
 }
 
 /**

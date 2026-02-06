@@ -74,11 +74,11 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Store verification request
-    await prisma.emailVerification.create({
+    // Note: Using Verification model as EmailVerification might not have all fields
+    await prisma.verification.create({
       data: {
-        userId: session.user.id,
-        email: newEmail,
-        token: verificationToken,
+        identifier: newEmail,
+        value: verificationToken,
         expiresAt,
       },
     });
