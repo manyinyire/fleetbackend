@@ -368,11 +368,29 @@ export class ReportGeneratorService {
    * Export to PDF file
    */
   private async exportToPDFFile(data: ReportData): Promise<string> {
-    // In production, save to S3 and return URL
-    // For now, return a placeholder path
     const filename = `${data.title.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
-    // TODO: Implement actual PDF generation and S3 upload
-    return `/tmp/reports/${filename}`;
+    const filepath = `./public/reports/${filename}`;
+
+    // Ensure reports directory exists
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const reportsDir = path.join(process.cwd(), 'public', 'reports');
+    
+    try {
+      await fs.mkdir(reportsDir, { recursive: true });
+    } catch (error) {
+      // Directory might already exist
+    }
+
+    // Generate PDF using jspdf
+    const { exportToPDF } = await import('@/lib/export');
+    const pdfBuffer = await exportToPDF(data);
+    
+    // Save to file system
+    await fs.writeFile(path.join(process.cwd(), 'public', 'reports', filename), pdfBuffer);
+    
+    // Return public URL
+    return `/reports/${filename}`;
   }
 
   /**
@@ -380,8 +398,28 @@ export class ReportGeneratorService {
    */
   private async exportToCSVFile(data: ReportData): Promise<string> {
     const filename = `${data.title.replace(/\s+/g, '_')}_${Date.now()}.csv`;
-    // TODO: Implement actual CSV generation and S3 upload
-    return `/tmp/reports/${filename}`;
+    const filepath = `./public/reports/${filename}`;
+
+    // Ensure reports directory exists
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const reportsDir = path.join(process.cwd(), 'public', 'reports');
+    
+    try {
+      await fs.mkdir(reportsDir, { recursive: true });
+    } catch (error) {
+      // Directory might already exist
+    }
+
+    // Generate CSV
+    const { exportToCSV } = await import('@/lib/export');
+    const csvContent = await exportToCSV(data);
+    
+    // Save to file system
+    await fs.writeFile(path.join(process.cwd(), 'public', 'reports', filename), csvContent);
+    
+    // Return public URL
+    return `/reports/${filename}`;
   }
 
   /**
@@ -389,8 +427,28 @@ export class ReportGeneratorService {
    */
   private async exportToExcelFile(data: ReportData): Promise<string> {
     const filename = `${data.title.replace(/\s+/g, '_')}_${Date.now()}.xlsx`;
-    // TODO: Implement actual Excel generation and S3 upload
-    return `/tmp/reports/${filename}`;
+    const filepath = `./public/reports/${filename}`;
+
+    // Ensure reports directory exists
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const reportsDir = path.join(process.cwd(), 'public', 'reports');
+    
+    try {
+      await fs.mkdir(reportsDir, { recursive: true });
+    } catch (error) {
+      // Directory might already exist
+    }
+
+    // Generate Excel
+    const { exportToExcel } = await import('@/lib/export');
+    const excelBuffer = await exportToExcel(data);
+    
+    // Save to file system
+    await fs.writeFile(path.join(process.cwd(), 'public', 'reports', filename), excelBuffer);
+    
+    // Return public URL
+    return `/reports/${filename}`;
   }
 }
 

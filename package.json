@@ -78,6 +78,7 @@
     "react-hook-form": "^7.53.2",
     "react-hot-toast": "^2.4.1",
     "recharts": "^3.3.0",
+    "resend": "^6.9.1",
     "speakeasy": "^2.0.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",

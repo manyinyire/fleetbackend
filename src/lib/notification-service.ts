@@ -5,8 +5,7 @@
  * Provides consistent notification templates and delivery mechanisms
  */
 
-// SMS functionality temporarily disabled
-// import { sendEmail } from './email'; // TODO: Implement when email service is ready
+import { sendEmail } from './email';
 import { prisma } from './prisma';
 import { apiLogger } from './logger';
 
@@ -219,6 +218,53 @@ export class NotificationService {
           metadata: payload.metadata || {},
         },
       });
+
+      // Send Email
+      if (
+        payload.type === NotificationType.EMAIL ||
+        payload.type === NotificationType.ALL
+      ) {
+        try {
+          if (!payload.recipientEmail) {
+            throw new Error('Recipient email is required');
+          }
+
+          const emailSent = await sendEmail({
+            to: payload.recipientEmail,
+            subject: payload.subject || 'Notification',
+            text: payload.message,
+            html: payload.message.replace(/\n/g, '<br>'),
+          });
+
+          return {
+            success: emailSent,
+            channels: {
+              email: {
+                success: emailSent,
+                error: emailSent ? undefined : 'Failed to send email',
+              },
+              inApp: {
+                success: true,
+                notificationId: notification.id,
+              },
+            },
+          };
+        } catch (error: any) {
+          return {
+            success: false,
+            channels: {
+              email: {
+                success: false,
+                error: error.message,
+              },
+              inApp: {
+                success: true,
+                notificationId: notification.id,
+              },
+            },
+          };
+        }
+      }
 
       return {
         success: true,

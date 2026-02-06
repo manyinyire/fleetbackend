@@ -93,12 +93,22 @@ export async function sendVerificationOTP(params: {
       },
     });
 
-    // TODO: Send email with OTP using your email service
-    // For now, just log it (in production, use your email service)
-    apiLogger.info({ email, type }, 'OTP generated (implement email sending)');
+    // Send OTP via email
+    const { sendEmail, getOTPEmail } = await import('./email');
+    const emailTemplate = getOTPEmail(otp, type);
+    
+    const emailSent = await sendEmail({
+      to: email,
+      subject: emailTemplate.subject,
+      html: emailTemplate.html,
+      text: emailTemplate.text,
+    });
 
-    // Note: OTP should be sent via email, not logged
-    // Development: Check email or database for OTP value
+    if (!emailSent) {
+      apiLogger.warn({ email, type }, 'OTP generated but email failed to send');
+    } else {
+      apiLogger.info({ email, type }, 'OTP sent successfully via email');
+    }
 
     return { success: true };
   } catch (error) {

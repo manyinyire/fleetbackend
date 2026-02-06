@@ -25,6 +25,12 @@ interface EmailOptions {
   }>;
 }
 
+interface EmailTemplate {
+  subject: string;
+  html: string;
+  text: string;
+}
+
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private config: EmailConfig | null = null;
@@ -35,12 +41,12 @@ class EmailService {
 
   private initializeTransporter() {
     const config: EmailConfig = {
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_SECURE,
       auth: {
-        user: process.env.SMTP_USER || '',
-        pass: process.env.SMTP_PASS || '',
+        user: SMTP_USER,
+        pass: SMTP_PASS,
       },
     };
 
@@ -51,37 +57,73 @@ class EmailService {
     }
 
     this.config = config;
-    this.transporter = nodemailer.createTransport(config);
+    this.transporter = transporter;
   }
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
-    if (!this.transporter) {
-      logger.error('Email service not initialized. Check SMTP configuration.');
-      return false;
-    }
-
     try {
-      const mailOptions = {
-        from: `"${process.env.SMTP_FROM_NAME || 'Fleet Manager'}" <${this.config?.auth.user}>`,
-        to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
-        subject: options.subject,
-        html: options.html,
-        text: options.text,
-        attachments: options.attachments,
-      };
-
-      const result = await this.transporter.sendMail(mailOptions);
-      logger.info({ messageId: result.messageId, to: options.to, subject: options.subject }, 'Email sent successfully');
-      return true;
+      if (USE_RESEND && resend) {
+        return await this.sendViaResend(options);
+      } else if (this.transporter) {
+        return await this.sendViaSMTP(options);
+      } else {
+        logger.warn('No email service configured. Email not sent.');
+        return false;
+      }
     } catch (error) {
-      logger.error({ err: error, to: options.to, subject: options.subject }, 'Failed to send email');
+      logger.error({ error, to: options.to }, 'Failed to send email');
       return false;
     }
   }
 
-  /**
-   * Send email using database template
-   */
+  private async sendViaResend(options: EmailOptions): Promise<boolean> {
+    try {
+      const from = options.from || `${SMTP_FROM_NAME} <${SMTP_USER}>`;
+      
+      const { data, error } = await resend!.emails.send({
+        from,
+        to: Array.isArray(options.to) ? options.to : [options.to],
+        subject: options.subject,
+        html: options.html || options.text || '',
+        text: options.text,
+        reply_to: options.replyTo,
+      });
+
+      if (error) {
+        logger.error({ error, to: options.to }, 'Resend email failed');
+        return false;
+      }
+
+      logger.info({ emailId: data?.id, to: options.to }, 'Email sent via Resend');
+      return true;
+    } catch (error) {
+      logger.error({ error, to: options.to }, 'Resend email error');
+      return false;
+    }
+  }
+
+  private async sendViaSMTP(options: EmailOptions): Promise<boolean> {
+    try {
+      const from = options.from || `${SMTP_FROM_NAME} <${SMTP_USER}>`;
+
+      const info = await this.transporter!.sendMail({
+        from,
+        to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
+        subject: options.subject,
+        text: options.text,
+        html: options.html,
+        replyTo: options.replyTo,
+        attachments: options.attachments,
+      });
+
+      logger.info({ messageId: info.messageId, to: options.to }, 'Email sent via SMTP');
+      return true;
+    } catch (error) {
+      logger.error({ error, to: options.to }, 'SMTP email failed');
+      return false;
+    }
+  }
+
   async sendTemplatedEmail(
     to: string | string[],
     templateType: EmailType,
