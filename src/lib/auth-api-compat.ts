@@ -315,9 +315,17 @@ export async function changePassword(params: {
       data: { password: hashedPassword },
     });
 
-    // TODO: Implement session revocation if revokeOtherSessions is true
+    // Revoke other sessions if requested
     if (revokeOtherSessions) {
-      apiLogger.info({ userId }, 'changePassword: revokeOtherSessions requested (not yet implemented)');
+      await prisma.session.deleteMany({
+        where: {
+          userId,
+          NOT: {
+            sessionToken: (session as any).sessionToken || '',
+          },
+        },
+      });
+      apiLogger.info({ userId }, 'Other sessions revoked after password change');
     }
 
     return { success: true };

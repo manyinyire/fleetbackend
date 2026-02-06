@@ -17,13 +17,56 @@ export const signOut = async () => {
 // TODO: Implement these features with Auth.js v5
 export const authClient = {
   admin: {
-    impersonate: async () => {
-      apiLogger.warn('Impersonation not yet implemented with Auth.js v5');
-      return { error: { message: "Feature not yet implemented" } };
+    impersonate: async (userId: string) => {
+      try {
+        const response = await fetch("/api/superadmin/impersonation/start", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ userId }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          return { error: { message: result.error || "Failed to start impersonation" } };
+        }
+
+        // Reload page to apply new session
+        if (result.success) {
+          window.location.reload();
+        }
+
+        return { data: result };
+      } catch (error: any) {
+        return { error: { message: error.message || "Failed to start impersonation" } };
+      }
     },
     stopImpersonating: async () => {
-      apiLogger.warn('Stop impersonation not yet implemented with Auth.js v5');
-      return { error: { message: "Feature not yet implemented" } };
+      try {
+        const response = await fetch("/api/superadmin/impersonation/stop", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          return { error: { message: result.error || "Failed to stop impersonation" } };
+        }
+
+        // Reload page to restore original session
+        if (result.success) {
+          window.location.reload();
+        }
+
+        return { data: result };
+      } catch (error: any) {
+        return { error: { message: error.message || "Failed to stop impersonation" } };
+      }
     },
   },
   emailOtp: {

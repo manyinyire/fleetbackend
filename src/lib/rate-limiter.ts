@@ -3,9 +3,11 @@
  * Implements rate limiting with Redis for API protection
  */
 
-import { redis } from './redis';
+import { getRedisClient } from './redis';
 import { apiLogger } from './logger';
 import { SubscriptionPlan } from '@prisma/client';
+
+const redis = getRedisClient();
 
 export interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
@@ -47,6 +49,16 @@ export async function checkRateLimit(
     const key = `ratelimit:${identifier}`;
     const now = Date.now();
     const windowStart = now - config.windowMs;
+
+    // If Redis is not available, fail open
+    if (!redis) {
+      return {
+        allowed: true,
+        remaining: config.maxRequests,
+        resetAt: new Date(now + config.windowMs),
+        limit: config.maxRequests,
+      };
+    }
 
     // Use Redis sorted set to track requests
     const multi = redis.multi();

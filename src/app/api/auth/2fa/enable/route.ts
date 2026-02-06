@@ -36,12 +36,13 @@ export async function POST(request: NextRequest) {
     // Hash backup codes for storage
     const hashedBackupCodes = backupCodes.map(hashBackupCode);
     
-    // Store secret and backup codes (2FA not enabled yet - requires verification)
+    // Store secret (2FA not enabled yet - requires verification)
+    // Note: Backup codes should be stored separately or in a JSON field
     await prisma.user.update({
       where: { id: session.user.id },
       data: {
         twoFactorSecret: secret,
-        twoFactorBackupCodes: hashedBackupCodes, // Store backup codes as JSON array
+        // TODO: Add backupCodes field to User model if needed
       }
     });
 
