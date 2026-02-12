@@ -27,11 +27,11 @@ module.exports = {
       exec_mode: 'cluster',
       env: {
         NODE_ENV: 'development',
-        PORT: process.env.PORT || 3000,
+        PORT: process.env.PORT || 3002,
       },
       env_production: {
         NODE_ENV: 'production',
-        PORT: process.env.PORT || 3000,
+        PORT: process.env.PORT || 3002,
       },
       // Logging
       error_file: `${process.env.LOG_DIR || '/var/log/pm2'}/fleetbackend-error.log`,
