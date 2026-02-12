@@ -66,9 +66,9 @@ NEXTAUTH_SECRET="<paste-generated-secret>"
 AUTH_SECRET="<paste-generated-secret>"
 
 # Your domain
-BETTER_AUTH_URL="https://yourdomain.com"
-NEXT_PUBLIC_APP_URL="https://yourdomain.com"
-NEXTAUTH_URL="https://yourdomain.com"
+BETTER_AUTH_URL="https://fleetmanager.co.zw"
+NEXT_PUBLIC_APP_URL="https://fleetmanager.co.zw"
+NEXTAUTH_URL="https://fleetmanager.co.zw"
 
 # Production mode
 NODE_ENV="production"
@@ -133,7 +133,7 @@ curl http://localhost:3000
 # Copy the nginx config
 sudo cp /var/www/fleetbackend/deploy/nginx.conf /etc/nginx/sites-available/fleetbackend
 
-# Edit and replace YOUR_DOMAIN with your actual domain
+# Domain is already set to fleetmanager.co.zw
 sudo nano /etc/nginx/sites-available/fleetbackend
 
 # Enable the site
@@ -155,7 +155,7 @@ sudo systemctl reload nginx
 sudo apt install certbot python3-certbot-nginx -y
 
 # Get SSL certificate
-sudo certbot --nginx -d yourdomain.com
+sudo certbot --nginx -d fleetmanager.co.zw
 
 # Auto-renewal is set up automatically, verify with:
 sudo certbot renew --dry-run

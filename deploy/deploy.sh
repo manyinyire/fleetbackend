@@ -116,7 +116,7 @@ setup() {
     log "Setting up Nginx..."
     if [ ! -f "/etc/nginx/sites-available/$APP_NAME" ]; then
         sudo cp "$APP_DIR/deploy/nginx.conf" "/etc/nginx/sites-available/$APP_NAME"
-        warn "IMPORTANT: Edit /etc/nginx/sites-available/$APP_NAME and replace YOUR_DOMAIN with your actual domain"
+        warn "IMPORTANT: Edit /etc/nginx/sites-available/$APP_NAME and replace fleetmanager.co.zw with your actual domain"
         warn "Then run: sudo ln -s /etc/nginx/sites-available/$APP_NAME /etc/nginx/sites-enabled/"
     fi
 
@@ -135,11 +135,11 @@ setup() {
     log "========================================="
     log ""
     log "Next steps:"
-    log "  1. Edit /etc/nginx/sites-available/$APP_NAME (replace YOUR_DOMAIN)"
+    log "  1. Edit /etc/nginx/sites-available/$APP_NAME (replace fleetmanager.co.zw)"
     log "  2. Create symlink: sudo ln -s /etc/nginx/sites-available/$APP_NAME /etc/nginx/sites-enabled/"
     log "  3. Test Nginx: sudo nginx -t"
     log "  4. Reload Nginx: sudo systemctl reload nginx"
-    log "  5. Setup SSL: sudo certbot --nginx -d YOUR_DOMAIN"
+    log "  5. Setup SSL: sudo certbot --nginx -d fleetmanager.co.zw"
     log ""
     log "Useful commands:"
     log "  pm2 status           - Check app status"
