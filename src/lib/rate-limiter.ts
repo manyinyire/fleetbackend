@@ -81,7 +81,7 @@ export async function checkRateLimit(
       throw new Error('Redis transaction failed');
     }
 
-    const count = results[1][1] as number;
+    const count = (results[1]?.[1] ?? 0) as number;
     const allowed = count < config.maxRequests;
     const remaining = Math.max(0, config.maxRequests - count - 1);
     const resetAt = new Date(now + config.windowMs);
@@ -114,6 +114,7 @@ export async function checkRateLimit(
 export async function resetRateLimit(identifier: string): Promise<void> {
   try {
     const key = `ratelimit:${identifier}`;
+    if (!redis) return;
     await redis.del(key);
     apiLogger.info({ identifier }, 'Rate limit reset');
   } catch (error) {
@@ -136,6 +137,14 @@ export async function getRateLimitStatus(
     const windowStart = now - config.windowMs;
 
     // Count requests in current window
+    if (!redis) {
+      return {
+        allowed: true,
+        remaining: config.maxRequests,
+        resetAt: new Date(now + config.windowMs),
+        limit: config.maxRequests,
+      };
+    }
     const count = await redis.zcount(key, windowStart, now);
     const remaining = Math.max(0, config.maxRequests - count);
     const resetAt = new Date(now + config.windowMs);
