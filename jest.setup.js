@@ -55,7 +55,7 @@ jest.mock('react-hot-toast', () => ({
 }))
 
 // Mock environment variables
-process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test_db'
+process.env.DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/newfl'
 process.env.BETTER_AUTH_SECRET = 'test-secret-key'
 process.env.NEXTAUTH_URL = 'http://localhost:3000'
 
