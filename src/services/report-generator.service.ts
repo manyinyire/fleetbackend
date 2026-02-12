@@ -382,12 +382,13 @@ export class ReportGeneratorService {
       // Directory might already exist
     }
 
-    // Generate PDF using jspdf
-    const { exportToPDF } = await import('@/lib/export');
-    const pdfBuffer = await exportToPDF(data);
+    // Generate PDF using server-side export
+    const { exportToPDFServer } = await import('@/lib/export-server');
+    const tempPath = await exportToPDFServer(data, filename);
     
-    // Save to file system
-    await fs.writeFile(path.join(process.cwd(), 'public', 'reports', filename), pdfBuffer);
+    // Copy from temp to public/reports
+    const destPath = path.join(process.cwd(), 'public', 'reports', filename);
+    await fs.copyFile(tempPath, destPath);
     
     // Return public URL
     return `/reports/${filename}`;
@@ -411,12 +412,13 @@ export class ReportGeneratorService {
       // Directory might already exist
     }
 
-    // Generate CSV
-    const { exportToCSV } = await import('@/lib/export');
-    const csvContent = await exportToCSV(data);
+    // Generate CSV using server-side export
+    const { exportToCSVServer } = await import('@/lib/export-server');
+    const tempPath = await exportToCSVServer(data, filename);
     
-    // Save to file system
-    await fs.writeFile(path.join(process.cwd(), 'public', 'reports', filename), csvContent);
+    // Copy from temp to public/reports
+    const destPath = path.join(process.cwd(), 'public', 'reports', filename);
+    await fs.copyFile(tempPath, destPath);
     
     // Return public URL
     return `/reports/${filename}`;
@@ -440,12 +442,13 @@ export class ReportGeneratorService {
       // Directory might already exist
     }
 
-    // Generate Excel
-    const { exportToExcel } = await import('@/lib/export');
-    const excelBuffer = await exportToExcel(data);
+    // Generate Excel using server-side export
+    const { exportToExcelServer } = await import('@/lib/export-server');
+    const tempPath = await exportToExcelServer(data, filename);
     
-    // Save to file system
-    await fs.writeFile(path.join(process.cwd(), 'public', 'reports', filename), excelBuffer);
+    // Copy from temp to public/reports
+    const destPath = path.join(process.cwd(), 'public', 'reports', filename);
+    await fs.copyFile(tempPath, destPath);
     
     // Return public URL
     return `/reports/${filename}`;
